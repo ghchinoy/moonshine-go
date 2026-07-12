@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "moonshine_go",
+  "project_id": "8eeaf847-34a8-4c9c-97ef-6450f8db9682"
+}
