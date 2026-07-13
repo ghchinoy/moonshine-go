@@ -31,7 +31,8 @@ Get started:
   moonshine transcribe audio.wav       Transcribe a local file
   moonshine transcribe gs://bkt/a.wav  Transcribe a file from GCS
   moonshine live                       Transcribe from the microphone, live
-  moonshine tts "Hello world"          Synthesize speech`,
+  moonshine tts "Hello world"          Synthesize speech
+  moonshine config list                See effective config + where it comes from`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
@@ -65,6 +66,7 @@ func init() {
 	rootCmd.AddCommand(transcribeCmd)
 	rootCmd.AddCommand(liveCmd)
 	rootCmd.AddCommand(ttsCmd)
+	rootCmd.AddCommand(configCmd)
 }
 
 // initViper wires up config file + env var + default resolution. Priority
@@ -76,12 +78,19 @@ func initViper() {
 	// python/src/moonshine_voice/download_file.py's get_cache_dir), so
 	// setting it points both tools at the same downloaded-model cache.
 	viper.BindEnv("model.dir", "MOONSHINE_MODEL_DIR", "MOONSHINE_VOICE_CACHE") //nolint:errcheck
+	// MOONSHINE_SRC matches scripts/build-libmoonshine.sh's env var for the
+	// local moonshine checkout -- reused here so it doubles as the default
+	// source for tts.g2p_root (below) without introducing a second name for
+	// the same thing.
+	viper.BindEnv("moonshine.src_dir", "MOONSHINE_SRC") //nolint:errcheck
 
 	viper.SetDefault("model.dir", defaultModelDir())
 	viper.SetDefault("stt.arch", "tiny")
 	viper.SetDefault("stt.language", "en")
 	viper.SetDefault("tts.language", "en_us")
 	viper.SetDefault("tts.voice", "")
+	viper.SetDefault("tts.speed", "")
+	viper.SetDefault("tts.g2p_root", "")
 
 	viper.SetConfigName(ConfigFileName)
 	viper.SetConfigType("yaml")
@@ -89,6 +98,18 @@ func initViper() {
 	viper.AddConfigPath(".")
 
 	_ = viper.ReadInConfig() // missing config file is not an error
+
+	// Derived default: once moonshine.src_dir is known (env or config,
+	// resolved above/by ReadInConfig), default tts.g2p_root to
+	// <src_dir>/core/moonshine-tts/data unless a flag/env/config value for
+	// tts.g2p_root already outranks it. Using SetDefault (not Set) keeps
+	// this at the correct, lowest precedence rather than masquerading as an
+	// explicit override.
+	if viper.GetString("tts.g2p_root") == "" {
+		if src := viper.GetString("moonshine.src_dir"); src != "" {
+			viper.SetDefault("tts.g2p_root", filepath.Join(src, "core", "moonshine-tts", "data"))
+		}
+	}
 }
 
 func xdgConfigDir() string {

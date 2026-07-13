@@ -6,8 +6,30 @@ import (
 	"strings"
 
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+// flagOrConfig resolves a flag that's shared (by convention, not by
+// viper.BindPFlag) across more than one command -- e.g. stt.language and
+// stt.arch are both settable via "moonshine setup --language/--arch" and
+// "moonshine transcribe --language/--arch". viper.BindPFlag keeps only one
+// bound *pflag.Flag per key globally, so binding it from two different
+// commands' local flags would make the second registration silently steal
+// precedence checks for the first command's flag. Doing the "was this flag
+// explicitly set on the command line" check by hand instead avoids that.
+//
+// Precedence: this command's flag (if explicitly set) > config key (env or
+// config.yaml, via viper) > the flag's own default (flagValue, unchanged).
+func flagOrConfig(cmd *cobra.Command, flagName, key, flagValue string) string {
+	if cmd.Flags().Changed(flagName) {
+		return flagValue
+	}
+	if v := viper.GetString(key); v != "" {
+		return v
+	}
+	return flagValue
+}
 
 // loadLibrary resolves and dlopen's libmoonshine, with a CLI-friendly error
 // pointing at scripts/build-libmoonshine.sh if it can't be found.

@@ -37,8 +37,8 @@ machine-readable result on stdout.`,
 }
 
 func init() {
-	transcribeCmd.Flags().StringVar(&transcribeLanguage, "language", "en", "STT model language (must match the language passed to 'moonshine setup')")
-	transcribeCmd.Flags().StringVar(&transcribeArch, "arch", "tiny", "Model architecture (see 'moonshine setup --help')")
+	transcribeCmd.Flags().StringVar(&transcribeLanguage, "language", "en", "STT model language (must match the language passed to 'moonshine setup'; config key: stt.language)")
+	transcribeCmd.Flags().StringVar(&transcribeArch, "arch", "tiny", "Model architecture (see 'moonshine setup --help'; config key: stt.arch)")
 	transcribeCmd.Flags().StringVar(&transcribeProviders, "providers", defaultOrtProviders(), "Comma-separated ONNX Runtime execution providers, e.g. 'CoreML,CPU' on macOS (default: CPU-only; see docs/hardware-acceleration.md before enabling CoreML)")
 	transcribeCmd.Flags().BoolVar(&transcribeWithAudio, "with-audio", false, "Include each line's raw per-line audio samples in --json output")
 	transcribeCmd.Flags().StringVarP(&transcribeOutput, "output", "o", "", "Also write the transcript to this file (plain text, or JSON if --json is set), in addition to stdout")
@@ -62,7 +62,9 @@ func runTranscribe(cmd *cobra.Command, args []string) error {
 	if err := loadLibrary(); err != nil {
 		return err
 	}
-	arch, err := modelArchFromFlag(transcribeArch)
+	language := flagOrConfig(cmd, "language", "stt.language", transcribeLanguage)
+	archFlag := flagOrConfig(cmd, "arch", "stt.arch", transcribeArch)
+	arch, err := modelArchFromFlag(archFlag)
 	if err != nil {
 		return err
 	}
@@ -104,9 +106,9 @@ func runTranscribe(cmd *cobra.Command, args []string) error {
 
 	var tr *moonshine.Transcriber
 	t0 = time.Now()
-	if err := withProgress(fmt.Sprintf("loading %s model", transcribeArch), func() error {
+	if err := withProgress(fmt.Sprintf("loading %s model", archFlag), func() error {
 		var derr error
-		tr, derr = loadTranscriberFor(transcribeLanguage, arch, ortProviderOptions(transcribeProviders)...)
+		tr, derr = loadTranscriberFor(language, arch, ortProviderOptions(transcribeProviders)...)
 		return derr
 	}); err != nil {
 		return err

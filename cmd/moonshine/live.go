@@ -39,8 +39,8 @@ github.com/gen2brain/malgo); the libmoonshine bindings themselves do not.`,
 }
 
 func init() {
-	liveCmd.Flags().StringVar(&liveLanguage, "language", "en", "STT model language (must match the language passed to 'moonshine setup')")
-	liveCmd.Flags().StringVar(&liveArch, "arch", "tiny-streaming", "Model architecture (see 'moonshine setup --help'; use a *-streaming arch for best live latency)")
+	liveCmd.Flags().StringVar(&liveLanguage, "language", "en", "STT model language (must match the language passed to 'moonshine setup'; config key: stt.language)")
+	liveCmd.Flags().StringVar(&liveArch, "arch", "tiny-streaming", "Model architecture (see 'moonshine setup --help'; use a *-streaming arch for best live latency; not shared with transcribe's stt.arch, since streaming archs need a different default)")
 	liveCmd.Flags().StringVar(&liveProviders, "providers", defaultOrtProviders(), "Comma-separated ONNX Runtime execution providers, e.g. 'CoreML,CPU' on macOS (default: CPU-only; see docs/hardware-acceleration.md before enabling CoreML)")
 	liveCmd.Flags().BoolVar(&liveNoTUI, "no-tui", false, "Print plain text updates instead of the bubbletea UI (for scripting/logging)")
 	liveCmd.Flags().DurationVar(&livePollInterval, "poll-interval", 250*time.Millisecond, "How often to poll for updated transcripts")
@@ -55,11 +55,12 @@ func runLive(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	language := flagOrConfig(cmd, "language", "stt.language", liveLanguage)
 
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, muted("loading model..."))
 	}
-	tr, err := loadTranscriberFor(liveLanguage, arch, ortProviderOptions(liveProviders)...)
+	tr, err := loadTranscriberFor(language, arch, ortProviderOptions(liveProviders)...)
 	if err != nil {
 		return err
 	}

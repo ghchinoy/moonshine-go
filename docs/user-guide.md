@@ -13,6 +13,7 @@ details -- this guide assumes you already have `bin/moonshine` built and
 - [transcribe](#transcribe)
 - [live](#live)
 - [tts](#tts)
+- [config](#config)
 - [Choosing a model architecture](#choosing-a-model-architecture)
 - [Troubleshooting](#troubleshooting)
 
@@ -24,6 +25,7 @@ details -- this guide assumes you already have `bin/moonshine` built and
 | `moonshine transcribe <file\|gs://...>` | Transcribe one audio file, start to finish |
 | `moonshine live` | Transcribe continuously from the microphone |
 | `moonshine tts <text>` | Synthesize speech to a WAV file |
+| `moonshine config` | List or set persistent config.yaml values |
 
 Every command also accepts the global flags `--json`, `--lib-dir`, and
 `--model-dir` (see the README's Configuration table).
@@ -172,35 +174,74 @@ permissions the first time -- see
 
 ## tts
 
+Moonshine's TTS isn't one proprietary model -- it's a G2P (text
+normalization/phonemization) layer moonshine built itself, sitting in front
+of **three separate third-party engines** you pick between with `--voice`:
+
+| Engine | What it actually is | Voice prefix |
+|---|---|---|
+| **Kokoro** | [hexgrad/Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an open-weight 82M-parameter TTS model, exported to ONNX | `kokoro_<id>`, e.g. `kokoro_af_heart` |
+| **Piper** | [Piper TTS](https://github.com/rhasspy/piper)'s per-voice ONNX files | `piper_<stem>`, e.g. `piper_en_US-amy-low` |
+| **ZipVoice** | A separate zero-shot voice-cloning engine, weights/reference clips compiled into `libmoonshine` itself | `zipvoice_<id>`, e.g. `zipvoice_american_female` |
+
+None of the three are "moonshine's own" acoustic model -- moonshine's actual
+contribution is the shared G2P pipeline that feeds text to whichever one you
+pick. See [docs/faq.md](faq.md) if you want the full comparison (including
+how this differs from a from-scratch Kokoro implementation).
+
 ```sh
-# Synthesize to out.wav (default).
-moonshine tts --g2p-root /path/to/moonshine/core/moonshine-tts/data \
-  --voice piper_en_US-amy-low "Hello world."
+# Synthesize to out.wav (default). --g2p-root only needed if you haven't
+# set moonshine.src_dir (see Configuration below).
+moonshine tts --voice piper_en_US-amy-low "Hello world."
+moonshine tts --voice kokoro_af_heart "Hello world."
 
 # List available voices for a language first.
-moonshine tts --g2p-root /path/to/moonshine/core/moonshine-tts/data \
-  --language en_us --list-voices
+moonshine tts --language en_us --list-voices
 
 # Faster/slower speech, different output path.
-moonshine tts --g2p-root ... --voice kokoro_af_heart --speed 1.2 -o greeting.wav "Hi there."
+moonshine tts --voice kokoro_af_heart --speed 1.2 -o greeting.wav "Hi there."
 ```
 
 | Flag | Default | Notes |
 |---|---|---|
-| `--language` | `en_us` | Language / CLI tag |
-| `--voice` | (auto) | `kokoro_<id>`, `piper_<stem>`, or `zipvoice_<id>` -- see `--list-voices` |
-| `--speed` | `1.0` | Synthesis speed multiplier |
-| `--g2p-root` | (required in practice) | Directory laid out like moonshine's `core/moonshine-tts/data` (`kokoro/`, `<lang>/piper-voices/`, ...) |
+| `--language` | `en_us` | Language / CLI tag (config key: `tts.language`) |
+| `--voice` | (auto) | `kokoro_<id>`, `piper_<stem>`, or `zipvoice_<id>` -- see `--list-voices` (config key: `tts.voice`) |
+| `--speed` | `1.0` | Synthesis speed multiplier (config key: `tts.speed`) |
+| `--g2p-root` | derived from `moonshine.src_dir` | Directory laid out like moonshine's `core/moonshine-tts/data` (`kokoro/`, `<lang>/piper-voices/`, ...) (config key: `tts.g2p_root`) |
 | `-o, --output` | `out.wav` | Output WAV path |
 | `--list-voices` | `false` | List known voices for `--language` and exit |
+
+### Configuring `--g2p-root` once instead of every time
 
 Unlike STT, `moonshine setup` does **not** download TTS voice assets --
 libmoonshine's dependency API only returns canonical asset *keys* for
 TTS/G2P, not a URL manifest, because voices are published through a
 separate pipeline (Kokoro exports, Piper voice files, ZipVoice reference
-clips) rather than one flat CDN layout. Point `--g2p-root` at a moonshine
-checkout instead, after pulling the specific voice(s) you want via Git LFS,
-e.g.:
+clips) rather than one flat CDN layout. So `--g2p-root` needs to point at a
+moonshine checkout (after pulling the voice assets you want via Git LFS,
+below) every time you run `tts`.
+
+Rather than passing `--g2p-root /path/to/moonshine/core/moonshine-tts/data`
+on every invocation, set your moonshine checkout's location once:
+
+```sh
+moonshine config set moonshine.src_dir ~/projects/github/moonshine
+```
+
+`--g2p-root` then defaults to `<moonshine.src_dir>/core/moonshine-tts/data`
+automatically (see [config](#config) below). `MOONSHINE_SRC` -- the same env
+var `make buildlib` reads -- works too and takes priority over the config
+file; `--g2p-root` itself still overrides both if you pass it explicitly
+(e.g. to point at a pruned/custom asset directory that isn't a full
+checkout).
+
+### Fetching voice assets via Git LFS
+
+Both Kokoro and Piper ship their model weights inside the moonshine repo
+itself as Git LFS objects -- nothing is downloaded from Hugging Face or
+elsewhere at runtime, you just need to pull the specific paths you want.
+
+**Piper** (one voice, English):
 
 ```sh
 git -C ~/projects/github/moonshine lfs pull \
@@ -210,6 +251,20 @@ git -C ~/projects/github/moonshine lfs pull \
 (English G2P needs the `g2p-config.json`/`dict_filtered_heteronyms.tsv`/`oov/*`
 files in addition to the voice itself; other languages have their own
 equivalent set under `core/moonshine-tts/data/<lang>/`.)
+
+**Kokoro** (shared model + config, plus per-voice style files which are
+small enough not to be LFS-tracked and are usually already real files in
+your checkout):
+
+```sh
+git -C ~/projects/github/moonshine lfs pull \
+  -I "core/moonshine-tts/data/kokoro/model.onnx,core/moonshine-tts/data/kokoro/config.json"
+```
+
+`model.onnx` is ~92MB (the 8-bit quantized [onnx-community/Kokoro-82M-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-ONNX)
+export) -- see `core/moonshine-tts/data/kokoro/README.md` in the moonshine
+checkout for full provenance and how to rebuild it from source if you ever
+need a different quantization.
 
 `--list-voices` output looks like:
 
@@ -223,9 +278,43 @@ en_us
   ...
 ```
 
-`missing` means the asset isn't resolvable under `--g2p-root` yet (you
-haven't `git lfs pull`-ed that particular voice) -- it doesn't mean the
-voice doesn't exist.
+**Caveat**: `found` only checks that a file exists at the expected path --
+**not** that it's valid content. An unpulled Git LFS pointer stub (a few
+hundred bytes of text) still counts as "found." If synthesis fails with an
+error mentioning a "Git LFS pointer stub," that's this -- go pull the actual
+file (above), then retry.
+
+## config
+
+```sh
+moonshine config list                                   # effective values + where each comes from
+moonshine config set moonshine.src_dir ~/projects/github/moonshine
+moonshine config set stt.arch base
+moonshine config set tts.voice piper_en_US-amy-low
+moonshine config path                                    # print the config.yaml path
+```
+
+`moonshine config set <key> <value>` only writes the key(s) you've
+explicitly set (plus anything already in the file) -- it never dumps every
+current default into `config.yaml`. `moonshine config list` shows each key's
+currently effective value and its provenance (`default`, `file`, or
+`env:VAR_NAME`); it reflects env vars and the config file, not what a flag
+on some *other* command would do.
+
+Known keys (also documented in the README's Configuration table):
+`lib.dir`, `model.dir`, `moonshine.src_dir`, `stt.language`, `stt.arch`,
+`tts.language`, `tts.voice`, `tts.speed`, `tts.g2p_root`.
+
+Two of these are worth calling out specifically:
+
+- **`stt.arch`/`stt.language`** are shared between `setup` and `transcribe`
+  (set once, both commands default to it) -- but *not* `live`, which keeps
+  its own `tiny-streaming`-oriented default since a shared default tuned for
+  file transcription would be a poor fit for live latency.
+- **`moonshine.src_dir`** has no dedicated flag on any command; it exists
+  purely to derive `tts.g2p_root`'s default (see [tts](#tts) above) and to
+  document where your moonshine checkout lives, matching `MOONSHINE_SRC`,
+  the env var `make buildlib` already reads.
 
 ## Choosing a model architecture
 
@@ -267,6 +356,15 @@ default for documented reasons, CoreML is opt-in and has known issues with
 some archs on the vendored onnxruntime build.
 
 **TTS: `English G2P: in-memory g2p-config.json is a Git LFS pointer stub`**
--- you pointed `--g2p-root` at a moonshine checkout where the relevant
-language's G2P/voice files haven't been `git lfs pull`-ed yet. See the
-[tts](#tts) section above for exactly which files a voice needs.
+(or the same for `model.onnx`/a `.onnx.json` file) -- you pointed
+`--g2p-root` at a moonshine checkout where the relevant language's G2P/voice
+files haven't been `git lfs pull`-ed yet. See [tts](#tts) above for exactly
+which files each engine needs; note that `--list-voices` reporting a voice
+as `found` does **not** guarantee its files are pulled -- it only checks
+that something exists at the expected path.
+
+**TTS: nothing happens / `--g2p-root` seems ignored** -- if you haven't set
+`moonshine.src_dir` (`moonshine config set moonshine.src_dir ...`) or
+`$MOONSHINE_SRC`, `tts.g2p_root` has no default and you must pass
+`--g2p-root` explicitly every time. Run `moonshine config list` to see what
+`tts.g2p_root` is currently resolving to.

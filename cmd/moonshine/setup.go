@@ -35,8 +35,8 @@ layout) instead.`,
 }
 
 func init() {
-	setupCmd.Flags().StringVar(&setupLanguage, "language", "en", "STT model language (code or English name)")
-	setupCmd.Flags().StringVar(&setupArch, "arch", "tiny", "Model architecture: tiny, base, tiny-streaming, base-streaming, small-streaming, medium-streaming")
+	setupCmd.Flags().StringVar(&setupLanguage, "language", "en", "STT model language (code or English name; config key: stt.language, shared with 'transcribe')")
+	setupCmd.Flags().StringVar(&setupArch, "arch", "tiny", "Model architecture: tiny, base, tiny-streaming, base-streaming, small-streaming, medium-streaming (config key: stt.arch, shared with 'transcribe')")
 	setupCmd.Flags().BoolVar(&setupForce, "force", false, "Re-download files even if they already exist")
 }
 
@@ -63,19 +63,21 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	if err := loadLibrary(); err != nil {
 		return err
 	}
-	arch, err := modelArchFromFlag(setupArch)
+	language := flagOrConfig(cmd, "language", "stt.language", setupLanguage)
+	archFlag := flagOrConfig(cmd, "arch", "stt.arch", setupArch)
+	arch, err := modelArchFromFlag(archFlag)
 	if err != nil {
 		return err
 	}
 
-	manifest, err := moonshine.GetSTTDependencies(setupLanguage,
+	manifest, err := moonshine.GetSTTDependencies(language,
 		moonshine.Option{Name: "model_arch", Value: fmt.Sprintf("%d", arch)})
 	if err != nil {
-		return fmt.Errorf("looking up dependencies for language %q: %w", setupLanguage, err)
+		return fmt.Errorf("looking up dependencies for language %q: %w", language, err)
 	}
 
 	root := viper.GetString("model.dir")
-	fmt.Printf("%s %s (%s)\n", header("Downloading:"), setupLanguage, setupArch)
+	fmt.Printf("%s %s (%s)\n", header("Downloading:"), language, archFlag)
 	fmt.Printf("%s %s\n", muted("cache root:"), root)
 	for _, g := range manifest.Groups {
 		fmt.Printf("%s %s\n", muted("into:"), moonshine.GroupDir(root, g))

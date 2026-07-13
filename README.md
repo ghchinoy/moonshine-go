@@ -139,29 +139,45 @@ before turning it on.
 ## Configuration
 
 Every command reads config in this priority order: **CLI flag > env var >
-`config.yaml` > built-in default**.
+`config.yaml` > built-in default**. Manage `config.yaml` with the `config`
+command instead of hand-editing it if you prefer:
 
-| Config key      | Flag           | Env var                                    | Default |
-|------------------|----------------|---------------------------------------------|---------|
-| `lib.dir`        | `--lib-dir`    | `MOONSHINE_LIB_DIR`                          | `./.moonshine/lib` |
-| `model.dir`      | `--model-dir`  | `MOONSHINE_MODEL_DIR`, `MOONSHINE_VOICE_CACHE` | platform cache dir (below) |
-| `output.json`    | `--json`       | --                                            | `false` |
-| `stt.arch`       | `--arch` (per command) | --                                     | `tiny` |
-| `stt.language`   | `--language` (per command) | --                                 | `en` |
-| `tts.language`   | `--language` (tts) | --                                        | `en_us` |
-| `tts.voice`      | `--voice` (tts) | --                                            | (unset -> auto) |
+```sh
+moonshine config list                      # effective values + where each comes from
+moonshine config set moonshine.src_dir ~/projects/github/moonshine
+moonshine config path                      # print the config.yaml path
+```
 
-Config file location (created manually; there's no `init` command yet):
-`$XDG_CONFIG_HOME/moonshine/config.yaml`, falling back to
-`~/.config/moonshine/config.yaml`. Example:
+| Config key         | Flag                        | Env var                                        | Default |
+|---------------------|-----------------------------|-------------------------------------------------|---------|
+| `lib.dir`           | `--lib-dir`                 | `MOONSHINE_LIB_DIR`                              | `./.moonshine/lib` |
+| `model.dir`         | `--model-dir`                | `MOONSHINE_MODEL_DIR`, `MOONSHINE_VOICE_CACHE`   | platform cache dir (below) |
+| `moonshine.src_dir` | -- (see note below)          | `MOONSHINE_SRC`                                  | (unset) |
+| `output.json`       | `--json`                     | --                                                | `false` |
+| `stt.arch`          | `--arch` (setup, transcribe) | --                                                | `tiny` |
+| `stt.language`      | `--language` (setup, transcribe, live) | --                                     | `en` |
+| `tts.language`      | `--language` (tts)           | --                                                | `en_us` |
+| `tts.voice`         | `--voice` (tts)              | --                                                | (unset -> auto) |
+| `tts.speed`         | `--speed` (tts)              | --                                                | (unset -> 1.0) |
+| `tts.g2p_root`      | `--g2p-root` (tts)           | --                                                | derived from `moonshine.src_dir` |
+
+`stt.arch`/`stt.language` are shared between `setup` and `transcribe` (set
+one config value, both commands pick it up) -- `live` keeps its own
+`tiny-streaming`-oriented default rather than sharing `stt.arch`, since a
+default tuned for file transcription would be a poor fit for live latency.
+
+Config file location: `$XDG_CONFIG_HOME/moonshine/config.yaml`, falling back
+to `~/.config/moonshine/config.yaml`. Example:
 
 ```yaml
 lib:
   dir: /Users/you/projects/moonshine-go/.moonshine/lib
 model:
   dir: /Users/you/Library/Caches/moonshine_voice
+moonshine:
+  src_dir: /Users/you/projects/github/moonshine
 stt:
-  arch: tiny-streaming
+  arch: tiny
   language: en
 tts:
   language: en_us
@@ -187,10 +203,15 @@ moonshine-voice` uses lets both tools share downloaded models without
 re-fetching them. Override with `--model-dir` / `MOONSHINE_MODEL_DIR` if you
 want a project-local or otherwise separate location.
 
-There's no equivalent config key for the *moonshine source checkout* used to
-build `libmoonshine` (`MOONSHINE_SRC`) -- nothing at runtime needs it, only
-the one-time `make buildlib` step, so it's a build-time env var / Make
-variable rather than part of the CLI's own config schema.
+**`moonshine.src_dir`**: the local moonshine checkout used to build
+`libmoonshine` (`make buildlib`'s `MOONSHINE_SRC`) is also the same
+checkout `tts --g2p-root` needs to point at (Kokoro/Piper/ZipVoice voice
+assets live there, fetched via Git LFS -- see
+[docs/user-guide.md](docs/user-guide.md#tts)). Setting `moonshine.src_dir`
+once (`moonshine config set moonshine.src_dir /path/to/moonshine`) derives
+`tts.g2p_root`'s default automatically, so you don't need `--g2p-root` on
+every `tts` invocation. It has no dedicated flag since nothing else at
+runtime needs it.
 
 ## Verifying the bindings
 
