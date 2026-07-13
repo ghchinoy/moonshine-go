@@ -4,3 +4,32 @@
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Native libmoonshine build output (see scripts/build-libmoonshine.sh);
+# built locally from a moonshine checkout, not vendored/committed.
+/.moonshine/
+
+# Go build artifacts
+/bin/
+*.test
+*.out
+coverage.txt
+
+# Downloaded model assets, in case `moonshine setup`/`transcribe`/`live` is
+# ever pointed at a project-local --model-dir instead of the default cache.
+/.moonshine-models/
+
+# Credentials that should never end up in a public repo (e.g. a GCP service
+# account key used for gs:// transcription input).
+*-key.json
+service-account*.json
+credentials.json
+.env
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
