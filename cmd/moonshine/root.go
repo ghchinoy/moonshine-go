@@ -89,6 +89,7 @@ func initViper() {
 	viper.SetDefault("model.dir", defaultModelDir())
 	viper.SetDefault("stt.arch", "tiny")
 	viper.SetDefault("stt.language", "en")
+	viper.SetDefault("live.arch", "tiny-streaming")
 	viper.SetDefault("tts.language", "en_us")
 	viper.SetDefault("tts.voice", "")
 	viper.SetDefault("tts.speed", "")

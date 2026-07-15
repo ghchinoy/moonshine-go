@@ -48,7 +48,9 @@ and see what error it throws" with one proactive report. Two tiers:
     microphone capture (transcribe/setup/tts don't).
   - Runtime: whether --lib-dir/MOONSHINE_LIB_DIR resolves and libmoonshine
     actually dlopens, whether an STT model is downloaded for the given
-    (--language, --arch), and best-effort checks for GCS credentials
+    (--language, --arch) *and* separately for whatever live.arch is
+    configured (live's arch is independent of --arch/stt.arch -- see
+    'moonshine live --help'), and best-effort checks for GCS credentials
     (gs:// input) and TTS voice assets (--g2p-root).
 
 Exits non-zero if any check fails; warnings and skips don't affect the exit
@@ -71,7 +73,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		checkCGo(),
 		checkLibrary(),
 	}
-	checks = append(checks, checkModel(cmd))
+	checks = append(checks, checkModels(cmd)...)
 	checks = append(checks, checkGCSCredentials(), checkTTSAssets())
 
 	if jsonOutput() {
@@ -223,10 +225,25 @@ func checkLibrary() doctorCheck {
 	return doctorCheck{"libmoonshine", statusOK, fmt.Sprintf("loaded %s (version %d)", moonshine.LibPath(), version)}
 }
 
-func checkModel(cmd *cobra.Command) doctorCheck {
-	name := "STT model"
+// checkModels checks the model directory for both the transcribe/setup arch
+// (--language/--arch on doctor itself, defaulting through stt.language/
+// stt.arch) and the live arch (live.arch config key) -- these are
+// independent settings (see cmd/moonshine/live.go), so a model present for
+// one doesn't mean the other is. Only reports a second row when the two
+// archs actually differ, to avoid a redundant duplicate when they match.
+func checkModels(cmd *cobra.Command) []doctorCheck {
 	language := flagOrConfig(cmd, "language", "stt.language", doctorLanguage)
-	archFlag := flagOrConfig(cmd, "arch", "stt.arch", doctorArch)
+	transcribeArch := flagOrConfig(cmd, "arch", "stt.arch", doctorArch)
+	liveArch := viper.GetString("live.arch")
+
+	checks := []doctorCheck{modelCheck("STT model (transcribe)", language, transcribeArch)}
+	if liveArch != transcribeArch {
+		checks = append(checks, modelCheck("STT model (live)", language, liveArch))
+	}
+	return checks
+}
+
+func modelCheck(name, language, archFlag string) doctorCheck {
 	arch, err := modelArchFromFlag(archFlag)
 	if err != nil {
 		return doctorCheck{name, statusFail, err.Error()}

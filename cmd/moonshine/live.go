@@ -46,7 +46,7 @@ github.com/gen2brain/malgo); the libmoonshine bindings themselves do not.`,
 
 func init() {
 	liveCmd.Flags().StringVar(&liveLanguage, "language", "en", "STT model language (must match the language passed to 'moonshine setup'; config key: stt.language)")
-	liveCmd.Flags().StringVar(&liveArch, "arch", "tiny-streaming", "Model architecture (see 'moonshine setup --help'; use a *-streaming arch for best live latency; not shared with transcribe's stt.arch, since streaming archs need a different default)")
+	liveCmd.Flags().StringVar(&liveArch, "arch", "tiny-streaming", "Model architecture (see 'moonshine setup --help'; use a *-streaming arch for best live latency; config key: live.arch, not shared with transcribe's stt.arch since streaming archs need a different default)")
 	liveCmd.Flags().StringVar(&liveProviders, "providers", defaultOrtProviders(), "Comma-separated ONNX Runtime execution providers, e.g. 'CoreML,CPU' on macOS (default: CPU-only; see docs/hardware-acceleration.md before enabling CoreML)")
 	liveCmd.Flags().BoolVar(&liveNoTUI, "no-tui", false, "Print plain text updates instead of the bubbletea UI (for scripting/logging)")
 	liveCmd.Flags().DurationVar(&livePollInterval, "poll-interval", 250*time.Millisecond, "How often to poll for updated transcripts")
@@ -63,7 +63,8 @@ func runLive(cmd *cobra.Command, args []string) error {
 	if err := loadLibrary(); err != nil {
 		return err
 	}
-	arch, err := modelArchFromFlag(liveArch)
+	archFlag := flagOrConfig(cmd, "arch", "live.arch", liveArch)
+	arch, err := modelArchFromFlag(archFlag)
 	if err != nil {
 		return err
 	}

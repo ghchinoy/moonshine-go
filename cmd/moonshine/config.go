@@ -38,7 +38,8 @@ var configKeys = []configKeyDoc{
 	{"model.dir", []string{"MOONSHINE_MODEL_DIR", "MOONSHINE_VOICE_CACHE"}, "Root directory for downloaded STT models / shared TTS cache"},
 	{"moonshine.src_dir", []string{"MOONSHINE_SRC"}, "Local moonshine checkout (also used by 'make buildlib'); derives tts.g2p_root's default"},
 	{"stt.language", nil, "Default --language for setup/transcribe/live"},
-	{"stt.arch", nil, "Default --arch for setup/transcribe (live has its own streaming-specific default)"},
+	{"stt.arch", nil, "Default --arch for setup/transcribe"},
+	{"live.arch", nil, "Default --arch for live (its own key, independent of stt.arch, since streaming archs need a different default)"},
 	{"tts.language", nil, "Default --language for tts"},
 	{"tts.voice", nil, "Default --voice for tts"},
 	{"tts.speed", nil, "Default --speed for tts"},
@@ -65,6 +66,7 @@ anything already in the file) -- it does not dump every current default
 into the file.`,
 	Example: `  moonshine config set moonshine.src_dir ~/projects/github/moonshine
   moonshine config set stt.arch base
+  moonshine config set live.arch base-streaming
   moonshine config set tts.voice piper_en_US-amy-low`,
 	Args: cobra.ExactArgs(2),
 	RunE: runConfigSet,

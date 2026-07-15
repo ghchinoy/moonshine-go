@@ -66,6 +66,29 @@ their download URL path under that root -- the same layout the Python
 package uses internally. Point both tools at the same cache root and models
 download once.
 
+## Why do I need to run `moonshine setup` twice (once per arch)?
+
+Because `setup` downloads exactly one `(language, arch)` pair per
+invocation, and `transcribe`/`live` default to *different* archs on
+purpose: `transcribe` uses `stt.arch` (default `tiny`, tuned for batch file
+accuracy), `live` uses its own `live.arch` (default `tiny-streaming`, tuned
+for low-latency polling). `setup` has no idea `live.arch` exists -- it only
+ever reads `stt.arch` -- so running it once doesn't cover both commands
+unless you happen to set them to the same arch.
+
+If you use both commands, run `setup` once per arch you actually use:
+
+```sh
+moonshine setup --arch tiny             # for transcribe
+moonshine setup --arch tiny-streaming   # for live
+```
+
+`moonshine doctor` checks both model directories as separate rows (`STT
+model (transcribe)` / `STT model (live)`), so a missing one shows up
+proactively instead of as a mid-command error. See the README's
+Configuration section for why `stt.arch` and `live.arch` are deliberately
+separate keys rather than one shared setting.
+
 ## Can I save a transcript to a file as well as seeing it on screen?
 
 Yes -- `-o/--output <path>` on both `transcribe` and `live`. It doesn't

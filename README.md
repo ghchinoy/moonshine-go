@@ -171,15 +171,34 @@ moonshine config path                      # print the config.yaml path
 | `output.json`       | `--json`                     | --                                                | `false` |
 | `stt.arch`          | `--arch` (setup, transcribe) | --                                                | `tiny` |
 | `stt.language`      | `--language` (setup, transcribe, live) | --                                     | `en` |
+| `live.arch`         | `--arch` (live)              | --                                                | `tiny-streaming` |
 | `tts.language`      | `--language` (tts)           | --                                                | `en_us` |
 | `tts.voice`         | `--voice` (tts)              | --                                                | (unset -> auto) |
 | `tts.speed`         | `--speed` (tts)              | --                                                | (unset -> 1.0) |
 | `tts.g2p_root`      | `--g2p-root` (tts)           | --                                                | derived from `moonshine.src_dir` |
 
 `stt.arch`/`stt.language` are shared between `setup` and `transcribe` (set
-one config value, both commands pick it up) -- `live` keeps its own
-`tiny-streaming`-oriented default rather than sharing `stt.arch`, since a
-default tuned for file transcription would be a poor fit for live latency.
+one config value, both commands pick it up). `live` shares `stt.language`
+too, but has its own independent `live.arch` key rather than sharing
+`stt.arch` -- a default tuned for file transcription (`tiny`) would be a
+poor fit for live latency (`tiny-streaming`), and you may well want
+`transcribe`/`live` on two different archs at once (e.g. `base` for
+accuracy on files, `tiny-streaming` for responsiveness live).
+
+**`setup` has no knowledge of `live.arch`** -- it downloads exactly one
+`(language, arch)` pair per invocation, always resolved from `stt.arch`
+(never `live.arch`). If `transcribe` and `live` use different archs (the
+default case: `tiny` vs `tiny-streaming`), you need to run `setup` once for
+each:
+
+```sh
+moonshine setup --arch tiny             # for transcribe (stt.arch)
+moonshine setup --arch tiny-streaming   # for live (live.arch)
+```
+
+`moonshine doctor` checks both model directories separately (`STT model
+(transcribe)` / `STT model (live)`) so a mismatch shows up immediately
+rather than as a `moonshine setup ...` hint mid-session.
 
 Config file location: `$XDG_CONFIG_HOME/moonshine/config.yaml`, falling back
 to `~/.config/moonshine/config.yaml`. Example:

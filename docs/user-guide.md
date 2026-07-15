@@ -54,11 +54,12 @@ moonshine doctor
   [ OK ] Go toolchain                       go version go1.25.8 darwin/arm64
   [ OK ] cgo (for 'live')                   CGO_ENABLED=1
   [ OK ] libmoonshine                       loaded .moonshine/lib/libmoonshine.dylib (version 20000)
-  [ OK ] STT model                          en/tiny: 4 file(s) at ~/Library/Caches/moonshine_voice/...
+  [ OK ] STT model (transcribe)             en/tiny: 4 file(s) at ~/Library/Caches/moonshine_voice/...
+  [ OK ] STT model (live)                   en/tiny-streaming: 8 file(s) at ~/Library/Caches/moonshine_voice/...
   [ OK ] GCS credentials (for gs:// input)  GOOGLE_APPLICATION_CREDENTIALS=...
   [SKIP] TTS voice assets (--g2p-root)      tts.g2p_root not set -- only needed for `moonshine tts`
 --------------------------------------------------
-summary: 8 ok, 0 warn, 0 fail, 1 skip
+summary: 9 ok, 0 warn, 0 fail, 1 skip
 ```
 
 Two tiers of checks:
@@ -66,7 +67,7 @@ Two tiers of checks:
 | Tier | Checks | Notes |
 |---|---|---|
 | Build-time | `cmake`, a C++ compiler, `git-lfs`, a Go toolchain, `CGO_ENABLED` | What `make buildlib`/`make build` need. `CGO_ENABLED` only matters for `live` (mic capture) -- `transcribe`/`setup`/`tts` don't need cgo. |
-| Runtime | `libmoonshine` resolves and dlopens, an STT model exists for `--language`/`--arch`, GCS Application Default Credentials (best-effort), `tts.g2p_root` (best-effort) | The last two are only relevant if you use `gs://` input or `tts` -- they report `SKIP`, not `FAIL`, when unset, since they're optional. |
+| Runtime | `libmoonshine` resolves and dlopens, an STT model exists for `--language`/`--arch` (`stt.arch`) *and* separately for `live.arch` if it differs, GCS Application Default Credentials (best-effort), `tts.g2p_root` (best-effort) | `STT model (live)` only appears as a separate row when `live.arch` != the checked `--arch` -- see [config](#config) for why they're independent keys. The GCS/TTS checks are only relevant if you use `gs://` input or `tts` -- they report `SKIP`, not `FAIL`, when unset, since they're optional. |
 
 `[FAIL]` on any check makes `moonshine doctor` exit non-zero (useful in
 scripts/CI); `[WARN]`/`[SKIP]` don't. `--json` gives the same checks as a
@@ -96,6 +97,20 @@ flat directory would silently corrupt a previously-downloaded model).
 `transcribe` and `live` need a model downloaded for the exact
 `(--language, --arch)` pair you run them with -- if you switch `--arch`,
 run `setup` again for that arch first.
+
+**`setup` only ever resolves `stt.arch`, never `live.arch`** (see
+[live](#live) and [config](#config) below for why they're separate keys) --
+it has no concept of "the arch `live` will use." Since their defaults
+already differ (`tiny` vs `tiny-streaming`), a fresh install almost always
+needs two `setup` runs, one per command:
+
+```sh
+moonshine setup --arch tiny             # for transcribe
+moonshine setup --arch tiny-streaming   # for live
+```
+
+`moonshine doctor` checks both model directories (as separate rows) so a
+missing one shows up before you hit the error mid-command.
 
 ## transcribe
 
@@ -241,7 +256,7 @@ moonshine live --arch tiny-streaming --poll-interval 500ms
 | Flag | Default | Notes |
 |---|---|---|
 | `--language` | `en` | Same rule as `transcribe` |
-| `--arch` | `tiny-streaming` | Use a `*-streaming` arch for good latency; non-streaming archs work but poll less efficiently |
+| `--arch` | `tiny-streaming` | Use a `*-streaming` arch for good latency; non-streaming archs work but poll less efficiently. Config key: `live.arch` -- independent of `transcribe`/`setup`'s `stt.arch`, see [config](#config) |
 | `--providers` | `""` (CPU-only) | See [docs/hardware-acceleration.md](hardware-acceleration.md) |
 | `--no-tui` | `false` | Plain text output instead of the bubbletea TUI |
 | `--poll-interval` | `250ms` | How often to ask the library for an updated transcript |
@@ -421,6 +436,7 @@ file (above), then retry.
 moonshine config list                                   # effective values + where each comes from
 moonshine config set moonshine.src_dir ~/projects/github/moonshine
 moonshine config set stt.arch base
+moonshine config set live.arch base-streaming
 moonshine config set tts.voice piper_en_US-amy-low
 moonshine config path                                    # print the config.yaml path
 ```
@@ -434,14 +450,21 @@ on some *other* command would do.
 
 Known keys (also documented in the README's Configuration table):
 `lib.dir`, `model.dir`, `moonshine.src_dir`, `stt.language`, `stt.arch`,
-`tts.language`, `tts.voice`, `tts.speed`, `tts.g2p_root`.
+`live.arch`, `tts.language`, `tts.voice`, `tts.speed`, `tts.g2p_root`.
 
-Two of these are worth calling out specifically:
+A few of these are worth calling out specifically:
 
 - **`stt.arch`/`stt.language`** are shared between `setup` and `transcribe`
-  (set once, both commands default to it) -- but *not* `live`, which keeps
-  its own `tiny-streaming`-oriented default since a shared default tuned for
-  file transcription would be a poor fit for live latency.
+  (set once, both commands default to it). `stt.language` is *also* shared
+  with `live`, but `live.arch` is its own separate key -- a shared arch
+  default tuned for file transcription (`tiny`) would be a poor fit for
+  live latency (`tiny-streaming`), and you may genuinely want `transcribe`
+  and `live` on different archs at once. **`setup` only ever reads
+  `stt.arch`** -- it has no idea `live.arch` exists, so you still need to
+  run `setup --arch <that arch>` separately for whichever arch `live` uses
+  if it differs from `stt.arch` (this is why the [setup](#setup) examples
+  above show it run twice). `moonshine doctor` checks both model
+  directories so a missing one is caught proactively.
 - **`moonshine.src_dir`** has no dedicated flag on any command; it exists
   purely to derive `tts.g2p_root`'s default (see [tts](#tts) above) and to
   document where your moonshine checkout lives, matching `MOONSHINE_SRC`,
