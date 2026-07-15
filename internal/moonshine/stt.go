@@ -2,7 +2,10 @@ package moonshine
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
+	"sort"
+	"strings"
 	"unsafe"
 )
 
@@ -71,6 +74,46 @@ type Line struct {
 // result: an ordered list of Lines.
 type Transcript struct {
 	Lines []Line
+}
+
+// SpeakerLabel returns a compact summary of which speaker(s) contributed to
+// this line, e.g. "S0" or "S0+S1", derived from SpeakerSpans (only populated
+// when the "identify_speakers" option is enabled). Returns "" if there are
+// no speaker spans -- either identify_speakers wasn't enabled, or no speech
+// has been attributed to a speaker yet.
+func (l Line) SpeakerLabel() string {
+	if len(l.SpeakerSpans) == 0 {
+		return ""
+	}
+	seen := map[uint32]bool{}
+	indices := make([]uint32, 0, len(l.SpeakerSpans))
+	for _, s := range l.SpeakerSpans {
+		if !seen[s.SpeakerIndex] {
+			seen[s.SpeakerIndex] = true
+			indices = append(indices, s.SpeakerIndex)
+		}
+	}
+	sort.Slice(indices, func(i, j int) bool { return indices[i] < indices[j] })
+	parts := make([]string, len(indices))
+	for i, idx := range indices {
+		parts[i] = fmt.Sprintf("S%d", idx)
+	}
+	return strings.Join(parts, "+")
+}
+
+// WordTimingsSummary renders each word with its start time as a compact
+// "word@1.23" list, space-separated -- only meaningful when the
+// "word_timestamps" option was enabled (populating l.Words). Returns "" if
+// there are no words.
+func (l Line) WordTimingsSummary() string {
+	if len(l.Words) == 0 {
+		return ""
+	}
+	parts := make([]string, len(l.Words))
+	for i, w := range l.Words {
+		parts[i] = fmt.Sprintf("%s@%.2f", w.Text, w.Start)
+	}
+	return strings.Join(parts, " ")
 }
 
 // FirstNonEmptyText returns the text of the first line with non-empty text,

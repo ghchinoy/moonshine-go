@@ -27,6 +27,7 @@ pipeline, just a thin client over the same C API moonshine's own language
 bindings use.
 
 Get started:
+  moonshine doctor                     Check build/runtime prerequisites
   moonshine setup                      Download STT model assets
   moonshine transcribe audio.wav       Transcribe a local file
   moonshine transcribe gs://bkt/a.wav  Transcribe a file from GCS
@@ -67,6 +68,7 @@ func init() {
 	rootCmd.AddCommand(liveCmd)
 	rootCmd.AddCommand(ttsCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(doctorCmd)
 }
 
 // initViper wires up config file + env var + default resolution. Priority

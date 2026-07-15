@@ -111,6 +111,9 @@ func (m liveModel) View() string {
 			if text == "" {
 				continue
 			}
+			if label := l.SpeakerLabel(); label != "" {
+				text = "[" + label + "] " + text
+			}
 			if l.IsComplete {
 				b.WriteString(stylePass.Render(text) + "\n")
 			} else {

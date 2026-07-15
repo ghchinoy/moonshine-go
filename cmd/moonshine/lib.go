@@ -100,6 +100,41 @@ func ortProviderOptions(providers string) []moonshine.Option {
 	return opts
 }
 
+// diarizationOptions builds the moonshine.Options for --identify-speakers /
+// --word-timestamps, plus the diarization_cluster_cadence /
+// diarization_analyze_cadence / diarization_cluster_window_sec tuning knobs
+// -- all transcriber-*creation*-time options (moonshine-c-api.h's
+// moonshine_load_transcriber_from_files), not per-transcribe-call options.
+//
+// The tuning knobs are only included if their flag was explicitly set on
+// cmd (cmd.Flags().Changed), since their zero value is not "use the
+// library's own default" for at least one of them --
+// diarization_cluster_window_sec's default is 120s, but 0 means
+// "unlimited" -- so silently sending 0 for an unset flag would change
+// behavior rather than leave it alone. cmd need not declare all three
+// flags (transcribe currently only offers identify-speakers/word-
+// timestamps): Changed() on an undeclared flag name just returns false, so
+// callers without the tuning flags simply never include them.
+func diarizationOptions(cmd *cobra.Command, identifySpeakers, wordTimestamps bool, clusterCadence, analyzeCadence, clusterWindowSec float64) []moonshine.Option {
+	var opts []moonshine.Option
+	if identifySpeakers {
+		opts = append(opts, moonshine.Option{Name: "identify_speakers", Value: "true"})
+	}
+	if wordTimestamps {
+		opts = append(opts, moonshine.Option{Name: "word_timestamps", Value: "true"})
+	}
+	if cmd.Flags().Changed("diarization-cluster-cadence") {
+		opts = append(opts, moonshine.Option{Name: "diarization_cluster_cadence", Value: fmt.Sprintf("%g", clusterCadence)})
+	}
+	if cmd.Flags().Changed("diarization-analyze-cadence") {
+		opts = append(opts, moonshine.Option{Name: "diarization_analyze_cadence", Value: fmt.Sprintf("%g", analyzeCadence)})
+	}
+	if cmd.Flags().Changed("diarization-cluster-window-sec") {
+		opts = append(opts, moonshine.Option{Name: "diarization_cluster_window_sec", Value: fmt.Sprintf("%g", clusterWindowSec)})
+	}
+	return opts
+}
+
 func archFlagName(arch uint32) string {
 	switch arch {
 	case moonshine.ModelArchTiny:

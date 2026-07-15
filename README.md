@@ -38,6 +38,10 @@ runtime.
 - A C toolchain for `go build` when using `live` (mic capture uses cgo via
   `gen2brain/malgo`); `transcribe`/`setup`/`tts` don't need one
 
+Once you have a built `bin/moonshine`, run `./bin/moonshine doctor` to check
+all of the above (plus `libmoonshine`, downloaded models, and GCS
+credentials) in one shot, with specific fix commands for anything missing.
+
 ## Build libmoonshine
 
 Clone a local checkout of moonshine itself (this is a separate, much larger
@@ -74,12 +78,21 @@ delete `$MOONSHINE_SRC` after building.
 ```sh
 make build   # -> bin/moonshine ; equivalently: go build -o bin/moonshine ./cmd/moonshine
 
+# Check build/runtime prerequisites (build tools, libmoonshine, models,
+# GCS credentials) in one shot -- run this any time something isn't working.
+./bin/moonshine doctor
+
 # Download STT model assets (tiny/base/*-streaming) into the model cache.
 ./bin/moonshine setup --arch tiny
 
 # Transcribe a local file or a GCS object.
 ./bin/moonshine transcribe path/to/audio.wav
 ./bin/moonshine transcribe gs://my-bucket/audio.wav
+
+# Speaker diarization and/or per-word timing (both opt-in; diarization adds
+# significant compute). See docs/user-guide.md for details.
+./bin/moonshine transcribe --identify-speakers path/to/audio.wav
+./bin/moonshine transcribe --word-timestamps path/to/audio.wav
 
 # Live microphone transcription with a bubbletea TUI (Ctrl-C / q to stop).
 # Use a *-streaming arch for good latency.
@@ -241,6 +254,7 @@ internal/tui/         bubbletea/lipgloss live transcription UI
 cmd/moonshine/        cobra/viper CLI
 scripts/              native build tooling for libmoonshine
 docs/                 findings, best practices, FAQ (see below)
+skills/               Agent Skills (agentskills.io) for coding agents (see below)
 Makefile              buildlib / build / test / smoke / clean targets
 ```
 
@@ -258,6 +272,34 @@ came up building/using this that didn't fit neatly into flag `--help` text:
 
 See [AGENTS.md](AGENTS.md) for issue tracking (bd/beads) and other
 agent-facing operational notes.
+
+## Skills
+
+[skills/moonshine-transcribe/](skills/moonshine-transcribe/) is an
+[Agent Skills](https://agentskills.io) skill that teaches shell-capable
+coding agents (OpenCode, Claude Code, etc.) to drive `moonshine transcribe`
+directly -- prerequisite checks via `moonshine doctor`, `--json` parsing,
+`gs://` input, diarization/word-timestamp flags -- instead of reimplementing
+STT or guessing at flags.
+
+Install it into your agent of choice with the
+[Open Agent Skills CLI](https://github.com/vercel-labs/skills) (`npx
+skills`), which supports OpenCode, Claude Code, Cursor, and 70+ other
+agents:
+
+```sh
+# See what's available without installing anything.
+npx skills add ghchinoy/moonshine-go --list
+
+# Install into the current project (./<agent>/skills/, committable to git).
+npx skills add ghchinoy/moonshine-go --skill moonshine-transcribe
+
+# Install globally instead, so it's available in every project.
+npx skills add ghchinoy/moonshine-go --skill moonshine-transcribe -g
+
+# Try it without installing -- pipes a generated prompt straight into an agent.
+npx skills use ghchinoy/moonshine-go@moonshine-transcribe | claude
+```
 
 ## Contributing
 

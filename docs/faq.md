@@ -11,10 +11,11 @@ moonshine's internal VAD-based speech segmentation, which splits audio into
 transcription itself.
 
 There's also a `word_timestamps` option in the C API for per-word timing
-(distinct from per-line timing), which the Go binding already models via
-`Line.Words`, but it isn't currently exposed as a CLI flag on `transcribe`/
-`live`. Worth adding if you need word-level timing -- it's a one-line
-`moonshine.Option{Name: "word_timestamps", Value: "true"}` away.
+(distinct from per-line timing), which the Go binding models via
+`Line.Words` -- exposed as `--word-timestamps` on both `transcribe` and
+`live` (see [docs/user-guide.md](user-guide.md#speaker-diarization-and-word-timestamps)).
+The same applies to speaker diarization (`--identify-speakers`,
+`Line.SpeakerSpans`).
 
 ## Does transcription run at 1x speed (real time), or faster/slower?
 

@@ -14,11 +14,13 @@ import (
 )
 
 var (
-	transcribeLanguage  string
-	transcribeArch      string
-	transcribeProviders string
-	transcribeWithAudio bool
-	transcribeOutput    string
+	transcribeLanguage         string
+	transcribeArch             string
+	transcribeProviders        string
+	transcribeWithAudio        bool
+	transcribeOutput           string
+	transcribeIdentifySpeakers bool
+	transcribeWordTimestamps   bool
 )
 
 var transcribeCmd = &cobra.Command{
@@ -42,6 +44,8 @@ func init() {
 	transcribeCmd.Flags().StringVar(&transcribeProviders, "providers", defaultOrtProviders(), "Comma-separated ONNX Runtime execution providers, e.g. 'CoreML,CPU' on macOS (default: CPU-only; see docs/hardware-acceleration.md before enabling CoreML)")
 	transcribeCmd.Flags().BoolVar(&transcribeWithAudio, "with-audio", false, "Include each line's raw per-line audio samples in --json output")
 	transcribeCmd.Flags().StringVarP(&transcribeOutput, "output", "o", "", "Also write the transcript to this file (plain text, or JSON if --json is set), in addition to stdout")
+	transcribeCmd.Flags().BoolVar(&transcribeIdentifySpeakers, "identify-speakers", false, "Enable speaker diarization: --json output gets a speaker_spans array per line, and text output is prefixed with a speaker label like [S0] (implies --word-timestamps; adds significant compute)")
+	transcribeCmd.Flags().BoolVar(&transcribeWordTimestamps, "word-timestamps", false, "Enable per-word timing: --json output gets a words array per line (automatically enabled by --identify-speakers)")
 }
 
 type transcribeStats struct {
@@ -104,11 +108,14 @@ func runTranscribe(cmd *cobra.Command, args []string) error {
 	stats.DecodeMs = msSince(t0)
 	stats.AudioDurationSec = float64(len(samples)) / float64(audio.TargetSampleRate)
 
+	loadOpts := append(ortProviderOptions(transcribeProviders),
+		diarizationOptions(cmd, transcribeIdentifySpeakers, transcribeWordTimestamps, 0, 0, 0)...)
+
 	var tr *moonshine.Transcriber
 	t0 = time.Now()
 	if err := withProgress(fmt.Sprintf("loading %s model", archFlag), func() error {
 		var derr error
-		tr, derr = loadTranscriberFor(language, arch, ortProviderOptions(transcribeProviders)...)
+		tr, derr = loadTranscriberFor(language, arch, loadOpts...)
 		return derr
 	}); err != nil {
 		return err
@@ -152,7 +159,16 @@ func runTranscribe(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, line := range transcript.Lines {
-		fmt.Printf("%s %s\n", styleID.Render(fmt.Sprintf("[%6.2fs]", line.StartTime)), line.Text)
+		prefix := fmt.Sprintf("[%6.2fs]", line.StartTime)
+		if label := line.SpeakerLabel(); label != "" {
+			prefix += " [" + label + "]"
+		}
+		fmt.Printf("%s %s\n", styleID.Render(prefix), line.Text)
+		if transcribeWordTimestamps {
+			if words := line.WordTimingsSummary(); words != "" {
+				fmt.Printf("           %s\n", muted(words))
+			}
+		}
 	}
 	fmt.Fprintln(os.Stderr, separator())
 	fmt.Fprintf(os.Stderr, "%s load=%.0fms decode=%.0fms infer=%.0fms audio=%.2fs rtf=%.1fx\n",

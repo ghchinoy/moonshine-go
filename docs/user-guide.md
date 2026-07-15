@@ -9,6 +9,7 @@ details -- this guide assumes you already have `bin/moonshine` built and
 ## Contents
 
 - [Commands at a glance](#commands-at-a-glance)
+- [doctor](#doctor)
 - [setup](#setup)
 - [transcribe](#transcribe)
 - [live](#live)
@@ -21,6 +22,7 @@ details -- this guide assumes you already have `bin/moonshine` built and
 
 | Command | Purpose |
 |---|---|
+| `moonshine doctor` | Check build/runtime prerequisites and suggest fixes |
 | `moonshine setup` | Download STT model files for a (language, arch) pair |
 | `moonshine transcribe <file\|gs://...>` | Transcribe one audio file, start to finish |
 | `moonshine live` | Transcribe continuously from the microphone |
@@ -29,6 +31,46 @@ details -- this guide assumes you already have `bin/moonshine` built and
 
 Every command also accepts the global flags `--json`, `--lib-dir`, and
 `--model-dir` (see the README's Configuration table).
+
+## doctor
+
+Checks the tools/files moonshine-go needs, instead of finding out via a
+failed command's error message. Run it any time something isn't working, or
+right after `make buildlib`/`make build` to confirm everything's in place:
+
+```sh
+moonshine doctor
+moonshine doctor --language en --arch base   # check a specific model pair
+moonshine --json doctor                      # for scripting
+```
+
+```
+$ moonshine doctor
+moonshine doctor
+--------------------------------------------------
+  [ OK ] cmake                              cmake version 4.3.4
+  [ OK ] C++ compiler                       c++ -- Apple clang version 21.0.0
+  [ OK ] git-lfs                            git-lfs/3.7.1 (GitHub; darwin arm64; go 1.25.3)
+  [ OK ] Go toolchain                       go version go1.25.8 darwin/arm64
+  [ OK ] cgo (for 'live')                   CGO_ENABLED=1
+  [ OK ] libmoonshine                       loaded .moonshine/lib/libmoonshine.dylib (version 20000)
+  [ OK ] STT model                          en/tiny: 4 file(s) at ~/Library/Caches/moonshine_voice/...
+  [ OK ] GCS credentials (for gs:// input)  GOOGLE_APPLICATION_CREDENTIALS=...
+  [SKIP] TTS voice assets (--g2p-root)      tts.g2p_root not set -- only needed for `moonshine tts`
+--------------------------------------------------
+summary: 8 ok, 0 warn, 0 fail, 1 skip
+```
+
+Two tiers of checks:
+
+| Tier | Checks | Notes |
+|---|---|---|
+| Build-time | `cmake`, a C++ compiler, `git-lfs`, a Go toolchain, `CGO_ENABLED` | What `make buildlib`/`make build` need. `CGO_ENABLED` only matters for `live` (mic capture) -- `transcribe`/`setup`/`tts` don't need cgo. |
+| Runtime | `libmoonshine` resolves and dlopens, an STT model exists for `--language`/`--arch`, GCS Application Default Credentials (best-effort), `tts.g2p_root` (best-effort) | The last two are only relevant if you use `gs://` input or `tts` -- they report `SKIP`, not `FAIL`, when unset, since they're optional. |
+
+`[FAIL]` on any check makes `moonshine doctor` exit non-zero (useful in
+scripts/CI); `[WARN]`/`[SKIP]` don't. `--json` gives the same checks as a
+`{"checks": [{"name", "status", "detail"}, ...]}` array instead of a table.
 
 ## setup
 
@@ -84,6 +126,8 @@ moonshine --json transcribe --with-audio recording.wav > result-with-audio.json
 | `--providers` | `""` (CPU-only) | See [docs/hardware-acceleration.md](hardware-acceleration.md) before changing |
 | `-o, --output` | (none) | Also write the transcript to this file |
 | `--with-audio` | `false` | Include each line's raw per-line audio samples in `--json` output |
+| `--identify-speakers` | `false` | Enable speaker diarization -- see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) below |
+| `--word-timestamps` | `false` | Enable per-word timing -- see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) below |
 | `--json` (global) | `false` | Machine-readable output on stdout instead of styled text |
 
 Currently only `.wav` input is decoded directly. For other formats, convert
@@ -122,6 +166,64 @@ than real-time the transcription ran (`rtf`). See
 [docs/faq.md](faq.md#does-transcription-run-at-1x-speed-real-time-or-fasterslower)
 for what affects that number.
 
+### Example audio: `test-assets/` in the moonshine checkout
+
+Don't have a `.wav` handy to try `transcribe` against? The local moonshine
+checkout you already have for `make buildlib` (`$MOONSHINE_SRC` /
+`moonshine.src_dir`) ships real speech clips at `test-assets/` -- the same
+ones `make smoke`'s `MOONSHINE_SMOKE_WAV` uses:
+
+| File | Sample rate | Duration | Notes |
+|---|---|---|---|
+| `two_cities_16k.wav` | 16 kHz | 44.4s | *A Tale of Two Cities* opening, LibriVox, public domain -- already 16 kHz, no resampling needed |
+| `two_cities.wav` | 48 kHz | 44.4s | Same reading at its original sample rate, to exercise `transcribe`'s internal resampling |
+| `two_cities_librivox_48k.wav` | 48 kHz | 56.3s | A different LibriVox take on the same public-domain text |
+
+```sh
+moonshine transcribe "$MOONSHINE_SRC/test-assets/two_cities_16k.wav"
+```
+
+`test-assets/` also has a couple of other short spoken clips (`beckett.wav`,
+`endgame_nagg_nell.wav`) checked in for moonshine's own upstream tests --
+useful as quick smoke input, but unlike the `two_cities*` LibriVox clips
+above, we haven't independently verified their licensing for reuse beyond
+local testing, so treat them as convenient scratch audio rather than
+citable example clips.
+
+### Speaker diarization and word timestamps
+
+Both are opt-in, transcriber-creation-time options (moonshine's own
+`identify_speakers`/`word_timestamps`) -- off by default because diarization
+in particular adds significant compute:
+
+```sh
+# Per-word timing: each --json line gets a "words" array, and text output
+# gets an indented "word@1.23" summary line under each transcript line.
+moonshine transcribe --word-timestamps recording.wav
+
+# Speaker diarization: each --json line gets a "speaker_spans" array, and
+# text output is prefixed with a speaker label like [S0]. Automatically
+# turns on --word-timestamps too (speaker spans are anchored to word
+# boundaries).
+moonshine transcribe --identify-speakers recording.wav
+```
+
+```
+$ moonshine transcribe --identify-speakers meeting.wav
+[  0.10s] [S0] Let's get started.
+[  1.63s] [S1] Sounds good, go ahead.
+[  3.30s] [S0] So the first item on the agenda is...
+```
+
+Speaker labels (`S0`, `S1`, ...) are assigned in order of first appearance
+and are only stable within a single `transcribe` run -- there's no identity
+tracking across separate files/invocations. A single-speaker clip (like
+`test-assets/two_cities_16k.wav` above) will just show `[S0]` on every line;
+diarization is only interesting on audio with more than one speaker.
+
+`live` has the same two flags, plus tuning knobs for how often streaming
+diarization re-clusters -- see [live](#live) below.
+
 ## live
 
 ```sh
@@ -144,6 +246,17 @@ moonshine live --arch tiny-streaming --poll-interval 500ms
 | `--no-tui` | `false` | Plain text output instead of the bubbletea TUI |
 | `--poll-interval` | `250ms` | How often to ask the library for an updated transcript |
 | `-o, --output` | (none) | Append completed lines to this file as they finalize (works in either display mode) |
+| `--identify-speakers` | `false` | Enable speaker diarization -- lines/TUI get a `[S0]`-style label; see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) |
+| `--word-timestamps` | `false` | Enable per-word timing (`--no-tui` prints a `word@1.23` summary line per completed line) |
+| `--diarization-cluster-cadence` | `2.0` (seconds) | Minimum time between diarization re-clustering passes; raise to reduce cost on long sessions (only with `--identify-speakers`) |
+| `--diarization-analyze-cadence` | `1.0` (seconds) | Time between diarization segmentation/embedding model runs (only with `--identify-speakers`) |
+| `--diarization-cluster-window-sec` | `120.0` (seconds) | How much audio history re-clustering considers each refresh; `0` = unlimited full history (only with `--identify-speakers`) |
+
+Streaming diarization re-clusters a sliding window as more speech arrives,
+so speaker labels on recently-finalized lines can still change as `live`
+gets more context -- unlike text/timing, which are frozen once a line is
+complete. The three `--diarization-*` flags trade accuracy/recency for CPU
+cost on long-running sessions; the defaults match moonshine's own.
 
 Press `q`, `Esc`, or Ctrl-C to stop -- either way, `live` stops the stream
 cleanly and shows final stats (or writes them to stderr in `--no-tui` mode):
@@ -336,10 +449,17 @@ moonshine --json transcribe --arch <arch> <file>.wav 2>/dev/null \
 
 ## Troubleshooting
 
+Run `moonshine doctor` first -- it checks most of what's below in one shot
+(build tools, `libmoonshine`, the model directory, GCS credentials) and
+prints the exact fix command for whatever's missing. The rest of this
+section covers things `doctor` doesn't (or can't) check automatically.
+
 **`compiler errors mentioning git-lfs.github.com` when running `make
 buildlib`** -- the moonshine checkout has unpulled LFS files. Run
 `git -C <checkout> lfs pull` (or `git lfs install --local` first if you see
-"Git LFS is not installed for this repository").
+"Git LFS is not installed for this repository"). `moonshine doctor` confirms
+`git-lfs` itself is installed, but can't tell whether a given checkout's
+LFS files have actually been pulled.
 
 **`Model directory does not exist at path ...` / `load_transcriber_from_files:
 Unknown error`** -- you haven't run `moonshine setup` for that exact

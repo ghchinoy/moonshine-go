@@ -17,12 +17,17 @@ import (
 )
 
 var (
-	liveLanguage     string
-	liveArch         string
-	liveProviders    string
-	liveNoTUI        bool
-	livePollInterval time.Duration
-	liveOutput       string
+	liveLanguage                    string
+	liveArch                        string
+	liveProviders                   string
+	liveNoTUI                       bool
+	livePollInterval                time.Duration
+	liveOutput                      string
+	liveIdentifySpeakers            bool
+	liveWordTimestamps              bool
+	liveDiarizationClusterCadence   float64
+	liveDiarizationAnalyzeCadence   float64
+	liveDiarizationClusterWindowSec float64
 )
 
 var liveCmd = &cobra.Command{
@@ -45,6 +50,11 @@ func init() {
 	liveCmd.Flags().BoolVar(&liveNoTUI, "no-tui", false, "Print plain text updates instead of the bubbletea UI (for scripting/logging)")
 	liveCmd.Flags().DurationVar(&livePollInterval, "poll-interval", 250*time.Millisecond, "How often to poll for updated transcripts")
 	liveCmd.Flags().StringVarP(&liveOutput, "output", "o", "", "Also append completed lines to this file as they finalize, in addition to the TUI/stdout")
+	liveCmd.Flags().BoolVar(&liveIdentifySpeakers, "identify-speakers", false, "Enable speaker diarization: lines get a speaker label like [S0], and --json output gets a speaker_spans array (implies --word-timestamps; adds significant compute, and re-clustering cost grows with session length -- see the diarization-* tuning flags)")
+	liveCmd.Flags().BoolVar(&liveWordTimestamps, "word-timestamps", false, "Enable per-word timing: --json output gets a words array per line (automatically enabled by --identify-speakers)")
+	liveCmd.Flags().Float64Var(&liveDiarizationClusterCadence, "diarization-cluster-cadence", 2.0, "Minimum seconds between diarization re-clustering passes; raise to reduce cost on long sessions (only applies with --identify-speakers)")
+	liveCmd.Flags().Float64Var(&liveDiarizationAnalyzeCadence, "diarization-analyze-cadence", 1.0, "Seconds between diarization segmentation/embedding model runs (only applies with --identify-speakers)")
+	liveCmd.Flags().Float64Var(&liveDiarizationClusterWindowSec, "diarization-cluster-window-sec", 120.0, "How much audio history diarization re-clustering considers on each refresh; 0 = unlimited full history (only applies with --identify-speakers)")
 }
 
 func runLive(cmd *cobra.Command, args []string) error {
@@ -60,7 +70,10 @@ func runLive(cmd *cobra.Command, args []string) error {
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, muted("loading model..."))
 	}
-	tr, err := loadTranscriberFor(language, arch, ortProviderOptions(liveProviders)...)
+	loadOpts := append(ortProviderOptions(liveProviders),
+		diarizationOptions(cmd, liveIdentifySpeakers, liveWordTimestamps,
+			liveDiarizationClusterCadence, liveDiarizationAnalyzeCadence, liveDiarizationClusterWindowSec)...)
+	tr, err := loadTranscriberFor(language, arch, loadOpts...)
 	if err != nil {
 		return err
 	}
@@ -140,7 +153,11 @@ func teeUpdatesToFile(in <-chan session.Update, path string) (<-chan session.Upd
 						continue
 					}
 					printed[l.ID] = l.Text
-					fmt.Fprintf(f, "[%6.2fs] %s\n", l.StartTime, l.Text)
+					prefix := fmt.Sprintf("[%6.2fs]", l.StartTime)
+					if label := l.SpeakerLabel(); label != "" {
+						prefix += " [" + label + "]"
+					}
+					fmt.Fprintf(f, "%s %s\n", prefix, l.Text)
 				}
 			}
 			out <- u
@@ -166,7 +183,16 @@ func runLivePlain(updates <-chan session.Update) error {
 				continue
 			}
 			printed[l.ID] = l.Text
-			fmt.Println(l.Text)
+			if label := l.SpeakerLabel(); label != "" {
+				fmt.Printf("[%s] %s\n", label, l.Text)
+			} else {
+				fmt.Println(l.Text)
+			}
+			if liveWordTimestamps {
+				if words := l.WordTimingsSummary(); words != "" {
+					fmt.Println(muted(words))
+				}
+			}
 		}
 		if u.Done {
 			ttft := "-"
