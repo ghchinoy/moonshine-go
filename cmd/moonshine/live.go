@@ -28,6 +28,7 @@ var (
 	liveDiarizationClusterCadence   float64
 	liveDiarizationAnalyzeCadence   float64
 	liveDiarizationClusterWindowSec float64
+	liveLineStats                   bool
 )
 
 var liveCmd = &cobra.Command{
@@ -55,6 +56,7 @@ func init() {
 	liveCmd.Flags().Float64Var(&liveDiarizationClusterCadence, "diarization-cluster-cadence", 2.0, "Minimum seconds between diarization re-clustering passes; raise to reduce cost on long sessions (only applies with --identify-speakers)")
 	liveCmd.Flags().Float64Var(&liveDiarizationAnalyzeCadence, "diarization-analyze-cadence", 1.0, "Seconds between diarization segmentation/embedding model runs (only applies with --identify-speakers)")
 	liveCmd.Flags().Float64Var(&liveDiarizationClusterWindowSec, "diarization-cluster-window-sec", 120.0, "How much audio history diarization re-clustering considers on each refresh; 0 = unlimited full history (only applies with --identify-speakers)")
+	liveCmd.Flags().BoolVar(&liveLineStats, "line-stats", false, "In --no-tui mode, print a stderr note per finalized line with its time-to-final and revision count (the bubbletea TUI always shows this in its footer; the end-of-session summary is always printed either way)")
 }
 
 func runLive(cmd *cobra.Command, args []string) error {
@@ -194,12 +196,23 @@ func runLivePlain(updates <-chan session.Update) error {
 				}
 			}
 		}
+		if liveLineStats {
+			for _, lt := range u.FinalizedLines {
+				fmt.Fprintf(os.Stderr, "%s ttf=%s revisions=%d stability=%.0f%%\n",
+					muted("line-stats:"), lt.TimeToFinal, lt.Revisions, lt.StabilityRatio*100)
+			}
+		}
 		if u.Done {
 			ttft := "-"
 			if u.TTFT > 0 {
 				ttft = u.TTFT.String()
 			}
 			fmt.Fprintf(os.Stderr, "%s ttft=%s elapsed=%s\n", muted("stats:"), ttft, u.Elapsed)
+			if u.Summary != nil && u.Summary.LinesFinalized > 0 {
+				fmt.Fprintf(os.Stderr, "%s lines=%d avg_ttf=%s max_ttf=%s avg_revisions=%.1f avg_stability=%.0f%%\n",
+					muted("summary:"), u.Summary.LinesFinalized, u.Summary.AvgTimeToFinal, u.Summary.MaxTimeToFinal,
+					u.Summary.AvgRevisions, u.Summary.AvgStabilityRatio*100)
+			}
 		}
 	}
 	return nil

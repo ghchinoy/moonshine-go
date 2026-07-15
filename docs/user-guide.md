@@ -251,6 +251,7 @@ moonshine live --arch tiny-streaming --poll-interval 500ms
 | `--diarization-cluster-cadence` | `2.0` (seconds) | Minimum time between diarization re-clustering passes; raise to reduce cost on long sessions (only with `--identify-speakers`) |
 | `--diarization-analyze-cadence` | `1.0` (seconds) | Time between diarization segmentation/embedding model runs (only with `--identify-speakers`) |
 | `--diarization-cluster-window-sec` | `120.0` (seconds) | How much audio history re-clustering considers each refresh; `0` = unlimited full history (only with `--identify-speakers`) |
+| `--line-stats` | `false` | In `--no-tui` mode, print a stderr note per finalized line with its time-to-final and revision count. The TUI always shows this in its footer; the end-of-session summary is always printed either way. |
 
 Streaming diarization re-clusters a sliding window as more speech arrives,
 so speaker labels on recently-finalized lines can still change as `live`
@@ -262,24 +263,41 @@ Press `q`, `Esc`, or Ctrl-C to stop -- either way, `live` stops the stream
 cleanly and shows final stats (or writes them to stderr in `--no-tui` mode):
 
 ```
-$ moonshine live --arch tiny-streaming --no-tui
+$ moonshine live --arch tiny-streaming --no-tui --line-stats
 loading model...
 opening microphone...
 listening... (ctrl-c to stop)
 It was the best of times, it was the worst of times.
+line-stats: ttf=740ms revisions=3 stability=57%
 It was the age of wisdom,
+line-stats: ttf=410ms revisions=1 stability=83%
 ^C
 stats: ttft=312ms elapsed=8.4s
+summary: lines=2 avg_ttf=575ms max_ttf=740ms avg_revisions=2.0 avg_stability=70%
 ```
 
 `ttft` is time-to-first-token: how long after the stream started before the
-first non-empty transcript line appeared -- the number that matters most for
-"does this feel responsive."
+first non-empty transcript line appeared (session-level, one-time) -- the
+number that matters most for "does this feel responsive."
+
+`ttf` (time-to-final, per line) is different: how long *that specific line*
+took from its first partial appearance to finalizing (`IsComplete`), and
+`revisions`/`stability` say how much its text changed while still
+in-progress before settling (`stability` is `1 - revisions/observations`;
+100% means it never changed after first appearing). These only mean
+something for streaming (`live`) output -- `transcribe` never produces
+partial lines, so there's nothing to measure. `summary` at the end
+aggregates `ttf`/`revisions`/`stability` across every line finalized in the
+session. Resolution on all of these is bounded by `--poll-interval` -- a
+`ttf` near zero means the line appeared and finalized within one poll
+cycle, not that it was literally instantaneous.
 
 The TUI (default, no `--no-tui`) shows the same lines with completed ones in
 one color and the current in-progress line in another (with a trailing
-cursor glyph), plus a stats footer with `ttft`/`elapsed`/`last_poll`, updated
-live as you speak.
+cursor glyph), plus a stats footer with `ttft`/`elapsed`/`last_poll`, a
+`last_line` row with the most recently finalized line's `ttf`/`revisions`/
+`stability`, and (once stopped) the same `summary` row as `--no-tui` above --
+all updated live as you speak.
 
 If the microphone won't open, macOS will need to grant terminal/mic
 permissions the first time -- see
