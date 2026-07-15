@@ -4,6 +4,8 @@ A Go client + CLI for the [Moonshine voice library](https://github.com/moonshine
 (STT + TTS), built directly on `libmoonshine`'s C API rather than
 reimplementing its model pipeline.
 
+<img width="1152" height="784" alt="Image" src="https://github.com/user-attachments/assets/46d0d6bf-eeb5-4c2b-9ac8-3c3b0bfa3643" />
+
 - `internal/moonshine` -- a pure-Go binding (no cgo needed to *build* it) that
   dlopens `libmoonshine.{dylib,so}` at runtime via
   [`ebitengine/purego`](https://github.com/ebitengine/purego) and calls
