@@ -28,6 +28,7 @@ details -- this guide assumes you already have `bin/moonshine` built and
 | `moonshine live` | Transcribe continuously from the microphone |
 | `moonshine tts <text>` | Synthesize speech to a WAV file |
 | `moonshine config` | List or set persistent config.yaml values |
+| `moonshine version` (or `--version`) | Print the CLI's own build version (see `doctor` for libmoonshine's version) |
 
 Every command also accepts the global flags `--json`, `--lib-dir`, and
 `--model-dir` (see the README's Configuration table).
