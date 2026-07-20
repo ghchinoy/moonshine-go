@@ -28,6 +28,12 @@ credentials.json
 
 # OS / editor cruft
 .DS_Store
+
+# Local editor/agent-tool state, not project config
+.serena/
+
+# Stray tts default output if run from the repo root without -o
+/out.wav
 *.swp
 *.swo
 *~
