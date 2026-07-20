@@ -5,13 +5,19 @@ MOONSHINE_SRC ?=
 
 export CGO_ENABLED ?= 1
 
+# CLI's own build version (see cmd/moonshine/version.go) -- semver tag if
+# HEAD is tagged, else an abbreviated commit hash; "-dirty" suffix if the
+# worktree has uncommitted changes. Falls back to "dev" outside a git
+# checkout (e.g. building from a source tarball with no .git directory).
+VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+
 .PHONY: all build buildlib clean test smoke fmt vet
 
 all: build
 
 ## build: Build the moonshine CLI into ./bin.
 build: $(BIN_DIR)
-	go build -o $(BINARY) ./cmd/moonshine
+	go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY) ./cmd/moonshine
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
