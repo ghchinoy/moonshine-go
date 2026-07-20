@@ -15,13 +15,15 @@ var (
 	// Flag targets. Effective values are always read via viper.GetString in
 	// runTTS (flag > env > config.yaml > default), not these vars directly
 	// -- see the viper.BindPFlag calls in init() below.
-	ttsLanguage   string
-	ttsVoice      string
-	ttsSpeed      string
-	ttsG2PRoot    string
-	ttsOutput     string
-	ttsListVoices bool
-	ttsPlay       bool
+	ttsLanguage     string
+	ttsVoice        string
+	ttsSpeed        string
+	ttsG2PRoot      string
+	ttsOutput       string
+	ttsListVoices   bool
+	ttsPlay         bool
+	ttsIPA          string
+	ttsShowPhonemes bool
 )
 
 var ttsCmd = &cobra.Command{
@@ -39,7 +41,12 @@ downloads (see its --help for why).
 --g2p-root defaults to <moonshine.src_dir>/core/moonshine-tts/data if
 moonshine.src_dir is set (env $MOONSHINE_SRC, or the moonshine.src_dir key
 in config.yaml) -- set it once with "moonshine config set moonshine.src_dir
-/path/to/moonshine" instead of passing --g2p-root every time.`,
+/path/to/moonshine" instead of passing --g2p-root every time.
+
+--show-phonemes and --ipa support an inspect-and-edit workflow for fixing
+mispronunciations (e.g. proper nouns): run --show-phonemes on your text to
+see the default IPA phonemes G2P produces, then re-run with --ipa and your
+hand-corrected phonemes to synthesize from them directly, skipping G2P.`,
 	RunE: runTTS,
 }
 
@@ -51,6 +58,8 @@ func init() {
 	ttsCmd.Flags().StringVarP(&ttsOutput, "output", "o", "out.wav", "Output WAV file path")
 	ttsCmd.Flags().BoolVar(&ttsListVoices, "list-voices", false, "List known voices for --language and exit")
 	ttsCmd.Flags().BoolVar(&ttsPlay, "play", false, "Play the synthesized audio through the default output device after writing it")
+	ttsCmd.Flags().StringVar(&ttsIPA, "ipa", "", "Synthesize directly from this IPA phonemes string, skipping G2P (mutually exclusive with <text>; see --show-phonemes)")
+	ttsCmd.Flags().BoolVar(&ttsShowPhonemes, "show-phonemes", false, "Print the default G2P IPA phonemes for <text> and exit, without synthesizing audio")
 
 	// Safe to BindPFlag directly here: unlike stt.language/stt.arch (shared
 	// across setup/transcribe/live -- see flagOrConfig in lib.go), these
@@ -96,10 +105,34 @@ func runTTS(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if len(args) == 0 {
-		return fmt.Errorf("tts: a text argument is required (or pass --list-voices)")
+	if ttsIPA != "" && len(args) > 0 {
+		return fmt.Errorf("tts: --ipa and a <text> argument are mutually exclusive -- --ipa already provides phonemes directly, it doesn't need text to convert")
 	}
-	text := args[0]
+
+	if ttsShowPhonemes {
+		if len(args) == 0 {
+			return fmt.Errorf("tts: --show-phonemes requires a <text> argument")
+		}
+		phonemizer, err := moonshine.NewPhonemizer(language, createOpts...)
+		if err != nil {
+			return err
+		}
+		defer phonemizer.Close()
+		phonemes, err := phonemizer.TextToPhonemes(args[0])
+		if err != nil {
+			return err
+		}
+		fmt.Println(phonemes)
+		return nil
+	}
+
+	if ttsIPA == "" && len(args) == 0 {
+		return fmt.Errorf("tts: a text argument is required (or pass --ipa, --show-phonemes, or --list-voices)")
+	}
+	var text string
+	if len(args) > 0 {
+		text = args[0]
+	}
 
 	if voice != "" {
 		createOpts = append(createOpts, moonshine.Option{Name: "voice", Value: voice})
@@ -117,7 +150,12 @@ func runTTS(cmd *cobra.Command, args []string) error {
 	loadMs := msSince(t0)
 
 	t0 = time.Now()
-	out, err := synth.Synthesize(text)
+	var out moonshine.Audio
+	if ttsIPA != "" {
+		out, err = synth.PhonemesToSpeech(ttsIPA)
+	} else {
+		out, err = synth.Synthesize(text)
+	}
 	if err != nil {
 		return err
 	}

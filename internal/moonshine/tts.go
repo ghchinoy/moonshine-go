@@ -93,6 +93,34 @@ func (s *Synthesizer) Synthesize(text string, opts ...Option) (Audio, error) {
 	return Audio{Samples: samples, SampleRate: sampleRate}, nil
 }
 
+// PhonemesToSpeech synthesizes speech directly from an International
+// Phonetic Alphabet (IPA) phonemes string, skipping the grapheme-to-phoneme
+// conversion Synthesize performs internally. phonemes should be in the
+// format produced by (*Phonemizer).TextToPhonemes for a matching language --
+// this is the "edit" half of an inspect-and-edit workflow, e.g. hand-fixing
+// how a proper noun gets pronounced between TextToPhonemes and
+// PhonemesToSpeech. Only "speed" is honored in opts, same as Synthesize.
+func (s *Synthesizer) PhonemesToSpeech(phonemes string, opts ...Option) (Audio, error) {
+	if !Loaded() {
+		return Audio{}, errNotLoaded
+	}
+	if s.closed {
+		return Audio{}, errClosed
+	}
+	cOpts, optCount, keep := toCOptions(opts)
+	var audioPtr unsafe.Pointer
+	var audioSize uint64
+	var sampleRate int32
+	code := fnPhonemesToSpeech(s.handle, phonemes, cOpts, optCount, &audioPtr, &audioSize, &sampleRate)
+	runtime.KeepAlive(keep)
+	if err := checkCode("phonemes_to_speech", code); err != nil {
+		return Audio{}, err
+	}
+	defer freeC(audioPtr)
+	samples := goFloat32Slice((*float32)(audioPtr), audioSize)
+	return Audio{Samples: samples, SampleRate: sampleRate}, nil
+}
+
 // VoiceAvailability is one known TTS voice id and whether its assets are
 // available (on disk, under the resolved g2p_root/model_root).
 type VoiceAvailability struct {

@@ -151,7 +151,12 @@ var (
 	fnCreateTTSSynthesizerFromFiles func(language string, filenames unsafe.Pointer, filenamesCount uint64, options *cOption, optionsCount uint64, version int32) int32
 	fnFreeTTSSynthesizer            func(handle int32)
 	fnTextToSpeech                  func(handle int32, text string, options *cOption, optionsCount uint64, outAudioData *unsafe.Pointer, outAudioDataSize *uint64, outSampleRate *int32) int32
+	fnPhonemesToSpeech              func(handle int32, phonemes string, options *cOption, optionsCount uint64, outAudioData *unsafe.Pointer, outAudioDataSize *uint64, outSampleRate *int32) int32
 	fnGetTTSVoices                  func(languages string, options *cOption, optionsCount uint64, outVoicesJSON *unsafe.Pointer) int32
+
+	fnCreateGraphemeToPhonemizerFromFiles func(language string, filenames unsafe.Pointer, filenamesCount uint64, options *cOption, optionsCount uint64, version int32) int32
+	fnFreeGraphemeToPhonemizer            func(handle int32)
+	fnTextToPhonemes                      func(handle int32, text string, options *cOption, optionsCount uint64, outPhonemes *unsafe.Pointer, outPhonemesCount *uint64) int32
 
 	fnGetSTTDependencies func(language string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
 	fnGetTTSDependencies func(languages string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
@@ -178,7 +183,12 @@ func registerSymbols(h uintptr) {
 	reg(&fnCreateTTSSynthesizerFromFiles, "moonshine_create_tts_synthesizer_from_files")
 	reg(&fnFreeTTSSynthesizer, "moonshine_free_tts_synthesizer")
 	reg(&fnTextToSpeech, "moonshine_text_to_speech")
+	reg(&fnPhonemesToSpeech, "moonshine_phonemes_to_speech")
 	reg(&fnGetTTSVoices, "moonshine_get_tts_voices")
+
+	reg(&fnCreateGraphemeToPhonemizerFromFiles, "moonshine_create_grapheme_to_phonemizer_from_files")
+	reg(&fnFreeGraphemeToPhonemizer, "moonshine_free_grapheme_to_phonemizer")
+	reg(&fnTextToPhonemes, "moonshine_text_to_phonemes")
 
 	reg(&fnGetSTTDependencies, "moonshine_get_stt_dependencies")
 	reg(&fnGetTTSDependencies, "moonshine_get_tts_dependencies")

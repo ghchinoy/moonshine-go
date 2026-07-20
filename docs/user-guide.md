@@ -360,7 +360,39 @@ moonshine tts --voice kokoro_af_heart --play "Hi there."
 | `--g2p-root` | derived from `moonshine.src_dir` | Directory laid out like moonshine's `core/moonshine-tts/data` (`kokoro/`, `<lang>/piper-voices/`, ...) (config key: `tts.g2p_root`) |
 | `-o, --output` | `out.wav` | Output WAV path |
 | `--play` | `false` | Play the synthesized audio through the default output device after writing it (cross-platform: CoreAudio/WASAPI/ALSA+PulseAudio via `malgo`/miniaudio, same backend `live`'s mic capture uses) |
+| `--ipa` | `` | Synthesize directly from this IPA phonemes string, skipping G2P (mutually exclusive with `<text>`) |
+| `--show-phonemes` | `false` | Print the default G2P IPA phonemes for `<text>` and exit, without synthesizing |
 | `--list-voices` | `false` | List known voices for `--language` and exit |
+
+### Overriding G2P's phonemes with `--ipa`
+
+Moonshine's TTS isn't one model reading text directly -- it runs a G2P
+(grapheme-to-phoneme) step first, converting your text to an International
+Phonetic Alphabet (IPA) string, then synthesizes audio from *that*. The G2P
+step is a heuristic, and it can mispronounce things, most often proper nouns.
+`--show-phonemes` lets you see what G2P actually produced, and `--ipa` lets
+you synthesize from a hand-corrected version instead, skipping G2P entirely
+for that call.
+
+A concrete example: G2P reads "Reading, Pennsylvania" as if "Reading" rhymed
+with "read" (present tense) --
+
+```sh
+$ moonshine tts --voice kokoro_af_heart --show-phonemes "Reading, Pennsylvania is a city."
+ɹˈidɪŋ pˌɛnsəlvˈeɪnjə ɪz ə sˈɪti
+```
+
+-- but the city is pronounced like "Redding". Hand-correct just that word's
+phonemes (`ɹˈidɪŋ` -> `ˈɹɛdɪŋ`) and synthesize from the edited IPA directly:
+
+```sh
+moonshine tts --voice kokoro_af_heart --ipa "ˈɹɛdɪŋ pˌɛnsəlvˈeɪnjə ɪz ə sˈɪti" -o reading-fixed.wav
+```
+
+The phonemes are normalized to the active voice's phoneme inventory before
+synthesis, so passing G2P's own unedited output back through `--ipa` for the
+same language/voice produces audio equivalent to not using `--ipa` at all --
+only the parts you actually change differ.
 
 ### Configuring `--g2p-root` once instead of every time
 
