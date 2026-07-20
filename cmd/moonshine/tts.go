@@ -21,6 +21,7 @@ var (
 	ttsG2PRoot    string
 	ttsOutput     string
 	ttsListVoices bool
+	ttsPlay       bool
 )
 
 var ttsCmd = &cobra.Command{
@@ -49,6 +50,7 @@ func init() {
 	ttsCmd.Flags().StringVar(&ttsG2PRoot, "g2p-root", "", "Directory holding kokoro/, <lang>/piper-voices/, etc. (default: derived from moonshine.src_dir; see 'moonshine config --help')")
 	ttsCmd.Flags().StringVarP(&ttsOutput, "output", "o", "out.wav", "Output WAV file path")
 	ttsCmd.Flags().BoolVar(&ttsListVoices, "list-voices", false, "List known voices for --language and exit")
+	ttsCmd.Flags().BoolVar(&ttsPlay, "play", false, "Play the synthesized audio through the default output device after writing it")
 
 	// Safe to BindPFlag directly here: unlike stt.language/stt.arch (shared
 	// across setup/transcribe/live -- see flagOrConfig in lib.go), these
@@ -128,5 +130,12 @@ func runTTS(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s %s (%d samples, %d Hz, %.2fs)\n", stylePass.Render("Wrote"), ttsOutput, len(out.Samples), out.SampleRate, out.Duration().Seconds())
 	fmt.Fprintf(os.Stderr, "%s load=%.0fms synth=%.0fms rtf=%.1fx\n",
 		muted("stats:"), loadMs, synthMs, out.Duration().Seconds()/(synthMs/1000.0))
+
+	if ttsPlay {
+		fmt.Fprintln(os.Stderr, muted("playing..."))
+		if err := audio.PlayFloat32(out.Samples, out.SampleRate); err != nil {
+			return fmt.Errorf("tts: playing audio: %w", err)
+		}
+	}
 	return nil
 }

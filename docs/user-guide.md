@@ -346,6 +346,9 @@ moonshine tts --language en_us --list-voices
 
 # Faster/slower speech, different output path.
 moonshine tts --voice kokoro_af_heart --speed 1.2 -o greeting.wav "Hi there."
+
+# Hear it immediately -- still writes out.wav (or -o's path) too.
+moonshine tts --voice kokoro_af_heart --play "Hi there."
 ```
 
 | Flag | Default | Notes |
@@ -355,6 +358,7 @@ moonshine tts --voice kokoro_af_heart --speed 1.2 -o greeting.wav "Hi there."
 | `--speed` | `1.0` | Synthesis speed multiplier (config key: `tts.speed`) |
 | `--g2p-root` | derived from `moonshine.src_dir` | Directory laid out like moonshine's `core/moonshine-tts/data` (`kokoro/`, `<lang>/piper-voices/`, ...) (config key: `tts.g2p_root`) |
 | `-o, --output` | `out.wav` | Output WAV path |
+| `--play` | `false` | Play the synthesized audio through the default output device after writing it (cross-platform: CoreAudio/WASAPI/ALSA+PulseAudio via `malgo`/miniaudio, same backend `live`'s mic capture uses) |
 | `--list-voices` | `false` | List known voices for `--language` and exit |
 
 ### Configuring `--g2p-root` once instead of every time
