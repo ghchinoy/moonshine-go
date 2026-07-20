@@ -37,6 +37,13 @@ if [[ -z "${MOONSHINE_SRC}" || ! -f "${MOONSHINE_SRC}/core/moonshine-c-api.h" ]]
 fi
 echo "==> Using moonshine checkout: ${MOONSHINE_SRC}"
 
+# Check if build-critical files are unpulled Git LFS pointers
+if grep -q "https://git-lfs.github.com/spec/v1" "${MOONSHINE_SRC}/core/moonshine-tts/src/zipvoice-voices-data.cpp" 2>/dev/null; then
+  echo "error: Git LFS pointer files detected in ${MOONSHINE_SRC}!" >&2
+  echo "  Run 'git -C ${MOONSHINE_SRC} lfs pull' to pull required build assets and retry." >&2
+  exit 1
+fi
+
 BUILD_DIR="${MOONSHINE_BUILD_DIR:-${MOONSHINE_SRC}/core/build-moonshine-go}"
 OUT_DIR="${MOONSHINE_LIB_OUT:-${REPO_ROOT}/.moonshine/lib}"
 JOBS="${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}"

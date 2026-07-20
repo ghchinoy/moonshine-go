@@ -495,7 +495,7 @@ Run `moonshine doctor` first -- it checks most of what's below in one shot
 prints the exact fix command for whatever's missing. The rest of this
 section covers things `doctor` doesn't (or can't) check automatically.
 
-**`compiler errors mentioning git-lfs.github.com` when running `make
+**`compiler errors mentioning git-lfs.github.com` or `unknown type name 'version'` when running `make
 buildlib`** -- the moonshine checkout has unpulled LFS files. Run
 `git -C <checkout> lfs pull` (or `git lfs install --local` first if you see
 "Git LFS is not installed for this repository"). `moonshine doctor` confirms

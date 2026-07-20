@@ -3,6 +3,8 @@ BINARY     := $(BIN_DIR)/moonshine
 LIB_DIR    := .moonshine/lib
 MOONSHINE_SRC ?=
 
+export CGO_ENABLED ?= 1
+
 .PHONY: all build buildlib clean test smoke fmt vet
 
 all: build
