@@ -1,0 +1,12 @@
+# Always check out text files with LF line endings, regardless of the
+# platform's git config (e.g. Windows' common core.autocrlf=true default).
+# This isn't just cosmetic: gofmt considers a CRLF-terminated file
+# "unformatted" regardless of its actual content, so without this, `gofmt
+# -l .` flags every single .go file on a Windows checkout -- not real style
+# violations, just line-ending translation. Bit us on the first Windows CI
+# run (see .github/workflows/ci.yml).
+* text=auto eol=lf
+
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
