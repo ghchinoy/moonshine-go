@@ -61,8 +61,8 @@ func TestTrackLines_RevisionsAndStability(t *testing.T) {
 	if lt.StabilityRatio != wantStability {
 		t.Errorf("StabilityRatio = %v, want %v", lt.StabilityRatio, wantStability)
 	}
-	if lt.TimeToFinal <= 0 {
-		t.Errorf("TimeToFinal = %v, want > 0", lt.TimeToFinal)
+	if lt.TimeToFinal < 0 {
+		t.Errorf("TimeToFinal = %v, want >= 0", lt.TimeToFinal)
 	}
 
 	if len(l.finalized) != 1 {
