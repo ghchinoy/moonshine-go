@@ -1,0 +1,66 @@
+name: CI
+
+# Plain Go correctness checks only -- build, vet, gofmt, and the
+# non-native test suite (the "moonshinesmoke" build tag is never passed
+# here, so nothing touches MOONSHINE_LIB_DIR or requires a built
+# libmoonshine). This intentionally never checks out or builds moonshine's
+# C++ core, so it never touches moonshine-ai/moonshine's git-lfs bandwidth --
+# see docs/ (and bd issues moonshine-go-glg / moonshine-go-hbq) for the
+# separate, not-yet-actionable plan for a release pipeline that fetches or
+# builds libmoonshine itself.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # internal/audio requires cgo (github.com/gen2brain/malgo, for mic
+      # capture and playback) even though internal/moonshine itself is
+      # purego-based and cgo-free. windows-latest ships a MinGW gcc toolchain
+      # under MSYS2 (C:\msys64) but it isn't on PATH by default -- add it so
+      # `go build`/`go vet`/`go test` can actually invoke cgo on this runner.
+      - name: Add MinGW to PATH (Windows only, for cgo)
+        if: runner.os == 'Windows'
+        run: echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: go build
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: gofmt
+        shell: bash
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      # Plain `go test ./...`, matching `make test` -- excludes the
+      # moonshinesmoke-tagged tests in internal/moonshine/smoke_test.go,
+      # which require a real built/fetched libmoonshine and are not run in
+      # this workflow.
+      - name: go test
+        run: go test ./...
