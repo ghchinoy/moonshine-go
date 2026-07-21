@@ -120,7 +120,7 @@ func Load(path string) error {
 			loadErr = err
 			return
 		}
-		h, err := purego.Dlopen(resolved, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		h, err := openLibrary(resolved)
 		if err != nil {
 			loadErr = fmt.Errorf("moonshine: dlopen %s: %w", resolved, err)
 			return
@@ -195,9 +195,14 @@ func registerSymbols(h uintptr) {
 
 	// libc's free(), used to release buffers the moonshine API documents as
 	// "allocated with malloc; release with free" (dependency/voice JSON,
-	// synthesized audio). Resolved from the process's already-loaded
-	// symbols rather than libmoonshine itself.
-	purego.RegisterLibFunc(&fnFree, purego.RTLD_DEFAULT, "free")
+	// synthesized audio). Resolved from the process's already-loaded C
+	// runtime rather than libmoonshine itself (see crtHandle in
+	// openlib_unix.go/openlib_windows.go for the per-platform mechanism).
+	// If this fails, fnFree stays nil and freeC becomes a no-op (a memory
+	// leak, not a crash -- see freeC's own nil-check).
+	if crt, err := crtHandle(); err == nil {
+		purego.RegisterLibFunc(&fnFree, crt, "free")
+	}
 }
 
 func errorToString(code int32) string {
