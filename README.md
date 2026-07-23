@@ -11,7 +11,7 @@ reimplementing its model pipeline.
   [`ebitengine/purego`](https://github.com/ebitengine/purego) and calls
   directly into its exported C functions. This is the same integration point
   moonshine's own Python bindings use (`ctypes.CDLL` over `moonshine-c-api.h`).
-- `cmd/moonshine` -- a cobra/viper CLI: `setup`, `transcribe`, `live`, `serve`, `tts`, `models`.
+- `cmd/moonshine` -- a cobra/viper CLI: `setup`, `transcribe`, `live`, `serve`, `tts`.
 
 This isn't published to any package registry -- it's built from source
 against a local moonshine checkout (below), and there's no Go-only `go
