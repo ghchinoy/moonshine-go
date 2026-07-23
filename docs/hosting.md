@@ -54,6 +54,136 @@ the core model loop is untouched.
    `Stream.AddAudio`. This refactor also unblocks file/stream transcription,
    so it's useful well beyond hosting.
 
+   The most common hosted case is a **browser that owns the microphone** —
+   see the next subsection.
+
+### Browser as the audio source (JS/Lit front-end)
+
+A natural deployment: a web page uses the browser's own microphone APIs
+(`getUserMedia` + an `AudioWorklet`) to capture audio and streams it to a
+`moonshine serve` backend over WebSocket; the server does the transcription
+and streams `TranscriptEvent`s back on the same socket. The browser owns
+*capture*; the server owns *inference*. This is the concrete instance of the
+"Audio in" work above, tracked as bd `moonshine-go-elj` (remote-PCM
+`AudioSource`) plus `moonshine-go-7br` (per-connection sessions, so each tab
+is its own session).
+
+> **Status:** the *transcript-out* direction works today — a browser can
+> already connect with the standard WebSocket API and receive events (see the
+> `WSTransport` doc comment in `internal/serve/ws.go`). The *audio-in*
+> direction below is forward-looking: it needs `moonshine-go-elj` to land. The
+> sketch shows the intended shape, not a shipped feature.
+
+**Why this split helps.** It removes the microphone — and therefore the cgo
+build requirement — from the server entirely. Today `serve` needs
+`CGO_ENABLED=1` and `gen2brain/malgo` *only* because of local mic capture
+(`internal/audio`); the `internal/moonshine` STT bindings are cgo-free. If the
+browser captures audio, a hosted server can be a pure PCM-in service with no
+mic code, simplifying the container (this is the "mic removed" note in
+*serve-in-a-box* below). It also hands mic-permission and cross-platform
+device handling to the browser, which already solves those well.
+
+**The sample-rate gotcha.** Browsers capture at the hardware's native rate —
+commonly **48 kHz** — but Moonshine expects **16 kHz mono float32**
+(`audio.TargetSampleRate` / `moonshine.SampleRate`, both `16000`). Something
+must downsample. Two options:
+
+- **Client-side (recommended):** resample to 16 kHz in the `AudioWorklet`
+  before sending. Cuts upload bandwidth ~3× and keeps the server dumb.
+- **Server-side:** send native-rate audio and resample on ingest. A pure-Go
+  linear resampler already exists (`audio.Resample`), though it currently
+  lives in the cgo-tainted `internal/audio` package; a hosted server would
+  want it (or an equivalent) available cgo-free.
+
+**Wire framing.** `Stream.AddAudio(samples []float32, sampleRate int32)` is the
+target, so the simplest framing is **raw little-endian PCM frames** (Float32
+or Int16) sent as WebSocket *binary* messages, with the sample rate agreed
+once at connect time. Transcript events keep coming back as the existing JSON
+text frames (`wireEnvelope{ "kind": "transcript"|"display"|"action_result",
+"payload": … }`). Opus/WebM via `MediaRecorder` is possible for
+bandwidth-constrained links but requires a server-side decoder — heavier;
+prefer raw PCM unless you have a reason not to. Defining this framing is an
+explicit part of `moonshine-go-elj`'s acceptance criteria.
+
+**New problems to plan for.** This shape introduces concerns the local case
+doesn't:
+
+- **Ingest backpressure.** The Hub's drop-oldest backpressure is designed for
+  *transcript fan-out*, not *audio ingest*. Dropping inbound audio frames
+  corrupts the transcript, so ingest needs its own bounded-buffer / flow
+  strategy — an open design point for `moonshine-go-elj`.
+- **Secure context.** Browsers only allow `getUserMedia` on `https://` (or
+  `localhost`), so any real deployment needs TLS in front of the endpoint.
+- **Auth.** A browser-facing audio endpoint is a public attack surface; put
+  authentication in front of the transports (see *Security* below).
+
+**Minimal Lit sketch** (illustrative; the audio-in half assumes
+`moonshine-go-elj` has landed):
+
+```js
+import { LitElement, html } from 'lit';
+
+// AudioWorklet processor: downsample 48k -> 16k mono and post Float32 frames.
+const workletCode = `
+class PCMDownsampler extends AudioWorkletProcessor {
+  constructor() { super(); this._ratio = sampleRate / 16000; this._acc = 0; this._buf = []; }
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (!ch) return true;
+    for (let i = 0; i < ch.length; i++) {
+      this._acc += 1;
+      if (this._acc >= this._ratio) { this._acc -= this._ratio; this._buf.push(ch[i]); }
+    }
+    if (this._buf.length >= 1024) {
+      this.port.postMessage(Float32Array.from(this._buf));
+      this._buf = [];
+    }
+    return true;
+  }
+}
+registerProcessor('pcm-downsampler', PCMDownsampler);
+`;
+
+export class MoonshineMic extends LitElement {
+  static properties = { url: { type: String }, lines: { state: true } };
+  constructor() { super(); this.url = 'wss://localhost:8765/ws'; this.lines = []; }
+
+  async start() {
+    this.ws = new WebSocket(this.url);
+    this.ws.binaryType = 'arraybuffer';
+    this.ws.onmessage = (ev) => {
+      // Transcript-out: works today.
+      const env = JSON.parse(ev.data);
+      if (env.kind === 'transcript') {
+        const p = JSON.parse(env.payload);
+        const done = new Set(p.finalized_line_ids || []);
+        this.lines = p.lines.filter((l) => done.has(l.id)).map((l) => l.text);
+      }
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = new AudioContext();
+    const blobUrl = URL.createObjectURL(new Blob([workletCode], { type: 'text/javascript' }));
+    await ctx.audioWorklet.addModule(blobUrl);
+    const src = ctx.createMediaStreamSource(stream);
+    const node = new AudioWorkletNode(ctx, 'pcm-downsampler');
+    node.port.onmessage = (e) => {
+      // Audio-in: forward-looking (needs moonshine-go-elj).
+      if (this.ws.readyState === WebSocket.OPEN) this.ws.send(e.data.buffer);
+    };
+    src.connect(node);
+  }
+
+  render() {
+    return html`
+      <button @click=${() => this.start()}>Start mic</button>
+      <ul>${this.lines.map((t) => html`<li>${t}</li>`)}</ul>
+    `;
+  }
+}
+customElements.define('moonshine-mic', MoonshineMic);
+```
+
 2. **Audio out — return bytes, not speaker playback.**
    TTS today uses `audio.PlayFloat32` (the box's default output device), and
    barge-in is a local mic mute (`mic.SetMutedFunc`). A hosted daemon must
@@ -149,5 +279,6 @@ the project off its local-first center of gravity.
 - [serve-sidecar.md](serve-sidecar.md) — the serve architecture / IPC contract.
 - [hardware-acceleration.md](hardware-acceleration.md) — `--providers` and
   measured acceleration results.
-- bd epic `Hostable cascade` — the tracked enabling work (AudioSource,
-  TTS-to-bytes, session manager, container, hosting docs).
+- bd epic `Hostable cascade` (`moonshine-go-f26`) — the tracked enabling work.
+  The browser-audio-source path specifically is `moonshine-go-elj` (remote-PCM
+  `AudioSource`) + `moonshine-go-7br` (per-connection sessions).
