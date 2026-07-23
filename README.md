@@ -18,6 +18,11 @@ against a local moonshine checkout (below), and there's no Go-only `go
 install` path since the CLI needs the native `libmoonshine` shared library at
 runtime.
 
+**Mission:** fast local Moonshine STT + Go make the classic
+speech → STT → LLM → TTS → speech *cascade* viable again -- and with it, the
+control, observability, and privacy a single speech-to-speech model gives up.
+See [docs/MISSION.md](docs/MISSION.md).
+
 ## Contents
 
 - [Prerequisites](#prerequisites)
@@ -294,6 +299,10 @@ came up building/using this that didn't fit neatly into flag `--help` text:
   command and flag, with real examples and a troubleshooting section.
 - [docs/quickstart-voice-agent.md](docs/quickstart-voice-agent.md) -- build
   your first voice agent against `moonshine serve` (Tier 0/1/2 walkthrough).
+- [docs/hosting.md](docs/hosting.md) -- hosting `moonshine serve` beyond your
+  laptop: serve-in-a-box and bring-your-own-cloud deployment.
+- [docs/MISSION.md](docs/MISSION.md) -- why this project exists: bringing the
+  STT → LLM → TTS cascade back.
 - [docs/faq.md](docs/faq.md) -- timestamps, transcription speed (RTF),
   progress indicators, model caching, saving output.
 - [docs/hardware-acceleration.md](docs/hardware-acceleration.md) --

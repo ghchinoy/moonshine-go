@@ -32,6 +32,9 @@ credentials.json
 # Local editor/agent-tool state, not project config
 .serena/
 
+# Internal vision/landscape touchstone docs -- not part of the public repo
+/docs/vision/
+
 # Stray tts default output if run from the repo root without -o
 /out.wav
 *.swp
