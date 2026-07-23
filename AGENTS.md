@@ -44,6 +44,21 @@ paths matter if you want to avoid pulling the entire LFS payload).
   (`encoder_model.ort`, etc.) -- don't "simplify" this back to a flat
   directory.
 
+## Active multi-agent work: `moonshine serve` (agentic voice sidecar)
+
+There is an in-progress feature (bd epic `moonshine-go-6nb`) that adds a
+`moonshine serve` daemon streaming live transcripts over IPC (WebSocket +
+gRPC) with a built-in Gemini agent. It is designed to be built by **two
+agents in parallel**.
+
+**Before starting any `serve` work, read
+[docs/serve-sidecar.md](docs/serve-sidecar.md).** It defines the interaction
+pattern, the one-file-per-task ownership map (so two agents never edit the
+same file), the two coordination points (`go.mod` and one line in
+`root.go`), and the backpressure/idempotency/barge-in contracts every task
+must honor. `bd ready` + the dependency graph enforce the ordering; the doc
+explains *why* each edge exists.
+
 
 <!-- headroom:rtk-instructions -->
 # RTK (Rust Token Killer) - Token-Optimized Commands
