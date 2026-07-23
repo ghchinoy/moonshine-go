@@ -13,6 +13,9 @@ building and using moonshine-go, beyond what's in the top-level
 - [hosting.md](hosting.md) -- hosting `moonshine serve` beyond your laptop:
   serve-in-a-box and bring-your-own-cloud deployment.
 - [RELEASING.md](RELEASING.md) -- versioning policy, tagging guidelines, and GitHub release automation.
+- [testing-with-container.md](testing-with-container.md) -- verifying Linux
+  `dlopen()` behavior locally on Apple Silicon with Apple's `container`
+  CLI, no Docker required.
 - [MISSION.md](MISSION.md) -- why this project exists: bringing the
   STT → LLM → TTS cascade back.
 - [faq.md](faq.md) -- timestamps, transcription speed (RTF), progress
