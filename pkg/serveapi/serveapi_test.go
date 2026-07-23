@@ -1,0 +1,163 @@
+package serveapi
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+)
+
+func TestTranscriptEventFinalizedLines(t *testing.T) {
+	ev := TranscriptEvent{
+		Lines: []Line{
+			{ID: 1, Text: "one", IsComplete: true},
+			{ID: 2, Text: "two", IsComplete: true},
+			{ID: 3, Text: "interim"},
+		},
+		FinalizedLineIDs: []uint64{2},
+	}
+	got := ev.FinalizedLines()
+	if len(got) != 1 || got[0].ID != 2 || got[0].Text != "two" {
+		t.Fatalf("FinalizedLines() = %+v, want single line id=2", got)
+	}
+
+	if ev2 := (TranscriptEvent{Lines: ev.Lines}); ev2.FinalizedLines() != nil {
+		t.Fatalf("no FinalizedLineIDs should yield nil, got %+v", ev2.FinalizedLines())
+	}
+}
+
+func TestTranscriptEventJSONTags(t *testing.T) {
+	// Guard the wire format: a snapshot of the expected JSON keys.
+	b, err := json.Marshal(TranscriptEvent{
+		Lines:            []Line{{ID: 1, Text: "hi", IsComplete: true}},
+		FinalizedLineIDs: []uint64{1},
+		ElapsedMs:        10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"lines", "finalized_line_ids", "elapsed_ms"} {
+		if _, ok := m[k]; !ok {
+			t.Errorf("expected JSON key %q in %s", k, b)
+		}
+	}
+	// Omitempty fields absent when zero.
+	if _, ok := m["ttft_ms"]; ok {
+		t.Errorf("ttft_ms should be omitted when zero: %s", b)
+	}
+}
+
+func TestCompositeHandlerFirstNonEmptyWins(t *testing.T) {
+	empty := handlerFunc(func(context.Context, Line) []ActionRequest { return nil })
+	speak := handlerFunc(func(context.Context, Line) []ActionRequest {
+		return []ActionRequest{{Verb: "speak"}}
+	})
+	display := handlerFunc(func(context.Context, Line) []ActionRequest {
+		return []ActionRequest{{Verb: "display"}}
+	})
+	c := NewCompositeHandler(nil, empty, speak, display)
+	got := c.OnFinalizedLine(context.Background(), Line{ID: 1})
+	if len(got) != 1 || got[0].Verb != "speak" {
+		t.Fatalf("composite = %+v, want first non-empty (speak)", got)
+	}
+}
+
+func TestAgentRunnerDedupAndDispatch(t *testing.T) {
+	var dispatched []ActionRequest
+	sink := ActionSinkFunc(func(ctx context.Context, req ActionRequest) (ActionResult, error) {
+		dispatched = append(dispatched, req)
+		return ActionResult{ID: req.ID, OK: true}, nil
+	})
+	handler := handlerFunc(func(ctx context.Context, l Line) []ActionRequest {
+		return []ActionRequest{{Verb: "speak", ID: l.Text}}
+	})
+	r := NewAgentRunner(handler, sink)
+
+	ev := TranscriptEvent{
+		Lines:            []Line{{ID: 7, Text: "hello", IsComplete: true}},
+		FinalizedLineIDs: []uint64{7},
+	}
+	r.ProcessEvent(context.Background(), ev)
+	r.ProcessEvent(context.Background(), ev) // same line again -> must dedupe
+
+	if len(dispatched) != 1 {
+		t.Fatalf("expected 1 dispatch after dedup, got %d (%+v)", len(dispatched), dispatched)
+	}
+}
+
+func TestAgentRunnerIgnoresInterim(t *testing.T) {
+	called := false
+	handler := handlerFunc(func(context.Context, Line) []ActionRequest {
+		called = true
+		return nil
+	})
+	r := NewAgentRunner(handler, nil)
+	r.ProcessLine(context.Background(), Line{ID: 1, IsComplete: false})
+	if called {
+		t.Fatal("handler must not be called for interim (incomplete) lines")
+	}
+}
+
+func TestStaticRetriever(t *testing.T) {
+	r := NewStaticRetriever(
+		Result{Title: "Aspirin", Snippet: "pain reliever"},
+		Result{Title: "Ibuprofen", Snippet: "NSAID"},
+	)
+	got, err := r.Retrieve(context.Background(), "nsaid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Title != "Ibuprofen" {
+		t.Fatalf("Retrieve(nsaid) = %+v, want Ibuprofen", got)
+	}
+	all, _ := r.Retrieve(context.Background(), "")
+	if len(all) != 2 {
+		t.Fatalf("empty query should return all, got %d", len(all))
+	}
+}
+
+func TestNoopRetriever(t *testing.T) {
+	got, err := NoopRetriever{}.Retrieve(context.Background(), "anything")
+	if err != nil || got != nil {
+		t.Fatalf("NoopRetriever = (%v, %v), want (nil, nil)", got, err)
+	}
+}
+
+// fakeSource verifies the AudioSource contract (Chunks + Err) is usable.
+type fakeSource struct {
+	ch  chan []float32
+	err error
+}
+
+func (f *fakeSource) Chunks() <-chan []float32 { return f.ch }
+func (f *fakeSource) Err() error               { return f.err }
+
+func TestAudioSourceContract(t *testing.T) {
+	f := &fakeSource{ch: make(chan []float32, 1)}
+	var _ AudioSource = f // interface satisfaction
+
+	f.ch <- []float32{0.1, 0.2}
+	close(f.ch)
+	f.err = errors.New("connection dropped")
+
+	var got [][]float32
+	for c := range f.Chunks() {
+		got = append(got, c)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 chunk, got %d", len(got))
+	}
+	if f.Err() == nil {
+		t.Fatal("expected non-nil Err after abnormal termination")
+	}
+}
+
+type handlerFunc func(context.Context, Line) []ActionRequest
+
+func (h handlerFunc) OnFinalizedLine(ctx context.Context, l Line) []ActionRequest {
+	return h(ctx, l)
+}
