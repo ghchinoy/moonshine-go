@@ -26,6 +26,7 @@ details -- this guide assumes you already have `bin/moonshine` built and
 | `moonshine setup` | Download STT model files for a (language, arch) pair |
 | `moonshine transcribe <file\|gs://...>` | Transcribe one audio file, start to finish |
 | `moonshine live` | Transcribe continuously from the microphone |
+| `moonshine serve` | Start the agentic voice sidecar daemon (WebSocket + gRPC IPC) |
 | `moonshine tts <text>` | Synthesize speech to a WAV file |
 | `moonshine config` | List or set persistent config.yaml values |
 | `moonshine version` (or `--version`) | Print the CLI's own build version (see `doctor` for libmoonshine's version) |
@@ -318,6 +319,40 @@ all updated live as you speak.
 If the microphone won't open, macOS will need to grant terminal/mic
 permissions the first time -- see
 [Troubleshooting](#troubleshooting) below.
+
+## serve
+
+Starts the agentic voice sidecar daemon: listens continuously on the microphone, streams live `TranscriptEvent` JSON over WebSocket (`/ws`) and/or gRPC (`VoiceSidecar.Stream`), and executes inbound actions (`speak` via TTS, `display` cards, `session.pause/resume/stop`, and LLM tool calls via Gemini).
+
+```sh
+# Start sidecar with WebSocket transport and Gemini agent
+moonshine serve --transport ws --agent gemini --allow-actions
+
+# Enable both WebSocket and gRPC transports
+moonshine serve --transport ws,grpc --addr :8765 --grpc-addr :9090
+
+# External agent mode (IPC subscribers handle logic)
+moonshine serve --transport ws --agent external
+```
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--addr` | `:8765` | Address for WebSocket transport |
+| `--ws-path` | `/ws` | HTTP path for WebSocket transport |
+| `--grpc-addr` | `:9090` | Address for gRPC transport |
+| `--transport` | `ws` | Comma-separated transports: `ws`, `grpc`, or `ws,grpc` |
+| `--agent` | `external` | Agent mode: `external` (IPC subscribers control logic) or `gemini` (built-in Gemini LLM agent) |
+| `--gemini-model` | `gemini-2.5-flash` | Gemini model ID for `--agent gemini` |
+| `--allow-actions` | `false` | Gate enabling mutating actions (`speak`, `session control`, `run_command`) |
+| `--tts-voice` | (auto) | Default TTS voice override |
+| `--tts-language` | `en_us` | TTS speaker language |
+| `--arch` | `tiny-streaming` | STT model architecture (`tiny-streaming`, `small-streaming`, `medium-streaming`) |
+| `--language` | `en` | STT model language |
+
+### Key Invariants
+- **Backpressure & Idempotency:** Interim frames drop under backpressure, but every finalized line (`Line.ID`) is delivered to subscribers/agents exactly once.
+- **Barge-in Guard:** Microphone input is automatically muted while TTS is speaking to prevent the sidecar from transcribing its own voice.
+- **Action Security:** Mutating actions (`speak`, `session.pause/resume/stop`, `run_command`) require `--allow-actions`. `run_command` is disabled by default.
 
 ## tts
 

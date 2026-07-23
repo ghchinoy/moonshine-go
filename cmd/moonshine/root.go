@@ -67,6 +67,8 @@ func init() {
 	rootCmd.AddCommand(transcribeCmd)
 	rootCmd.AddCommand(liveCmd)
 	rootCmd.AddCommand(ttsCmd)
+	rootCmd.AddCommand(modelsCmd)
+	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(doctorCmd)
 }
