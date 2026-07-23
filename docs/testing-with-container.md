@@ -38,7 +38,8 @@ real Ubuntu 22.04/24.04 container with:
 OSError: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.43' not found (required by ./libmoonshine.so)
 ```
 
-GLIBC 2.43 doesn't exist in any current major Linux distribution --
+GLIBC 2.43 doesn't exist in Ubuntu 20.04/22.04/24.04 (glibc 2.31–2.39),
+Debian 12 "Bookworm" (glibc 2.36), or even Debian unstable/sid (glibc 2.42) --
 upstream's x86_64 build environment was apparently built against an
 unusually new glibc. The `linux-arm64` asset, built and tested the same
 way, required only GLIBC 2.27 (portable back to Ubuntu 18.04+) and loaded

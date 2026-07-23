@@ -25,8 +25,8 @@ This document describes how `moonshine-go` is versioned, packaged, and released.
 *(Note: macOS and Windows upstream release assets currently ship static libraries only. They are tracked under task `moonshine-go-hbq` and will be added to automated releases once upstream exports shared libraries).*
 
 **⚠️ Known issue (`moonshine-go-dh7`):** the `linux-x86_64` release asset for
-`v0.0.71` requires GLIBC 2.43, which does not exist in current Ubuntu LTS
-releases (22.04 is 2.35, 24.04 is 2.39) or most other current distros --
+`v0.0.71` requires GLIBC 2.43, which does not exist in Ubuntu LTS releases
+(20.04/22.04/24.04), Debian 12 (2.36), or even Debian testing/unstable (2.42) --
 `scripts/check-release-asset.sh`'s static checks all pass, but the library
 fails to `dlopen()` at runtime. This was found via a live load test (see
 [testing-with-container.md](testing-with-container.md)); `.github/workflows/release.yml`
