@@ -24,6 +24,7 @@ details -- this guide assumes you already have `bin/moonshine` built and
 |---|---|
 | `moonshine doctor` | Check build/runtime prerequisites and suggest fixes |
 | `moonshine setup` | Download STT model files for a (language, arch) pair |
+| `moonshine models` | List available STT models and local download status |
 | `moonshine transcribe <file\|gs://...>` | Transcribe one audio file, start to finish |
 | `moonshine live` | Transcribe continuously from the microphone |
 | `moonshine serve` | Start the agentic voice sidecar daemon (WebSocket + gRPC IPC) |
@@ -113,6 +114,40 @@ moonshine setup --arch tiny-streaming   # for live
 
 `moonshine doctor` checks both model directories (as separate rows) so a
 missing one shows up before you hit the error mid-command.
+
+## models
+
+Lists all supported speech-to-text model architectures (streaming vs non-streaming) and checks whether each model is currently downloaded in the local model directory (`--model-dir`).
+
+```sh
+moonshine models
+moonshine models --language en
+moonshine --json models
+```
+
+```
+$ moonshine models
+moonshine models (language: en)
+model.dir: /Users/username/Library/Caches/moonshine_voice
+--------------------------------------------------
+  tiny             non-streaming [downloaded] /Users/.../tiny-en (4 files)
+    Fast, lightweight non-streaming model for offline transcription
+  base             non-streaming [downloaded] /Users/.../base-en (4 files)
+    Larger non-streaming model with higher accuracy
+  tiny-streaming   streaming     [downloaded] /Users/.../tiny-streaming-en (8 files)
+    Low-latency streaming model for live speech
+  base-streaming   streaming     [not cached]
+    Base-size streaming model (defined in C API; not currently published in English CDN catalog)
+  small-streaming  streaming     [downloaded] /Users/.../small-streaming-en (8 files)
+    Small streaming model for complex audio
+  medium-streaming streaming     [downloaded] /Users/.../medium-streaming-en (8 files)
+    Largest streaming model for maximum accuracy
+--------------------------------------------------
+```
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--language` | `en` | Language code or English name to check model files for |
 
 ## transcribe
 
