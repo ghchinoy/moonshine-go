@@ -11,6 +11,7 @@
 
 # Go build artifacts
 /bin/
+/dist/
 *.test
 *.out
 coverage.txt

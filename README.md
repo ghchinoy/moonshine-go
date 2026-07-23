@@ -51,6 +51,19 @@ credentials) in one shot, with specific fix commands for anything missing.
 
 ## Build libmoonshine
 
+### Option A: Fetch prebuilt release binaries (Linux)
+
+On Linux (x86_64 / arm64), you can fetch prebuilt shared libraries directly from official GitHub releases without compiling from source or pulling the C++ checkout:
+
+```sh
+make fetchlib
+# or: ./scripts/fetch-libmoonshine.sh
+```
+
+This downloads `libmoonshine.so` and `libonnxruntime.so.1` for the pinned release tag (see `MOONSHINE_RELEASE_TAG`) into `.moonshine/lib/`.
+
+### Option B: Build from source
+
 Clone a local checkout of moonshine itself (this is a separate, much larger
 repo that moonshine-go builds against, not something vendored in here):
 

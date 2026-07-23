@@ -2,6 +2,8 @@ BIN_DIR    := bin
 BINARY     := $(BIN_DIR)/moonshine
 LIB_DIR    := .moonshine/lib
 MOONSHINE_SRC ?=
+MOONSHINE_TAG ?=
+MOONSHINE_PLATFORM ?=
 
 export CGO_ENABLED ?= 1
 
@@ -11,7 +13,7 @@ export CGO_ENABLED ?= 1
 # checkout (e.g. building from a source tarball with no .git directory).
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: all build buildlib clean test smoke fmt vet proto
+.PHONY: all build buildlib fetchlib release-package clean test smoke fmt vet proto
 
 all: build
 
@@ -27,6 +29,15 @@ $(BIN_DIR):
 ##           (or export MOONSHINE_SRC in your shell instead of passing it here).
 buildlib:
 	./scripts/build-libmoonshine.sh $(MOONSHINE_SRC)
+
+## fetchlib: Fetch prebuilt libmoonshine release asset into .moonshine/lib.
+##           Usage: make fetchlib [MOONSHINE_TAG=v0.0.71] [MOONSHINE_PLATFORM=linux-x86_64]
+fetchlib:
+	./scripts/fetch-libmoonshine.sh $(MOONSHINE_TAG) $(MOONSHINE_PLATFORM)
+
+## release-package: Package built binary and staged libs into dist/ tarball.
+release-package: build
+	VERSION=$(VERSION) ./scripts/package-release.sh $(MOONSHINE_PLATFORM)
 
 ## test: Run the regular (non-native) Go test suite.
 test:
@@ -53,7 +64,7 @@ vet:
 
 ## clean: Remove build output (leaves .moonshine/lib alone; see `make distclean`).
 clean:
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR) dist
 
 ## distclean: Also remove the staged native library output.
 distclean: clean
