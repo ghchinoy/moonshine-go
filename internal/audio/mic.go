@@ -13,9 +13,16 @@ import (
 // miniaudio library) -- a separate, unavoidable concern from the purego-based
 // libmoonshine bindings in internal/moonshine, which remain cgo-free.
 type MicCapture struct {
-	ctx    *malgo.AllocatedContext
-	device *malgo.Device
-	chunks chan []float32
+	ctx       *malgo.AllocatedContext
+	device    *malgo.Device
+	chunks    chan []float32
+	mutedFunc func() bool
+}
+
+// SetMutedFunc configures a function that, when returning true, suppresses
+// incoming microphone audio chunks (e.g. for barge-in muting during TTS playback).
+func (m *MicCapture) SetMutedFunc(fn func() bool) {
+	m.mutedFunc = fn
 }
 
 // StartMicCapture opens the default microphone at TargetSampleRate, mono,
@@ -35,7 +42,7 @@ func StartMicCapture() (*MicCapture, error) {
 
 	callbacks := malgo.DeviceCallbacks{
 		Data: func(_, in []byte, _ uint32) {
-			if len(in) < 4 {
+			if len(in) < 4 || (mc.mutedFunc != nil && mc.mutedFunc()) {
 				return
 			}
 			src := unsafe.Slice((*float32)(unsafe.Pointer(&in[0])), len(in)/4)

@@ -43,6 +43,11 @@ paths matter if you want to avoid pulling the entire LFS payload).
   precisely because different models share filenames
   (`encoder_model.ort`, etc.) -- don't "simplify" this back to a flat
   directory.
+- `internal/serve` implements the `moonshine serve` agentic voice sidecar:
+  - **Hub/Dispatcher/Transport/Agent Separation:** Hub handles live event fan-out (`session.Update` -> `TranscriptEvent`); Dispatcher routes inbound actions (`speak`, `display`, `session.pause/resume/stop`, `run_command`); Transport Manager merges WebSocket (`ws.go`) and gRPC (`grpc.go` / `serve.proto`) connections; Agent layer handles fast-path intent matching (`intent.go`) and Gemini LLM function-calling (`gemini.go`).
+  - **Backpressure & Idempotency:** Hub uses drop-oldest for interim updates, but guarantees every finalized line (`Line.ID`) is delivered to subscribers/agents exactly once.
+  - **Barge-in Guard:** `TTSSpeaker` exposes `Speaking()`, which mutes microphone input during TTS playback to prevent the sidecar from transcribing its own voice output.
+  - **Native-Free Unit Tests:** All logic in `internal/serve` must be testable with fakes (`fakeLLMClient`, `fakeTransport`, `fakeSpeaker`) without requiring `libmoonshine` or network calls.
 
 ## Active multi-agent work: `moonshine serve` (agentic voice sidecar)
 

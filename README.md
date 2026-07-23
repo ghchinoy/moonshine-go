@@ -11,7 +11,7 @@ reimplementing its model pipeline.
   [`ebitengine/purego`](https://github.com/ebitengine/purego) and calls
   directly into its exported C functions. This is the same integration point
   moonshine's own Python bindings use (`ctypes.CDLL` over `moonshine-c-api.h`).
-- `cmd/moonshine` -- a cobra/viper CLI: `setup`, `transcribe`, `live`, `tts`.
+- `cmd/moonshine` -- a cobra/viper CLI: `setup`, `transcribe`, `live`, `serve`, `tts`.
 
 This isn't published to any package registry -- it's built from source
 against a local moonshine checkout (below), and there's no Go-only `go
@@ -101,6 +101,9 @@ make build   # -> bin/moonshine ; equivalently: go build -o bin/moonshine ./cmd/
 ./bin/moonshine setup --arch tiny-streaming
 ./bin/moonshine live --arch tiny-streaming
 ./bin/moonshine live --no-tui   # plain text, for scripting/logging
+
+# Agentic voice sidecar daemon (streams live transcripts over WS/gRPC IPC).
+./bin/moonshine serve --transport ws,grpc --allow-actions --agent gemini
 
 # -o/--output saves the transcript to a file in addition to stdout/the TUI.
 ./bin/moonshine transcribe -o transcript.txt path/to/audio.wav
@@ -286,6 +289,8 @@ came up building/using this that didn't fit neatly into flag `--help` text:
 
 - [docs/user-guide.md](docs/user-guide.md) -- full walkthrough of every
   command and flag, with real examples and a troubleshooting section.
+- [docs/quickstart-voice-agent.md](docs/quickstart-voice-agent.md) -- build
+  your first voice agent against `moonshine serve` (Tier 0/1/2 walkthrough).
 - [docs/faq.md](docs/faq.md) -- timestamps, transcription speed (RTF),
   progress indicators, model caching, saving output.
 - [docs/hardware-acceleration.md](docs/hardware-acceleration.md) --
