@@ -98,6 +98,8 @@ github.com/googleapis/enterprise-certificate-proxy v0.3.16 h1:F/VPrx0YPBdksZJQdC
 github.com/googleapis/enterprise-certificate-proxy v0.3.16/go.mod h1:9Yb0eAkH/Xqhvv3zbeKf/+wMJqCeocWc6KIhDvEAuYE=
 github.com/googleapis/gax-go/v2 v2.22.0 h1:PjIWBpgGIVKGoCXuiCoP64altEJCj3/Ei+kSU5vlZD4=
 github.com/googleapis/gax-go/v2 v2.22.0/go.mod h1:irWBbALSr0Sk3qlqb9SyJ1h68WjgeFuiOzI4Rqw5+aY=
+github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
+github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
@@ -199,6 +201,8 @@ gonum.org/v1/gonum v0.17.0 h1:VbpOemQlsSMrYmn7T2OUvQ4dqxQXU+ouZFQsZOx50z4=
 gonum.org/v1/gonum v0.17.0/go.mod h1:El3tOrEuMpv2UdMrbNlKEh9vd86bmQ6vqIcDwxEOc1E=
 google.golang.org/api v0.285.0 h1:B7eHHoKGAX/LrPkQvhQqnGwjgWxofbdGwCTQvpm8FkM=
 google.golang.org/api v0.285.0/go.mod h1:NlOlUIr8MPoIhT9Bb/oUnRuHbJOLwxb6JSYJM8Yz+jQ=
+google.golang.org/genai v1.65.0 h1:6QK3Rjsx0iuJjbDCE1vf1VUr1IEjRDpvexGGnhxoAIk=
+google.golang.org/genai v1.65.0/go.mod h1:mDdPDFXo1Ats7f1WXVyZgWb/CkMzFWTWJruIMy7hGIU=
 google.golang.org/genproto v0.0.0-20260519071638-aa98bba5eb94 h1:YJjbgu+dkp5kUJLfpMyCLfBIWZb/FcJyuLeo1gVBOuo=
 google.golang.org/genproto v0.0.0-20260519071638-aa98bba5eb94/go.mod h1:RRHjglSYABVCWpQ7USCpdfhcd9t4PkajvVwyynZizTc=
 google.golang.org/genproto/googleapis/api v0.0.0-20260615183401-62b3387ff324 h1:g0RAkxK/smSu/iRwC/KIX1mwUoVJtk2OjbgaeS4DmUM=
