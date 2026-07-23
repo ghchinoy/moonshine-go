@@ -11,7 +11,7 @@ export CGO_ENABLED ?= 1
 # checkout (e.g. building from a source tarball with no .git directory).
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: all build buildlib clean test smoke fmt vet
+.PHONY: all build buildlib clean test smoke fmt vet proto
 
 all: build
 
@@ -35,6 +35,15 @@ test:
 ## smoke: Run the tests that exercise a real built libmoonshine (see internal/moonshine/smoke_test.go).
 smoke:
 	MOONSHINE_LIB_DIR=$(CURDIR)/$(LIB_DIR) go test -tags moonshinesmoke ./internal/moonshine/... -v
+
+## proto: Regenerate internal/serve/servepb from internal/serve/serve.proto.
+##        Requires protoc, protoc-gen-go, and protoc-gen-go-grpc on PATH
+##        (e.g. `brew install protobuf && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+##        google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest`).
+proto:
+	protoc --go_out=. --go_opt=module=github.com/ghchinoy/moonshine-go \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/ghchinoy/moonshine-go \
+		internal/serve/serve.proto
 
 fmt:
 	gofmt -l .

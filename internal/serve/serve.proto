@@ -1,0 +1,95 @@
+// Wire protocol for the moonshine serve sidecar's gRPC transport. Mirrors
+// internal/serve/event's Go types (see docs/serve-sidecar.md section 8 --
+// this is the frozen contract; keep it in sync with event.go). The
+// WebSocket transport (ws.go) speaks the same information as plain JSON;
+// this proto is for typed/codegen'd clients.
+//
+// Regenerate with `make proto` after editing this file.
+syntax = "proto3";
+
+package moonshine.serve.v1;
+
+option go_package = "github.com/ghchinoy/moonshine-go/internal/serve/servepb";
+
+// VoiceSidecar is the single bidirectional-streaming RPC a client opens: it
+// sends ActionRequests in and receives Events out, for as long as the
+// stream is held open. One stream corresponds to one Hub subscription
+// (see grpc.go).
+service VoiceSidecar {
+  rpc Stream(stream ActionRequest) returns (stream Event);
+}
+
+// Event is a discriminated union of everything the sidecar can push to a
+// subscriber, mirroring event.Kind / the WebSocket transport's
+// wireEnvelope. Exactly one field is set.
+message Event {
+  oneof payload {
+    TranscriptEvent transcript = 1;
+    DisplayCard display = 2;
+    ActionResult action_result = 3;
+  }
+}
+
+// Line mirrors moonshine.Line's wire-relevant fields (internal/moonshine/stt.go).
+// Word/SpeakerSpan details are intentionally omitted from v1 of this proto
+// (available via the WebSocket/JSON transport, which carries the full Go
+// struct) to keep the gRPC surface minimal; extend here if a gRPC consumer
+// needs them.
+message Line {
+  string text = 1;
+  float start_time = 2;
+  float duration = 3;
+  uint64 id = 4;
+  bool is_complete = 5;
+  bool is_updated = 6;
+  bool is_new = 7;
+  bool has_text_changed = 8;
+  string speaker_label = 9; // derived, see moonshine.Line.SpeakerLabel()
+}
+
+message SessionSummary {
+  int32 lines_finalized = 1;
+  int64 avg_time_to_final_ms = 2;
+  int64 max_time_to_final_ms = 3;
+  double avg_revisions = 4;
+  int32 max_revisions = 5;
+  double avg_stability_ratio = 6;
+}
+
+// TranscriptEvent mirrors event.TranscriptEvent.
+message TranscriptEvent {
+  repeated Line lines = 1;
+  repeated uint64 finalized_line_ids = 2;
+  int64 ttft_ms = 3;
+  int64 elapsed_ms = 4;
+  int64 poll_latency_ms = 5;
+  SessionSummary summary = 6; // unset unless done == true
+  bool done = 7;
+  string err = 8;
+}
+
+// DisplayCard mirrors event.DisplayCard. data is opaque JSON (kept as
+// bytes rather than google.protobuf.Struct to avoid a well-known-types
+// dependency for what is, in v1, a rarely-machine-parsed payload).
+message DisplayCard {
+  string title = 1;
+  string body = 2;
+  string kind = 3;
+  bytes data = 4; // raw JSON, same content as event.DisplayCard.Data
+}
+
+// ActionRequest mirrors event.ActionRequest. args is the verb-specific
+// payload, encoded as raw JSON bytes (same reasoning as DisplayCard.data)
+// so new verbs never require a proto schema change.
+message ActionRequest {
+  string id = 1;
+  string verb = 2;
+  bytes args = 3; // raw JSON, same content as event.ActionRequest.Args
+}
+
+// ActionResult mirrors event.ActionResult.
+message ActionResult {
+  string id = 1;
+  bool ok = 2;
+  string err = 3;
+}
