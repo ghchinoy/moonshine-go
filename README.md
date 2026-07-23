@@ -11,7 +11,7 @@ reimplementing its model pipeline.
   [`ebitengine/purego`](https://github.com/ebitengine/purego) and calls
   directly into its exported C functions. This is the same integration point
   moonshine's own Python bindings use (`ctypes.CDLL` over `moonshine-c-api.h`).
-- `cmd/moonshine` -- a cobra/viper CLI: `setup`, `transcribe`, `live`, `serve`, `tts`.
+- `cmd/moonshine` -- a cobra/viper CLI: `setup`, `transcribe`, `live`, `serve`, `tts`, `models`.
 
 This isn't published to any package registry -- it's built from source
 against a local moonshine checkout (below), and there's no Go-only `go
@@ -86,6 +86,9 @@ make build   # -> bin/moonshine ; equivalently: go build -o bin/moonshine ./cmd/
 
 # Download STT model assets (tiny/base/*-streaming) into the model cache.
 ./bin/moonshine setup --arch tiny
+
+# List available STT models (streaming & non-streaming) and local download status.
+./bin/moonshine models
 
 # Transcribe a local file or a GCS object.
 ./bin/moonshine transcribe path/to/audio.wav
