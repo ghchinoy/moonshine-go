@@ -192,12 +192,13 @@ customElements.define('moonshine-mic', MoonshineMic);
    synthesizer already exposes `Synthesize(...)` returning audio; `PlayFloat32`
    is simply the wrong primitive for the hosted case.
 
-3. **Sessions — one per connection, not one per process.**
-   Today one process owns one mic and one broadcast Hub — a single shared
-   session fanned out to many viewers. Hosting multiple independent callers
-   needs a **session manager**: each connection gets its own `Stream`, Hub,
-   and agent, with lifecycle and resource limits (memory and model-load cost
-   scale per active session).
+3. **Sessions — one per connection (via `--max-sessions`).**
+   In remote audio mode (`--audio-source remote`), `moonshine serve` uses a
+   `SessionManager` to allocate a fresh `Stream`, Hub, and `Dispatcher` for
+   each connecting WS/gRPC client, with resource limits enforced via
+   `--max-sessions N` (default 10). When the cap is reached, new connection
+   attempts are rejected immediately (WebSocket status 1008 / gRPC `ResourceExhausted`).
+   Local mic mode (`--audio-source local`) retains single-broadcast session behavior.
 
 Each of these is tracked as real work — see the `Hostable cascade` epic in bd
 (linked at the bottom).

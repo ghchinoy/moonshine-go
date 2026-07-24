@@ -26,6 +26,7 @@ var (
 	serveRemoteAudioRate             int
 	serveRemoteAudioEncoding         string
 	serveRemoteAudioChannels         int
+	serveMaxSessions                 int
 	serveAgent                       string
 	serveGeminiModel                 string
 	serveAllowActions                bool
@@ -63,6 +64,7 @@ func init() {
 	serveCmd.Flags().IntVar(&serveRemoteAudioRate, "remote-audio-rate", 16000, "Remote audio sample rate in Hz (for --audio-source remote)")
 	serveCmd.Flags().StringVar(&serveRemoteAudioEncoding, "remote-audio-encoding", "float32", "Remote audio sample encoding: float32 or int16 (for --audio-source remote)")
 	serveCmd.Flags().IntVar(&serveRemoteAudioChannels, "remote-audio-channels", 1, "Remote audio channel count: 1 (mono) or 2 (stereo) (for --audio-source remote)")
+	serveCmd.Flags().IntVar(&serveMaxSessions, "max-sessions", 10, "Maximum concurrent sessions in remote audio mode")
 	serveCmd.Flags().StringVar(&serveAgent, "agent", "external", "Agent mode: external (subscribers handle logic via IPC) or gemini (built-in Gemini LLM agent)")
 	serveCmd.Flags().StringVar(&serveGeminiModel, "gemini-model", "gemini-2.5-flash", "Google Gemini model ID (for --agent gemini)")
 	serveCmd.Flags().BoolVar(&serveAllowActions, "allow-actions", false, "Gate enabling mutating actions (speak, session control, run_command)")
@@ -153,25 +155,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	hub := serve.NewHub()
 
-	// Configure Transports
-	var transports []serve.Transport
-	transportTypes := strings.Split(serveTransport, ",")
-	for _, t := range transportTypes {
-		switch strings.TrimSpace(strings.ToLower(t)) {
-		case "ws":
-			wsTr := serve.NewWSTransport(hub, serveAddr, serveWSPath)
-			if remoteSource != nil {
-				wsTr.SetAudioSink(remoteSource)
-			}
-			transports = append(transports, wsTr)
-		case "grpc":
-			transports = append(transports, serve.NewGRPCTransport(hub, serveGRPCAddr))
-		}
-	}
-	if len(transports) == 0 {
-		return fmt.Errorf("no valid transports specified in --transport %q", serveTransport)
-	}
-
 	// Agent Setup
 	var agentHandler serve.AgentHandler
 	if strings.ToLower(serveAgent) == "gemini" {
@@ -189,6 +172,49 @@ func runServe(cmd *cobra.Command, args []string) error {
 		agentHandler = serve.NewCompositeHandler(intentMatcher, geminiAgent)
 	} else {
 		agentHandler = serve.ExternalAgent{}
+	}
+
+	var sessMgr *serve.SessionManager
+	var audioFmt serve.AudioFormat
+
+	if remoteSource != nil {
+		audioFmt = serve.AudioFormat{
+			SampleRate: serveRemoteAudioRate,
+			Channels:   serveRemoteAudioChannels,
+			Encoding:   serve.AudioEncoding(serveRemoteAudioEncoding),
+		}
+		sessMgr = serve.NewSessionManager(serve.SessionManagerConfig{
+			Transcriber:  tr,
+			Speaker:      speaker,
+			MaxSessions:  serveMaxSessions,
+			PollInterval: servePollInterval,
+			AllowActions: serveAllowActions,
+			IncludeAudio: serveIncludeAudio,
+			Agent:        agentHandler,
+		})
+		defer sessMgr.Close()
+	}
+
+	// Configure Transports
+	var transports []serve.Transport
+	transportTypes := strings.Split(serveTransport, ",")
+	for _, t := range transportTypes {
+		switch strings.TrimSpace(strings.ToLower(t)) {
+		case "ws":
+			wsTr := serve.NewWSTransport(hub, serveAddr, serveWSPath)
+			if sessMgr != nil {
+				wsTr.SetSessionManager(sessMgr, audioFmt)
+			} else if remoteSource != nil {
+				wsTr.SetAudioSink(remoteSource)
+			}
+			transports = append(transports, wsTr)
+		case "grpc":
+			grpcTr := serve.NewGRPCTransport(hub, serveGRPCAddr)
+			if sessMgr != nil {
+				grpcTr.SetSessionManager(sessMgr, audioFmt)
+			}
+			transports = append(transports, grpcTr)
+		}
 	}
 
 	srv, err := serve.NewServer(serve.ServerConfig{
@@ -209,6 +235,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, stylePass.Render("moonshine serve is running"))
 		fmt.Fprintf(os.Stderr, "  audio-source:  %s\n", serveAudioSource)
+		if serveAudioSource == "remote" {
+			fmt.Fprintf(os.Stderr, "  max-sessions:  %d\n", serveMaxSessions)
+		}
 		fmt.Fprintf(os.Stderr, "  transports:    %s\n", serveTransport)
 		fmt.Fprintf(os.Stderr, "  allow-actions: %v\n", serveAllowActions)
 		fmt.Fprintf(os.Stderr, "  include-audio: %v\n", serveIncludeAudio)
