@@ -35,6 +35,11 @@ decides what finalized text should trigger). This is why the sidecar
 supports three independent integration tiers, each fully served by the
 same layer split.
 
+The "mic" at the top isn't fixed to the local microphone, either: `--audio-source
+remote` swaps it for a network PCM source (binary WS frames), which is what
+makes [browser-listen](browser-listen/) possible — the daemon and the
+microphone don't have to be on the same machine.
+
 ## Start the sidecar daemon
 
 ```sh
@@ -170,14 +175,13 @@ runner.Run(ctx, events)                             // events: <-chan serveapi.T
   module (with a `replace` directive to this checkout) so it builds exactly
   the way a real third-party consumer of `pkg/serveapi` would — verified to
   build with `CGO_ENABLED=0`, zero `internal/*` imports.
-- **`browser-listen`** (planned, `moonshine-go-ly9`) — a static HTML+JS
-  page: `getUserMedia` + `AudioWorklet` captures mic audio in the browser
-  and streams it to a remote `moonshine serve`, rendering the live
-  transcript coming back over the same connection. No build step, no
-  install of anything — the "composability" pillar taken to its logical
-  extreme. Blocked on `moonshine-go-cl3` (the server needs a CLI flag to
-  accept remote audio; the underlying `RemoteAudioSource` type already
-  exists in `pkg/serveapi`, nothing wires it up yet).
+- [browser-listen](browser-listen/) — a static HTML+JS page:
+  `getUserMedia` + `AudioWorklet` captures mic audio in the browser and
+  streams it to a remote `moonshine serve` via `--audio-source remote`,
+  rendering the live transcript coming back over the same connection. No
+  build step, no install of anything — the "composability" pillar taken to
+  its logical extreme, and the concrete realization of "browser as the
+  audio source" from `docs/hosting.md`.
 
 ---
 
