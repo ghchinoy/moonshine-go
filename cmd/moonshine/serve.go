@@ -12,6 +12,7 @@ import (
 	"github.com/ghchinoy/moonshine-go/internal/audio"
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -21,6 +22,10 @@ var (
 	serveWSPath                      string
 	serveGRPCAddr                    string
 	serveTransport                   string
+	serveAudioSource                 string
+	serveRemoteAudioRate             int
+	serveRemoteAudioEncoding         string
+	serveRemoteAudioChannels         int
 	serveAgent                       string
 	serveGeminiModel                 string
 	serveAllowActions                bool
@@ -54,6 +59,10 @@ func init() {
 	serveCmd.Flags().StringVar(&serveWSPath, "ws-path", "/ws", "HTTP path for WebSocket transport")
 	serveCmd.Flags().StringVar(&serveGRPCAddr, "grpc-addr", ":9090", "Address for gRPC transport (host:port)")
 	serveCmd.Flags().StringVar(&serveTransport, "transport", "ws", "Comma-separated list of transports to enable (ws, grpc, or ws,grpc)")
+	serveCmd.Flags().StringVar(&serveAudioSource, "audio-source", "local", "Audio source mode: local (microphone) or remote (PCM streaming over WebSocket)")
+	serveCmd.Flags().IntVar(&serveRemoteAudioRate, "remote-audio-rate", 16000, "Remote audio sample rate in Hz (for --audio-source remote)")
+	serveCmd.Flags().StringVar(&serveRemoteAudioEncoding, "remote-audio-encoding", "float32", "Remote audio sample encoding: float32 or int16 (for --audio-source remote)")
+	serveCmd.Flags().IntVar(&serveRemoteAudioChannels, "remote-audio-channels", 1, "Remote audio channel count: 1 (mono) or 2 (stereo) (for --audio-source remote)")
 	serveCmd.Flags().StringVar(&serveAgent, "agent", "external", "Agent mode: external (subscribers handle logic via IPC) or gemini (built-in Gemini LLM agent)")
 	serveCmd.Flags().StringVar(&serveGeminiModel, "gemini-model", "gemini-2.5-flash", "Google Gemini model ID (for --agent gemini)")
 	serveCmd.Flags().BoolVar(&serveAllowActions, "allow-actions", false, "Gate enabling mutating actions (speak, session control, run_command)")
@@ -97,14 +106,36 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	defer tr.Close()
 
-	if !jsonOutput() {
-		fmt.Fprintln(os.Stderr, muted("opening microphone..."))
+	var audioSource serveapi.AudioSource
+	var remoteSource *serve.RemoteAudioSource
+
+	switch strings.ToLower(strings.TrimSpace(serveAudioSource)) {
+	case "local", "mic":
+		if !jsonOutput() {
+			fmt.Fprintln(os.Stderr, muted("opening microphone..."))
+		}
+		mic, err := audio.StartMicCapture()
+		if err != nil {
+			return fmt.Errorf("%w\n\n%s", err, muted("hint: check microphone permissions for this terminal in System Settings > Privacy & Security > Microphone"))
+		}
+		defer mic.Close()
+		audioSource = mic
+
+	case "remote":
+		if !jsonOutput() {
+			fmt.Fprintln(os.Stderr, muted(fmt.Sprintf("configuring remote PCM audio source (%dHz, %s, %d ch)...", serveRemoteAudioRate, serveRemoteAudioEncoding, serveRemoteAudioChannels)))
+		}
+		remoteSource = serve.NewRemoteAudioSource(serve.AudioFormat{
+			SampleRate: serveRemoteAudioRate,
+			Channels:   serveRemoteAudioChannels,
+			Encoding:   serve.AudioEncoding(serveRemoteAudioEncoding),
+		}, 100)
+		defer remoteSource.Close()
+		audioSource = remoteSource
+
+	default:
+		return fmt.Errorf("unknown --audio-source %q (expected 'local' or 'remote')", serveAudioSource)
 	}
-	mic, err := audio.StartMicCapture()
-	if err != nil {
-		return fmt.Errorf("%w\n\n%s", err, muted("hint: check microphone permissions for this terminal in System Settings > Privacy & Security > Microphone"))
-	}
-	defer mic.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -128,7 +159,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 	for _, t := range transportTypes {
 		switch strings.TrimSpace(strings.ToLower(t)) {
 		case "ws":
-			transports = append(transports, serve.NewWSTransport(hub, serveAddr, serveWSPath))
+			wsTr := serve.NewWSTransport(hub, serveAddr, serveWSPath)
+			if remoteSource != nil {
+				wsTr.SetAudioSink(remoteSource)
+			}
+			transports = append(transports, wsTr)
 		case "grpc":
 			transports = append(transports, serve.NewGRPCTransport(hub, serveGRPCAddr))
 		}
@@ -158,7 +193,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	srv, err := serve.NewServer(serve.ServerConfig{
 		Transcriber:  tr,
-		AudioSource:  mic,
+		AudioSource:  audioSource,
 		Hub:          hub,
 		Transports:   transports,
 		Agent:        agentHandler,
@@ -173,6 +208,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, stylePass.Render("moonshine serve is running"))
+		fmt.Fprintf(os.Stderr, "  audio-source:  %s\n", serveAudioSource)
 		fmt.Fprintf(os.Stderr, "  transports:    %s\n", serveTransport)
 		fmt.Fprintf(os.Stderr, "  allow-actions: %v\n", serveAllowActions)
 		fmt.Fprintf(os.Stderr, "  include-audio: %v\n", serveIncludeAudio)
