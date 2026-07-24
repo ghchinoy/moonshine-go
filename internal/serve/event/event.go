@@ -25,6 +25,7 @@ type (
 	ActionRequest   = serveapi.ActionRequest
 	ActionResult    = serveapi.ActionResult
 	SpeakArgs       = serveapi.SpeakArgs
+	TTSAudioEvent   = serveapi.TTSAudioEvent
 )
 
 // DisplayArgs is the Args payload for the "display" verb: a DisplayCard to
@@ -35,6 +36,7 @@ const (
 	KindTranscript   = serveapi.KindTranscript
 	KindDisplay      = serveapi.KindDisplay
 	KindActionResult = serveapi.KindActionResult
+	KindTTSAudio     = serveapi.KindTTSAudio
 )
 
 // FromUpdate converts a session.Update into the wire-format TranscriptEvent.

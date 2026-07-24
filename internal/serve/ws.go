@@ -37,6 +37,8 @@ func envelopeFor(ev any) (wireEnvelope, error) {
 		kind = event.KindDisplay
 	case event.ActionResult:
 		kind = event.KindActionResult
+	case event.TTSAudioEvent:
+		kind = event.KindTTSAudio
 	default:
 		return wireEnvelope{}, fmt.Errorf("serve/ws: unsupported event type %T", ev)
 	}

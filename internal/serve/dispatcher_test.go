@@ -173,7 +173,7 @@ func TestDispatcher_SessionControl_AllVerbs(t *testing.T) {
 	sess := &fakeSession{}
 	d := NewDispatcher(nil, &fakePublisher{}, sess, true)
 
-	for _, verb := range []string{"session.pause", "session.resume", "session.stop"} {
+	for _, verb := range []string{"session.pause", "session.resume", "session.stop", "session.barge_in"} {
 		res := d.Handle(context.Background(), event.ActionRequest{ID: verb, Verb: verb})
 		if !res.OK {
 			t.Fatalf("%s: expected OK, got Err=%q", verb, res.Err)

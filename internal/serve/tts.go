@@ -8,6 +8,7 @@ import (
 
 	"github.com/ghchinoy/moonshine-go/internal/audio"
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/ghchinoy/moonshine-go/internal/serve/event"
 )
 
 // TTSSpeaker implements Speaker using a lazily-constructed
@@ -29,9 +30,11 @@ type TTSSpeaker struct {
 	language string
 	baseOpts []moonshine.Option
 
-	mu     sync.Mutex
-	synth  *moonshine.Synthesizer // lazily created on first Speak
-	closed bool
+	mu        sync.Mutex
+	synth     *moonshine.Synthesizer // lazily created on first Speak
+	closed    bool
+	publisher Publisher
+	playLocal bool
 
 	speaking atomic.Bool
 }
@@ -43,7 +46,17 @@ type TTSSpeaker struct {
 // constructing a TTSSpeaker never touches libmoonshine (keeping
 // e.g. `moonshine serve --allow-actions=false` free of TTS model loading).
 func NewTTSSpeaker(language string, baseOpts ...moonshine.Option) *TTSSpeaker {
-	return &TTSSpeaker{language: language, baseOpts: baseOpts}
+	return &TTSSpeaker{language: language, baseOpts: baseOpts, playLocal: true}
+}
+
+// SetPublisher configures a Publisher (e.g. Hub) for emitting TTSAudioEvent wire
+// events over transports. If playLocal is false, local audio.PlayFloat32 playback
+// is skipped (for hosted/remote use).
+func (s *TTSSpeaker) SetPublisher(publisher Publisher, playLocal bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.publisher = publisher
+	s.playLocal = playLocal
 }
 
 // Speak synthesizes text and plays it through the default output device,
@@ -89,10 +102,52 @@ func (s *TTSSpeaker) Speak(ctx context.Context, text, voice string, speed float6
 	s.speaking.Store(true)
 	defer s.speaking.Store(false)
 
-	if err := audio.PlayFloat32(audioOut.Samples, audioOut.SampleRate); err != nil {
-		return fmt.Errorf("serve: tts playback: %w", err)
+	s.mu.Lock()
+	pub := s.publisher
+	playLocal := s.playLocal
+	s.mu.Unlock()
+
+	if pub != nil {
+		pub.Publish(event.TTSAudioEvent{
+			Text:       text,
+			SampleRate: int(audioOut.SampleRate),
+			State:      "start",
+		})
+		pub.Publish(event.TTSAudioEvent{
+			Text:       text,
+			AudioData:  audioOut.Samples,
+			SampleRate: int(audioOut.SampleRate),
+			State:      "chunk",
+		})
+		defer func() {
+			pub.Publish(event.TTSAudioEvent{
+				Text:       text,
+				SampleRate: int(audioOut.SampleRate),
+				State:      "end",
+			})
+		}()
+	}
+
+	if playLocal {
+		if err := audio.PlayFloat32(audioOut.Samples, audioOut.SampleRate); err != nil {
+			return fmt.Errorf("serve: tts playback: %w", err)
+		}
 	}
 	return nil
+}
+
+// Interrupt stops active speech indicator and emits an in-protocol "interrupted" event.
+func (s *TTSSpeaker) Interrupt(ctx context.Context) {
+	s.speaking.Store(false)
+	s.mu.Lock()
+	pub := s.publisher
+	s.mu.Unlock()
+
+	if pub != nil {
+		pub.Publish(event.TTSAudioEvent{
+			State: "interrupted",
+		})
+	}
 }
 
 // Speaking reports whether a Speak call is currently synthesizing or

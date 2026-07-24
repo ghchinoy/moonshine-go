@@ -109,7 +109,7 @@ func (d *Dispatcher) Handle(ctx context.Context, req event.ActionRequest) event.
 		return d.handleSpeak(ctx, req)
 	case "display":
 		return d.handleDisplay(req)
-	case "session.pause", "session.resume", "session.stop":
+	case "session.pause", "session.resume", "session.stop", "session.barge_in":
 		return d.handleSessionControl(ctx, req)
 	case "agent.result":
 		return d.handleAgentResult(ctx, req)
@@ -169,6 +169,13 @@ func (d *Dispatcher) handleSessionControl(ctx context.Context, req event.ActionR
 		err = d.session.Resume(ctx)
 	case "session.stop":
 		err = d.session.Stop(ctx)
+	case "session.barge_in":
+		if interrupter, ok := d.speaker.(interface{ Interrupt(context.Context) }); ok {
+			interrupter.Interrupt(ctx)
+		}
+		if d.session != nil {
+			err = d.session.Pause(ctx)
+		}
 	}
 	if err != nil {
 		return fail(req.ID, err.Error())

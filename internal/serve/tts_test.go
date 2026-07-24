@@ -1,6 +1,11 @@
 package serve
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/ghchinoy/moonshine-go/internal/serve/event"
+)
 
 // These tests deliberately avoid calling Speak (which requires libmoonshine
 // to be loaded, real audio output, etc. -- see internal/moonshine/smoke_test.go
@@ -23,5 +28,22 @@ func TestTTSSpeaker_CloseWithoutSpeak(t *testing.T) {
 	// Safe to call twice.
 	if err := s.Close(); err != nil {
 		t.Fatalf("second Close() = %v, want nil", err)
+	}
+}
+
+func TestTTSSpeaker_SetPublisherAndInterrupt(t *testing.T) {
+	s := NewTTSSpeaker("en_us")
+	pub := &fakePublisher{}
+	s.SetPublisher(pub, false)
+
+	ctx := context.Background()
+	s.Interrupt(ctx)
+
+	if len(pub.published) != 1 {
+		t.Fatalf("published len = %d, want 1", len(pub.published))
+	}
+	te, ok := pub.published[0].(event.TTSAudioEvent)
+	if !ok || te.State != "interrupted" {
+		t.Fatalf("got %#v, want TTSAudioEvent{State: \"interrupted\"}", pub.published[0])
 	}
 }

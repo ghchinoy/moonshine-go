@@ -12,6 +12,7 @@ const (
 	KindTranscript   Kind = "transcript"
 	KindDisplay      Kind = "display"
 	KindActionResult Kind = "action_result"
+	KindTTSAudio     Kind = "tts_audio"
 )
 
 // TranscriptEvent is the JSON/proto-friendly projection of a live
@@ -87,6 +88,16 @@ type SessionSummary struct {
 	AvgRevisions      float64 `json:"avg_revisions"`
 	MaxRevisions      int     `json:"max_revisions"`
 	AvgStabilityRatio float64 `json:"avg_stability_ratio"`
+}
+
+// TTSAudioEvent carries synthesized speech audio bytes or state signals to
+// remote clients over transports for hosted use.
+type TTSAudioEvent struct {
+	ID         string    `json:"id,omitempty"`          // ActionRequest correlation ID, if triggered by a speak action
+	Text       string    `json:"text,omitempty"`        // Synthesized text
+	AudioData  []float32 `json:"audio_data,omitempty"`  // PCM float32 samples
+	SampleRate int       `json:"sample_rate,omitempty"` // e.g. 24000 or 16000
+	State      string    `json:"state"`                 // "start", "chunk", "end", or "interrupted"
 }
 
 // DisplayCard is a small, structured piece of information to show in a UI:
