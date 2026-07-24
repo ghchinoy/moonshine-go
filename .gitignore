@@ -16,6 +16,12 @@
 *.out
 coverage.txt
 
+# samples/ Go module build output and Python virtualenvs/bytecode
+samples/*/moonshine-sample-*
+samples/**/.venv/
+samples/**/__pycache__/
+samples/**/*.pyc
+
 # Downloaded model assets, in case `moonshine setup`/`transcribe`/`live` is
 # ever pointed at a project-local --model-dir instead of the default cache.
 /.moonshine-models/

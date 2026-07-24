@@ -53,9 +53,30 @@ Two layers, deliberately decoupled:
 
 Do not relitigate these without updating the epic and this doc:
 
-- **Keep the pipeline in `internal/`.** No promotion to `pkg/`. The
-  extension surface is IPC/JSON, not Go imports. External sidecars talk
-  JSON/proto, in any language.
+- **Keep the daemon pipeline in `internal/`.** The model wiring, transports,
+  Hub, and dispatcher are not for external Go import — the primary
+  extension surface is IPC/JSON, and external sidecars in any language talk
+  JSON/proto, not Go.
+
+  **Amendment (`moonshine-go-y0k`/`zj2`):** `pkg/serveapi` is a narrow,
+  deliberate exception, added after this was first written. It promotes
+  only the *agent-extension contract* — interfaces (`AgentHandler`,
+  `Retriever`, `LLMClient`, `AudioSource`) and their wire-format shadow
+  structs (`Line`, `TranscriptEvent`, `ActionRequest`, ...) — as an
+  additional, Go-native Tier-2 on-ramp for programs that want typed access
+  to the same contract Tier 0/1 get as raw JSON. It does not promote the
+  daemon pipeline itself: `internal/serve` still owns the Hub, Dispatcher,
+  and transports, and daemon assembly now lives in the importable
+  `internal/serve.Server`/`ServerConfig` (extracted from `cmd/moonshine/serve.go`,
+  which used to be the only place that could construct one — see
+  `moonshine-go-ied`). Because `Server`/`ServerConfig` are in `internal/serve`,
+  today only code inside this module (`github.com/ghchinoy/moonshine-go`)
+  can embed the daemon in-process; a true external module still can't, and
+  must run as a separate process talking `pkg/serveapi` over WS/gRPC (the
+  shape `samples/go-cascade-faq` uses). Promoting a public
+  `pkg/serveapi.Server`-style wrapper so external modules can embed too is
+  tracked as follow-up, not yet scheduled. See
+  `docs/vision/serveapi-design.md` (gitignored) for the full rationale.
 - **New code lives in `internal/serve/`** (+ one file `cmd/moonshine/serve.go`).
 - **Transports:** define a `Transport` interface first, then implement
   **both** WebSocket and gRPC behind it, selectable/concurrent via

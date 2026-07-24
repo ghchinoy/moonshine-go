@@ -7,8 +7,8 @@ it over the network. This doc explains what's already in place for that, what
 you have to build, and the deployment shapes we recommend.
 
 If you haven't read it yet, [MISSION.md](MISSION.md) is the "why," and
-[quickstart-voice-agent.md](quickstart-voice-agent.md) is the hands-on
-developer walkthrough. This doc is the "how do I run it for others."
+[../samples/](../samples/) is the hands-on developer walkthrough. This doc
+is the "how do I run it for others."
 
 > **Hosting is a deployment option, not a change of thesis.** The default and
 > the soul of moonshine-go stay local-first: audio dies at the microphone,
@@ -274,8 +274,8 @@ the project off its local-first center of gravity.
 ## See also
 
 - [MISSION.md](MISSION.md) — why the cascade, and the local-first default.
-- [quickstart-voice-agent.md](quickstart-voice-agent.md) — Tier 0/1/2
-  developer walkthrough of the serve API you'd be hosting.
+- [../samples/](../samples/) — Tier 0/1/2 developer walkthrough of the
+  serve API you'd be hosting, with runnable Go and Python examples.
 - [serve-sidecar.md](serve-sidecar.md) — the serve architecture / IPC contract.
 - [hardware-acceleration.md](hardware-acceleration.md) — `--providers` and
   measured acceleration results.
