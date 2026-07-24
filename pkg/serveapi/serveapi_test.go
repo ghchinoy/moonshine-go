@@ -8,6 +8,18 @@ import (
 	"time"
 )
 
+func TestTranscriptEventJSONOmitEmptyLines(t *testing.T) {
+	ev := TranscriptEvent{ElapsedMs: 100}
+	data, err := json.Marshal(ev)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	s := string(data)
+	if s == `{"lines":null,"elapsed_ms":100}` {
+		t.Errorf("JSON should not serialize nil lines as null: %s", s)
+	}
+}
+
 func TestTranscriptEventFinalizedLines(t *testing.T) {
 	ev := TranscriptEvent{
 		Lines: []Line{

@@ -27,7 +27,7 @@ const (
 type TranscriptEvent struct {
 	// Lines is the full current transcript snapshot: interim lines plus all
 	// previously finalized lines.
-	Lines []Line `json:"lines"`
+	Lines []Line `json:"lines,omitempty"`
 
 	// FinalizedLineIDs holds the IDs of lines that transitioned to complete
 	// on this specific poll (usually 0 or 1 entries). Look them up in Lines
