@@ -48,21 +48,56 @@ paths matter if you want to avoid pulling the entire LFS payload).
   - **Backpressure & Idempotency:** Hub uses drop-oldest for interim updates, but guarantees every finalized line (`Line.ID`) is delivered to subscribers/agents exactly once.
   - **Barge-in Guard:** `TTSSpeaker` exposes `Speaking()`, which mutes microphone input during TTS playback to prevent the sidecar from transcribing its own voice output.
   - **Native-Free Unit Tests:** All logic in `internal/serve` must be testable with fakes (`fakeLLMClient`, `fakeTransport`, `fakeSpeaker`) without requiring `libmoonshine` or network calls.
+  - **Daemon assembly is importable** as `internal/serve.Server`/`ServerConfig` (`server.go`), extracted from `cmd/moonshine/serve.go` so code *inside this module* can embed the daemon with a custom `AgentHandler`/`AudioSource`. `cmd/moonshine/serve.go` itself is reduced to flag parsing + calling it.
+- `pkg/serveapi` is the **public, Go-native extension surface** for `moonshine serve`: `AgentHandler`, `Retriever`, `LLMClient`, `AudioSource`, and shadow structs for every wire type (`Line`, `TranscriptEvent`, `ActionRequest`, ...). It's a leaf package -- stdlib only, `CGO_ENABLED=0`-buildable, never imports `internal/session` or `internal/audio` -- so external Go modules can build against it without a C toolchain. `internal/serve` consumes it as the source of truth for these types (no duplicated definitions). It does **not** yet expose a public daemon-embedding wrapper (only `internal/serve.Server` does, which is `internal/`-only); a true external module can drive the sidecar today only as a separate process talking `pkg/serveapi` over WS/gRPC -- see `samples/go-cascade-faq` for that shape.
+- `samples/` holds runnable, live-verified Tier 0/1/2 examples against `moonshine serve` (Go and Python), replacing what used to be a docs-only quickstart. See [samples/CONTRIBUTING.md](samples/CONTRIBUTING.md) for conventions before adding one -- the short version: a sample isn't done until it's been run against a real `moonshine serve` process, not just compiled.
 
-## Active multi-agent work: `moonshine serve` (agentic voice sidecar)
+## Multi-agent coordination in this repo
 
-There is an in-progress feature (bd epic `moonshine-go-6nb`) that adds a
-`moonshine serve` daemon streaming live transcripts over IPC (WebSocket +
-gRPC) with a built-in Gemini agent. It is designed to be built by **two
-agents in parallel**.
+Multiple agents (and the human maintainer) commit to `main` concurrently and
+somewhat continuously -- this is a normal, expected working mode here, not
+an edge case. `main` can move between the start and end of your session,
+sometimes within seconds of you checking it. Releases are tagged and
+published (`v*` triggers `.github/workflows/release.yml`, see
+[docs/RELEASING.md](docs/RELEASING.md)) on essentially every merge, so
+version tags advance quickly too -- don't assume the latest tag you saw a
+few tool-calls ago is still the latest one.
 
-**Before starting any `serve` work, read
-[docs/serve-sidecar.md](docs/serve-sidecar.md).** It defines the interaction
-pattern, the one-file-per-task ownership map (so two agents never edit the
-same file), the two coordination points (`go.mod` and one line in
-`root.go`), and the backpressure/idempotency/barge-in contracts every task
-must honor. `bd ready` + the dependency graph enforce the ordering; the doc
-explains *why* each edge exists.
+**Practical consequences:**
+
+- **Before any push that could move a shared branch (`main` especially),
+  `git fetch origin <branch>` *immediately* beforehand and check the
+  ancestor relationship against that fresh fetch, not a ref you fetched
+  earlier in the session.** A locally-cached `origin/main` that's gone
+  stale between your check and your push can make a genuinely unsafe push
+  look like a safe fast-forward -- this has actually happened (see
+  `moonshine-go-q7j`, self-caught and fixed the same session, but it did
+  briefly drop a released commit off `main`). If you're not certain,
+  `git push` (a plain branch push, which git itself refuses on a
+  non-fast-forward) is safer than a `git push origin <ref>:<branch>` form
+  that can silently succeed on stale data.
+- **Use a dedicated worktree for any substantial parallel initiative**
+  (`git worktree add -b <branch> <path> main`), rather than working
+  directly in the same checkout another agent is actively committing to.
+  This doesn't eliminate merge-time conflicts, but it eliminates the
+  *concurrent-uncommitted-edit* class of collision, which is the more
+  dangerous one (silent corruption vs. a visible merge conflict). See
+  `samples/CONTRIBUTING.md`'s "Git workflow" section for a worked example.
+- **Shared files (`README.md`, anything under `docs/`) land via PR; changes
+  additive-only to a clearly-owned area (e.g. new files under `samples/`)
+  can land via a direct fast-forward push once verified.** This split was
+  agreed as the general convention for this repo, not just a one-off rule
+  -- shared files are the real collision surface and benefit from a visible
+  diff to review against; purely additive work in an owned area doesn't
+  need that ceremony.
+- Before starting `internal/serve` work specifically, skim
+  [docs/serve-sidecar.md](docs/serve-sidecar.md) -- it's largely a
+  historical record of the original two-track parallel build (epic
+  `moonshine-go-6nb`, now functionally complete) plus the invariants
+  (backpressure, idempotency, barge-in) every change to that package must
+  still honor. It's slated to be distilled into a shorter developer-facing
+  doc and retired (`moonshine-go-bhx`); don't be surprised if it looks
+  different by the time you read it.
 
 
 <!-- headroom:rtk-instructions -->
