@@ -12,6 +12,10 @@ reimplementing its model pipeline.
   directly into its exported C functions. This is the same integration point
   moonshine's own Python bindings use (`ctypes.CDLL` over `moonshine-c-api.h`).
 - `cmd/moonshine` -- a cobra/viper CLI: `setup`, `transcribe`, `live`, `serve`, `tts`, `models`.
+- `pkg/serveapi` -- a public, Go-native extension surface for `moonshine
+  serve`'s agent/RAG/audio-source interfaces (`CGO_ENABLED=0`-buildable, no
+  `internal/` imports). See [samples/](samples/) for real programs built on
+  it.
 
 This isn't published to any package registry -- it's built from source
 against a local moonshine checkout (below), and there's no Go-only `go
@@ -295,8 +299,11 @@ internal/moonshine/   purego bindings over moonshine-c-api.h (STT, TTS, model do
 internal/audio/       WAV decode/resample + mic capture (cgo, via malgo)
 internal/gcsfetch/    gs:// URI download for `transcribe`
 internal/session/     live streaming session orchestration (TTFT/latency stats)
+internal/serve/       `moonshine serve` sidecar: Hub/Dispatcher/transports/agents
 internal/tui/         bubbletea/lipgloss live transcription UI
+pkg/serveapi/         public Go extension surface for `moonshine serve` (see samples/)
 cmd/moonshine/        cobra/viper CLI
+samples/              runnable Tier 0/1/2 examples against `moonshine serve` (see below)
 scripts/              native build tooling for libmoonshine
 docs/                 findings, best practices, FAQ (see below)
 skills/               Agent Skills (agentskills.io) for coding agents (see below)
@@ -310,8 +317,10 @@ came up building/using this that didn't fit neatly into flag `--help` text:
 
 - [docs/user-guide.md](docs/user-guide.md) -- full walkthrough of every
   command and flag, with real examples and a troubleshooting section.
-- [docs/quickstart-voice-agent.md](docs/quickstart-voice-agent.md) -- build
-  your first voice agent against `moonshine serve` (Tier 0/1/2 walkthrough).
+- [samples/](samples/) -- build your first voice agent against `moonshine
+  serve`: runnable Tier 0/1/2 examples in Go and Python, not just docs.
+- [docs/serve-sidecar.md](docs/serve-sidecar.md) -- `moonshine serve`'s
+  internal architecture, IPC protocol, and invariants in depth.
 - [docs/hosting.md](docs/hosting.md) -- hosting `moonshine serve` beyond your
   laptop: serve-in-a-box and bring-your-own-cloud deployment.
 - [docs/MISSION.md](docs/MISSION.md) -- why this project exists: bringing the
