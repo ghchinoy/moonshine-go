@@ -2,6 +2,7 @@ package serve_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -70,9 +71,14 @@ func TestCompositeHandler(t *testing.T) {
 }
 
 func TestAgentRunner_DeduplicationAndDispatch(t *testing.T) {
+	var mu sync.Mutex
 	dispatched := make([]event.ActionRequest, 0)
+	done := make(chan struct{}, 5)
 	sink := serve.ActionSinkFunc(func(ctx context.Context, req event.ActionRequest) (event.ActionResult, error) {
+		mu.Lock()
 		dispatched = append(dispatched, req)
+		mu.Unlock()
+		done <- struct{}{}
 		return event.ActionResult{OK: true}, nil
 	})
 
@@ -88,20 +94,37 @@ func TestAgentRunner_DeduplicationAndDispatch(t *testing.T) {
 
 	// 1. Process incomplete line -> should ignore
 	runner.ProcessLine(ctx, line1Interim)
-	if len(dispatched) != 0 {
-		t.Fatalf("expected 0 dispatched actions for incomplete line, got %d", len(dispatched))
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	count := len(dispatched)
+	mu.Unlock()
+	if count != 0 {
+		t.Fatalf("expected 0 dispatched actions for incomplete line, got %d", count)
 	}
 
 	// 2. Process complete line -> should dispatch 1 action
 	runner.ProcessLine(ctx, line1)
-	if len(dispatched) != 1 {
-		t.Fatalf("expected 1 dispatched action, got %d", len(dispatched))
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("timed out waiting for action dispatch")
+	}
+
+	mu.Lock()
+	count = len(dispatched)
+	mu.Unlock()
+	if count != 1 {
+		t.Fatalf("expected 1 dispatched action, got %d", count)
 	}
 
 	// 3. Process same complete line again -> should deduplicate and ignore
 	runner.ProcessLine(ctx, line1)
-	if len(dispatched) != 1 {
-		t.Fatalf("expected deduplication (still 1 dispatched action), got %d", len(dispatched))
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	count = len(dispatched)
+	mu.Unlock()
+	if count != 1 {
+		t.Fatalf("expected deduplication (still 1 dispatched action), got %d", count)
 	}
 
 	// 4. Process event carrying the same finalized line
@@ -110,8 +133,12 @@ func TestAgentRunner_DeduplicationAndDispatch(t *testing.T) {
 		FinalizedLineIDs: []uint64{100},
 	}
 	runner.ProcessEvent(ctx, ev)
-	if len(dispatched) != 1 {
-		t.Fatalf("expected event processing to deduplicate line 100, got %d dispatched", len(dispatched))
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	count = len(dispatched)
+	mu.Unlock()
+	if count != 1 {
+		t.Fatalf("expected event processing to deduplicate line 100, got %d dispatched", count)
 	}
 }
 

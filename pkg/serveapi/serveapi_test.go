@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -80,9 +81,14 @@ func TestCompositeHandlerFirstNonEmptyWins(t *testing.T) {
 }
 
 func TestAgentRunnerDedupAndDispatch(t *testing.T) {
+	var mu sync.Mutex
 	var dispatched []ActionRequest
+	done := make(chan struct{}, 2)
 	sink := ActionSinkFunc(func(ctx context.Context, req ActionRequest) (ActionResult, error) {
+		mu.Lock()
 		dispatched = append(dispatched, req)
+		mu.Unlock()
+		done <- struct{}{}
 		return ActionResult{ID: req.ID, OK: true}, nil
 	})
 	handler := handlerFunc(func(ctx context.Context, l Line) []ActionRequest {
@@ -97,8 +103,18 @@ func TestAgentRunnerDedupAndDispatch(t *testing.T) {
 	r.ProcessEvent(context.Background(), ev)
 	r.ProcessEvent(context.Background(), ev) // same line again -> must dedupe
 
-	if len(dispatched) != 1 {
-		t.Fatalf("expected 1 dispatch after dedup, got %d (%+v)", len(dispatched), dispatched)
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("timed out waiting for dispatch")
+	}
+
+	mu.Lock()
+	count := len(dispatched)
+	mu.Unlock()
+
+	if count != 1 {
+		t.Fatalf("expected 1 dispatch after dedup, got %d (%+v)", count, dispatched)
 	}
 }
 
@@ -113,6 +129,69 @@ func TestAgentRunnerIgnoresInterim(t *testing.T) {
 	if called {
 		t.Fatal("handler must not be called for interim (incomplete) lines")
 	}
+}
+
+func TestAgentRunner_DecoupledDispatch(t *testing.T) {
+	dispatchStarted := make(chan struct{})
+	var startOnce sync.Once
+	dispatchDone := make(chan struct{})
+
+	sink := ActionSinkFunc(func(ctx context.Context, req ActionRequest) (ActionResult, error) {
+		startOnce.Do(func() { close(dispatchStarted) })
+		<-dispatchDone
+		return ActionResult{ID: req.ID, OK: true}, nil
+	})
+
+	handler := handlerFunc(func(ctx context.Context, l Line) []ActionRequest {
+		return []ActionRequest{{Verb: "speak", ID: l.Text}}
+	})
+
+	r := NewAgentRunner(handler, sink)
+
+	// Channel with buffer capacity 1
+	events := make(chan TranscriptEvent, 1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	go r.Run(ctx, events)
+
+	// Feed first event that triggers Dispatch
+	events <- TranscriptEvent{
+		Lines:            []Line{{ID: 1, Text: "first", IsComplete: true}},
+		FinalizedLineIDs: []uint64{1},
+	}
+
+	// Wait until Dispatch is entered and blocked
+	select {
+	case <-dispatchStarted:
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for Dispatch to start")
+	}
+
+	// Feed 5 more events into the small channel buffer while Dispatch is still blocked.
+	// If Run was synchronous, the 2nd send would block forever.
+	feedDone := make(chan struct{})
+	go func() {
+		defer close(feedDone)
+		for id := uint64(2); id <= 5; id++ {
+			events <- TranscriptEvent{
+				Lines:            []Line{{ID: id, Text: "next", IsComplete: true}},
+				FinalizedLineIDs: []uint64{id},
+			}
+		}
+	}()
+
+	select {
+	case <-feedDone:
+		// Success! Feeding events did not deadlock on blocked Dispatch.
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("deadlock detected: event channel blocked while Dispatch was in progress")
+	}
+
+	// Unblock Dispatch and clean up
+	close(dispatchDone)
+	close(events)
 }
 
 func TestStaticRetriever(t *testing.T) {

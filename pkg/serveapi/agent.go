@@ -63,7 +63,12 @@ func (f ActionSinkFunc) Dispatch(ctx context.Context, req ActionRequest) (Action
 
 // AgentRunner processes TranscriptEvents, deduplicates finalized lines by ID,
 // passes each newly-finalized line to the configured AgentHandler, and forwards
-// any resulting ActionRequests to the ActionSink.
+// any resulting ActionRequests to the ActionSink asynchronously in separate goroutines.
+//
+// Because ActionSink.Dispatch calls run asynchronously, slow or blocking
+// action dispatches (e.g. a long TTS speak action waiting for playback completion)
+// do not block AgentRunner.Run's event-reading loop or backpressure the caller's
+// event-feeding pipeline.
 //
 // It is idempotent on Line.ID: even if the same finalized line appears in
 // multiple events (the sidecar's updates are supersets, not exact frames),
@@ -116,7 +121,10 @@ func (r *AgentRunner) ProcessLine(ctx context.Context, line Line) {
 		return
 	}
 	for _, req := range actions {
-		_, _ = r.sink.Dispatch(ctx, req)
+		req := req
+		go func() {
+			_, _ = r.sink.Dispatch(ctx, req)
+		}()
 	}
 }
 
