@@ -74,7 +74,7 @@ func (s *TTSSpeaker) SetPublisher(publisher Publisher, playLocal bool) {
 // changes to audio.PlayFloat32 itself, tracked as follow-up if barge-in
 // (a human interrupting the agent mid-sentence) becomes a requirement
 // beyond "don't transcribe our own voice".
-func (s *TTSSpeaker) Speak(ctx context.Context, text, voice string, speed float64) error {
+func (s *TTSSpeaker) Speak(ctx context.Context, pub Publisher, text, voice string, speed float64) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -103,7 +103,9 @@ func (s *TTSSpeaker) Speak(ctx context.Context, text, voice string, speed float6
 	defer s.speaking.Store(false)
 
 	s.mu.Lock()
-	pub := s.publisher
+	if pub == nil {
+		pub = s.publisher
+	}
 	playLocal := s.playLocal
 	s.mu.Unlock()
 

@@ -62,16 +62,29 @@ make fetchlib MOONSHINE_PLATFORM=linux-x86_64
 # or container -- see testing-with-container.md for the exact recipe.
 ```
 
-### 2. Tag and Push
+### 2. Update Changelog
+
+Before tagging, update `CHANGELOG.md` at the repository root:
+
+1. Move completed items from the `[Unreleased]` section into a new version header (`## [vX.Y.Z] - YYYY-MM-DD`).
+2. Categorize changes under standard Keep a Changelog headings (`### Added`, `### Fixed`, `### Changed`).
+3. Commit `CHANGELOG.md` to `main`:
+
+```sh
+git add CHANGELOG.md
+git commit -m "docs(changelog): prepare CHANGELOG.md for vX.Y.Z"
+```
+
+### 3. Tag and Push
 
 To publish a new release, create an annotated Git tag and push it to GitHub:
 
 ```sh
-git tag -a v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -a v0.6.0 -m "Release v0.6.0"
+git push origin v0.6.0
 ```
 
-### 3. Automated CI Pipeline
+### 4. Automated CI Pipeline
 
 Pushing a `v*` tag triggers the GitHub Actions workflow in `.github/workflows/release.yml`:
 
@@ -112,3 +125,19 @@ moonshine-v0.1.0-linux-x86_64/
 ```
 
 Users can extract the archive and run `./run.sh` or set `MOONSHINE_LIB_DIR=./lib ./bin/moonshine`.
+
+---
+
+## Release Highlights & TL;DR History
+
+Below is a concise summary of major additions per release. Detailed commit logs live in [`CHANGELOG.md`](../CHANGELOG.md).
+
+- **`v0.6.0` (Unreleased / Next)**: Remote TTS speak-back wiring (`--tts-play-local` flag) and per-session TTS publisher isolation in `SessionManager`.
+- **`v0.5.1`**: Surfaced confidence scores on `Line`/`Word` in `pkg/serveapi` and fixed `AgentRunner` action dispatch deadlock.
+- **`v0.5.0`**: Multi-tenant `SessionManager` (`--max-sessions`) with isolated per-connection WS/gRPC sessions.
+- **`v0.4.1`**: Remote PCM audio streaming flag (`--audio-source remote`) and browser client sample (`samples/browser-listen`).
+- **`v0.4.0`**: `TTSAudioEvent` wire frames, in-protocol barge-in (`session.barge_in`), and Tier 0/1/2 runnable code samples.
+- **`v0.3.0`**: Upstream `libmoonshine` `v0.0.73` update (portable Linux glibc), importable daemon runner (`internal/serve.Server`), and `--g2p-root` flag.
+- **`v0.2.1`**: `omitempty` JSON tag cleanup on `TranscriptEvent.Lines`.
+- **`v0.2.0`**: Public `pkg/serveapi` extension surface for Go agents (cgo-free leaf package).
+- **`v0.1.0`**: Initial release with STT streaming, TTS synthesis, model management, and CLI versioning.

@@ -165,7 +165,7 @@ func newFAQHandler() *faqHandler {
 	entries := []faqEntry{
 		{"mission", serveapi.Result{
 			Title:   "Mission",
-			Snippet: "moonshine dash go's bet is bringing back the classic voice cascade: speech to text, to a language model, to speech, because streaming STT is finally fast enough to make it viable again.",
+			Snippet: "moonshine go is bringing back the classic voice cascade: speech to text, to a language model, to speech, because streaming transcription is finally fast enough to make it viable again.",
 			Source:  "docs/MISSION.md",
 		}},
 		{"cascade", serveapi.Result{

@@ -124,6 +124,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if speaker == nil {
 		ttsSpeaker := NewTTSSpeaker("en_us")
 		defer ttsSpeaker.Close()
+		ttsSpeaker.SetPublisher(s.hub, true)
 		speaker = ttsSpeaker
 	}
 

@@ -31,19 +31,24 @@ func (n *noopLiveSession) Updates() <-chan session.Update {
 var ErrSessionLimitReached = errors.New("serve: max session limit reached")
 
 // scopedSpeaker wraps a shared Speaker and provides per-session Speaking() state
-// so barge-in muting in one session does not affect other sessions.
+// and per-session TTS publication routing so barge-in muting and spoken replies in
+// one session do not leak to other sessions.
 type scopedSpeaker struct {
 	base     Speaker
+	pub      Publisher
 	speaking atomic.Bool
 }
 
-func (s *scopedSpeaker) Speak(ctx context.Context, text, voice string, speed float64) error {
+func (s *scopedSpeaker) Speak(ctx context.Context, pub Publisher, text, voice string, speed float64) error {
 	if s.base == nil {
 		return fmt.Errorf("serve: no speaker configured")
 	}
+	if pub == nil {
+		pub = s.pub
+	}
 	s.speaking.Store(true)
 	defer s.speaking.Store(false)
-	return s.base.Speak(ctx, text, voice, speed)
+	return s.base.Speak(ctx, pub, text, voice, speed)
 }
 
 func (s *scopedSpeaker) Speaking() bool {
@@ -52,6 +57,11 @@ func (s *scopedSpeaker) Speaking() bool {
 
 func (s *scopedSpeaker) Interrupt(ctx context.Context) {
 	s.speaking.Store(false)
+	if s.pub != nil {
+		s.pub.Publish(event.TTSAudioEvent{
+			State: "interrupted",
+		})
+	}
 	if interrupter, ok := s.base.(interface{ Interrupt(context.Context) }); ok {
 		interrupter.Interrupt(ctx)
 	}
@@ -164,7 +174,7 @@ func (m *SessionManager) CreateSession(ctx context.Context, source serveapi.Audi
 	sessCtx, cancel := context.WithCancel(ctx)
 
 	hub := NewHub()
-	scopedSpk := &scopedSpeaker{base: m.cfg.Speaker}
+	scopedSpk := &scopedSpeaker{base: m.cfg.Speaker, pub: hub}
 	sessCtrl := &LiveSessionControl{cancel: cancel}
 
 	if muter, ok := source.(interface{ SetMutedFunc(f func() bool) }); ok {

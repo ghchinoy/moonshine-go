@@ -14,7 +14,7 @@ type fakeManagerSpeaker struct {
 	spoken   []string
 }
 
-func (f *fakeManagerSpeaker) Speak(ctx context.Context, text, voice string, speed float64) error {
+func (f *fakeManagerSpeaker) Speak(ctx context.Context, _ Publisher, text, voice string, speed float64) error {
 	f.spoken = append(f.spoken, text)
 	return nil
 }
@@ -206,5 +206,114 @@ func TestSessionManager_CloseAll(t *testing.T) {
 
 	if mgr.ActiveSessions() != 0 {
 		t.Errorf("expected 0 active sessions after Close(), got %d", mgr.ActiveSessions())
+	}
+}
+
+type fakePublishingSpeaker struct{}
+
+func (f *fakePublishingSpeaker) Speak(ctx context.Context, pub Publisher, text, voice string, speed float64) error {
+	if pub != nil {
+		pub.Publish(event.TTSAudioEvent{
+			Text:  text,
+			State: "start",
+		})
+		pub.Publish(event.TTSAudioEvent{
+			Text:  text,
+			State: "end",
+		})
+	}
+	return nil
+}
+
+func (f *fakePublishingSpeaker) Speaking() bool { return false }
+
+func TestSessionManager_PerSessionTTSRouting(t *testing.T) {
+	baseSpk := &fakePublishingSpeaker{}
+	mgr := NewSessionManager(SessionManagerConfig{
+		Speaker:      baseSpk,
+		AllowActions: true,
+	})
+
+	ctx := context.Background()
+	source1 := &fakeAudioSource{ch: make(chan []float32)}
+	source2 := &fakeAudioSource{ch: make(chan []float32)}
+
+	sess1, err := mgr.CreateSession(ctx, source1)
+	if err != nil {
+		t.Fatalf("failed to create sess1: %v", err)
+	}
+	defer sess1.Close()
+
+	sess2, err := mgr.CreateSession(ctx, source2)
+	if err != nil {
+		t.Fatalf("failed to create sess2: %v", err)
+	}
+	defer sess2.Close()
+
+	_, sub1 := sess1.Hub().Subscribe()
+	_, sub2 := sess2.Hub().Subscribe()
+
+	// Speak on sess1
+	req1 := event.ActionRequest{
+		ID:   "req-1",
+		Verb: "speak",
+		Args: []byte(`{"text":"hello session 1"}`),
+	}
+	res1 := sess1.Dispatcher().Handle(ctx, req1)
+	if !res1.OK {
+		t.Fatalf("sess1 speak failed: %s", res1.Err)
+	}
+
+	// Verify sess1 hub received start and end events for "hello session 1"
+	for i := 0; i < 2; i++ {
+		select {
+		case ev := <-sub1:
+			te, ok := ev.(event.TTSAudioEvent)
+			if !ok || te.Text != "hello session 1" {
+				t.Fatalf("sess1 sub1 received unexpected event: %#v", ev)
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("timed out waiting for event %d on sess1", i)
+		}
+	}
+
+	// Verify sess2 hub received NO events
+	select {
+	case ev := <-sub2:
+		t.Fatalf("sess2 sub2 received unexpected event when sess1 spoke: %#v", ev)
+	default:
+		// Passed - isolated
+	}
+
+	// Speak on sess2
+	req2 := event.ActionRequest{
+		ID:   "req-2",
+		Verb: "speak",
+		Args: []byte(`{"text":"hello session 2"}`),
+	}
+	res2 := sess2.Dispatcher().Handle(ctx, req2)
+	if !res2.OK {
+		t.Fatalf("sess2 speak failed: %s", res2.Err)
+	}
+
+	// Verify sess2 hub received start and end events for "hello session 2"
+	for i := 0; i < 2; i++ {
+		select {
+		case ev := <-sub2:
+			te, ok := ev.(event.TTSAudioEvent)
+			if !ok || te.Text != "hello session 2" {
+				t.Fatalf("sess2 sub2 received unexpected event: %#v", ev)
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("timed out waiting for event %d on sess2", i)
+		}
+	}
+
+	// Verify sess1 hub received no new events
+	select {
+	case ev := <-sub1:
+		t.Fatalf("sess1 sub1 received unexpected event when sess2 spoke: %#v", ev)
+	default:
+		// Passed - isolated
 	}
 }

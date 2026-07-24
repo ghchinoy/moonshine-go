@@ -33,6 +33,7 @@ var (
 	serveTTSVoice                    string
 	serveTTSLanguage                 string
 	serveTTSG2PRoot                  string
+	serveTTSPlayLocal                bool
 	serveIncludeAudio                bool
 	serveLanguage                    string
 	serveArch                        string
@@ -71,6 +72,7 @@ func init() {
 	serveCmd.Flags().StringVar(&serveTTSVoice, "tts-voice", "", "Default voice override for TTS speaker")
 	serveCmd.Flags().StringVar(&serveTTSLanguage, "tts-language", "en_us", "TTS speaker language")
 	serveCmd.Flags().StringVar(&serveTTSG2PRoot, "g2p-root", "", "Directory holding kokoro/, <lang>/piper-voices/, etc. (default: derived from moonshine.src_dir)")
+	serveCmd.Flags().BoolVar(&serveTTSPlayLocal, "tts-play-local", true, "Play synthesized TTS audio on local server speaker (defaults to true for --audio-source local, false for --audio-source remote)")
 	serveCmd.Flags().BoolVar(&serveIncludeAudio, "include-audio", false, "Include raw PCM audio_data []float32 in transcript event frames")
 	_ = viper.BindPFlag("tts.g2p_root", serveCmd.Flags().Lookup("g2p-root"))
 	serveCmd.Flags().StringVar(&serveLanguage, "language", "en", "STT model language")
@@ -154,6 +156,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 	defer speaker.Close()
 
 	hub := serve.NewHub()
+
+	playLocal := serveTTSPlayLocal
+	if !cmd.Flags().Changed("tts-play-local") {
+		playLocal = (strings.ToLower(strings.TrimSpace(serveAudioSource)) != "remote")
+	}
+	speaker.SetPublisher(hub, playLocal)
 
 	// Agent Setup
 	var agentHandler serve.AgentHandler

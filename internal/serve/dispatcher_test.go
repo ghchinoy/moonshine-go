@@ -19,7 +19,7 @@ type fakeSpeaker struct {
 	err       error
 }
 
-func (f *fakeSpeaker) Speak(_ context.Context, text, voice string, speed float64) error {
+func (f *fakeSpeaker) Speak(_ context.Context, _ Publisher, text, voice string, speed float64) error {
 	f.lastText, f.lastVoice, f.lastSpeed = text, voice, speed
 	return f.err
 }

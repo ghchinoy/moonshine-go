@@ -17,7 +17,8 @@ type Speaker interface {
 	// (or ctx is cancelled -- see TTSSpeaker's doc comment for the extent
 	// to which cancellation is honored). voice/speed are passed through
 	// as moonshine TTS options ("voice", "speed") when non-empty/non-zero.
-	Speak(ctx context.Context, text, voice string, speed float64) error
+	// pub, if non-nil, receives TTSAudioEvent wire events for this utterance.
+	Speak(ctx context.Context, pub Publisher, text, voice string, speed float64) error
 	// Speaking reports whether a Speak call is currently in progress, so
 	// callers (notably the mic-feed barge-in guard) can suppress
 	// self-transcription while the sidecar's own voice is playing.
@@ -134,7 +135,7 @@ func (d *Dispatcher) handleSpeak(ctx context.Context, req event.ActionRequest) e
 	if args.Text == "" {
 		return fail(req.ID, "speak: text is required")
 	}
-	if err := d.speaker.Speak(ctx, args.Text, args.Voice, args.Speed); err != nil {
+	if err := d.speaker.Speak(ctx, d.publisher, args.Text, args.Voice, args.Speed); err != nil {
 		return fail(req.ID, err.Error())
 	}
 	return ok(req.ID)
@@ -209,7 +210,7 @@ func (d *Dispatcher) handleAgentResult(ctx context.Context, req event.ActionRequ
 		if d.speaker == nil {
 			return fail(req.ID, "no speaker configured")
 		}
-		if err := d.speaker.Speak(ctx, args.Speak, "", 0); err != nil {
+		if err := d.speaker.Speak(ctx, d.publisher, args.Speak, "", 0); err != nil {
 			return fail(req.ID, err.Error())
 		}
 	}

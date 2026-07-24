@@ -25,6 +25,7 @@ func TestServeCmd_Flags(t *testing.T) {
 		{"remote-audio-channels", "remote-audio-channels", "1"},
 		{"arch", "arch", "tiny-streaming"},
 		{"language", "language", "en"},
+		{"tts-play-local", "tts-play-local", "true"},
 	}
 
 	for _, tt := range tests {
