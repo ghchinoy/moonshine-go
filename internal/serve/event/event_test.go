@@ -8,6 +8,7 @@ import (
 
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/session"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 func TestFromUpdate_Basic(t *testing.T) {
@@ -87,7 +88,7 @@ func TestFromUpdate_ErrAndDone(t *testing.T) {
 
 func TestTranscriptEvent_FinalizedLines(t *testing.T) {
 	ev := TranscriptEvent{
-		Lines: []moonshine.Line{
+		Lines: []serveapi.Line{
 			{ID: 1, Text: "one", IsComplete: true},
 			{ID: 2, Text: "two", IsComplete: true},
 			{ID: 3, Text: "thr", IsComplete: false},
@@ -101,7 +102,7 @@ func TestTranscriptEvent_FinalizedLines(t *testing.T) {
 }
 
 func TestTranscriptEvent_FinalizedLines_Empty(t *testing.T) {
-	ev := TranscriptEvent{Lines: []moonshine.Line{{ID: 1, Text: "x"}}}
+	ev := TranscriptEvent{Lines: []serveapi.Line{{ID: 1, Text: "x"}}}
 	if got := ev.FinalizedLines(); got != nil {
 		t.Errorf("FinalizedLines() = %v, want nil", got)
 	}

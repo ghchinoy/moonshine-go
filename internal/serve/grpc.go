@@ -9,9 +9,9 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
 	"github.com/ghchinoy/moonshine-go/internal/serve/servepb"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 // GRPCTransport is a gRPC Transport implementation: each call to the
@@ -217,7 +217,7 @@ func toProtoTranscriptEvent(te event.TranscriptEvent) *servepb.TranscriptEvent {
 	return out
 }
 
-func toProtoLine(l moonshine.Line) *servepb.Line {
+func toProtoLine(l serveapi.Line) *servepb.Line {
 	return &servepb.Line{
 		Text:           l.Text,
 		StartTime:      l.StartTime,

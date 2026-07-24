@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
 	"github.com/ghchinoy/moonshine-go/internal/serve/servepb"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 const bufconnBufSize = 1024 * 1024
@@ -70,7 +70,7 @@ func TestGRPCTransport_ClientReceivesPublishedTranscriptEvent(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	hub.Publish(event.TranscriptEvent{
-		Lines:            []moonshine.Line{{ID: 1, Text: "hello", IsComplete: true}},
+		Lines:            []serveapi.Line{{ID: 1, Text: "hello", IsComplete: true}},
 		FinalizedLineIDs: []uint64{1},
 		ElapsedMs:        123,
 	})

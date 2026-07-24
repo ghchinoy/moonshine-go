@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 func TestIntentMatcher_DefaultRules(t *testing.T) {
@@ -66,7 +66,7 @@ func TestIntentMatcher_DefaultRules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			line := moonshine.Line{ID: 1, Text: tt.utterance, IsComplete: true}
+			line := serveapi.Line{ID: 1, Text: tt.utterance, IsComplete: true}
 			actions := matcher.OnFinalizedLine(ctx, line)
 
 			if !tt.wantActions {

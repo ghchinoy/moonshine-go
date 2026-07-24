@@ -77,6 +77,11 @@ func StartMicCapture() (*MicCapture, error) {
 // Chunks returns the channel mic audio chunks arrive on. Closed by Close.
 func (m *MicCapture) Chunks() <-chan []float32 { return m.chunks }
 
+// Err always returns nil: the local microphone has no notion of abnormal
+// termination distinct from Close (unlike a network AudioSource, which can
+// be dropped mid-stream). Present to satisfy serveapi.AudioSource.
+func (m *MicCapture) Err() error { return nil }
+
 // Close stops capture and releases the device/context. Safe to call once.
 func (m *MicCapture) Close() {
 	if m.device != nil {

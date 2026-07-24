@@ -1,5 +1,5 @@
 // Package session orchestrates a live streaming transcription session: it
-// owns a moonshine.Stream and a mic audio source, feeds audio in, polls for
+// owns a moonshine.Stream and an audio source, feeds audio in, polls for
 // updated transcripts, and reports timing stats (notably time-to-first-token)
 // that a CLI or TUI can render.
 package session
@@ -8,8 +8,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/ghchinoy/moonshine-go/internal/audio"
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 // Update is emitted every time the session has a new (possibly unchanged)
@@ -117,10 +117,13 @@ type lineProgress struct {
 	done      bool // true once its finalization has been recorded, to guard against double-counting if a complete line is somehow seen again
 }
 
-// Live runs a live microphone -> streaming transcription session.
+// Live runs a live audio -> streaming transcription session. Audio comes
+// from a serveapi.AudioSource -- the local microphone by default, but
+// anything satisfying that interface (e.g. a remote client's PCM stream)
+// works equally well; the session doesn't know or care which.
 type Live struct {
 	stream       *moonshine.Stream
-	mic          *audio.MicCapture
+	source       serveapi.AudioSource
 	pollInterval time.Duration
 	updates      chan Update
 
@@ -129,11 +132,11 @@ type Live struct {
 }
 
 // NewLive creates and starts a streaming session against tr, consuming audio
-// from mic. pollInterval controls how often the (already internally rate
+// from source. pollInterval controls how often the (already internally rate
 // limited) transcribe_stream call is polled; moonshine itself skips
 // re-analysis of audio it's seen in the last ~200ms unless forced, so
 // anything below that is wasted work.
-func NewLive(tr *moonshine.Transcriber, mic *audio.MicCapture, pollInterval time.Duration) (*Live, error) {
+func NewLive(tr *moonshine.Transcriber, source serveapi.AudioSource, pollInterval time.Duration) (*Live, error) {
 	stream, err := tr.NewStream(0)
 	if err != nil {
 		return nil, err
@@ -144,7 +147,7 @@ func NewLive(tr *moonshine.Transcriber, mic *audio.MicCapture, pollInterval time
 	}
 	return &Live{
 		stream:       stream,
-		mic:          mic,
+		source:       source,
 		pollInterval: pollInterval,
 		updates:      make(chan Update, 8),
 		tracked:      make(map[uint64]*lineProgress),
@@ -193,11 +196,14 @@ func (l *Live) Run(ctx context.Context) {
 			summary := summarize(l.finalized)
 			l.send(Update{Elapsed: time.Since(start), TTFT: ttft, Done: true, Summary: summary})
 			return
-		case chunk, ok := <-l.mic.Chunks():
+		case chunk, ok := <-l.source.Chunks():
 			if !ok {
+				if u, send := sourceClosedUpdate(l.source, time.Since(start)); send {
+					l.send(u)
+				}
 				return
 			}
-			if err := l.stream.AddAudio(chunk, audio.TargetSampleRate); err != nil {
+			if err := l.stream.AddAudio(chunk, moonshine.SampleRate); err != nil {
 				l.send(Update{Err: err, Elapsed: time.Since(start)})
 			}
 		case <-ticker.C:
@@ -247,6 +253,21 @@ func (l *Live) trackLines(transcript moonshine.Transcript) []LineTiming {
 		}
 	}
 	return newlyFinalized
+}
+
+// sourceClosedUpdate decides what to do when an AudioSource's Chunks channel
+// closes: per the serveapi.AudioSource contract, a closed channel alone
+// can't distinguish a clean end of stream from an abnormal termination (e.g.
+// a dropped network connection), so it checks Err(). If Err() is non-nil, it
+// returns an error Update to send; otherwise send is false (clean EOF is not
+// itself an error worth surfacing -- Run's ctx.Done() path handles normal
+// session shutdown separately). Extracted from Run for testability without a
+// real *moonshine.Stream.
+func sourceClosedUpdate(source serveapi.AudioSource, elapsed time.Duration) (u Update, send bool) {
+	if err := source.Err(); err != nil {
+		return Update{Err: err, Elapsed: elapsed}, true
+	}
+	return Update{}, false
 }
 
 func (l *Live) send(u Update) {

@@ -114,9 +114,9 @@ func TestStaticRetriever(t *testing.T) {
 	if len(got) != 1 || got[0].Title != "Ibuprofen" {
 		t.Fatalf("Retrieve(nsaid) = %+v, want Ibuprofen", got)
 	}
-	all, _ := r.Retrieve(context.Background(), "")
-	if len(all) != 2 {
-		t.Fatalf("empty query should return all, got %d", len(all))
+	none, _ := r.Retrieve(context.Background(), "")
+	if len(none) != 0 {
+		t.Fatalf("empty query should return no results, got %d", len(none))
 	}
 }
 
@@ -160,4 +160,31 @@ type handlerFunc func(context.Context, Line) []ActionRequest
 
 func (h handlerFunc) OnFinalizedLine(ctx context.Context, l Line) []ActionRequest {
 	return h(ctx, l)
+}
+
+func TestLineSpeakerLabel(t *testing.T) {
+	if got := (Line{}).SpeakerLabel(); got != "" {
+		t.Errorf("no SpeakerSpans: SpeakerLabel() = %q, want \"\"", got)
+	}
+	l := Line{SpeakerSpans: []SpeakerSpan{
+		{SpeakerIndex: 1},
+		{SpeakerIndex: 0},
+		{SpeakerIndex: 1}, // duplicate index, should not repeat in output
+	}}
+	if got, want := l.SpeakerLabel(), "S0+S1"; got != want {
+		t.Errorf("SpeakerLabel() = %q, want %q", got, want)
+	}
+}
+
+func TestLineWordTimingsSummary(t *testing.T) {
+	if got := (Line{}).WordTimingsSummary(); got != "" {
+		t.Errorf("no Words: WordTimingsSummary() = %q, want \"\"", got)
+	}
+	l := Line{Words: []Word{
+		{Text: "hello", Start: 0.1},
+		{Text: "world", Start: 0.5},
+	}}
+	if got, want := l.WordTimingsSummary(), "hello@0.10 world@0.50"; got != want {
+		t.Errorf("WordTimingsSummary() = %q, want %q", got, want)
+	}
 }

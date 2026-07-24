@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 type fakeLLMClient struct {
@@ -62,7 +62,7 @@ func TestGeminiAgent_LookupAndSpeak(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	actions := agent.OnFinalizedLine(ctx, moonshine.Line{ID: 1, Text: "Search for Moonshine", IsComplete: true})
+	actions := agent.OnFinalizedLine(ctx, serveapi.Line{ID: 1, Text: "Search for Moonshine", IsComplete: true})
 
 	if len(actions) != 2 {
 		t.Fatalf("expected 2 actions (display + speak), got %d: %v", len(actions), actions)
@@ -98,7 +98,7 @@ func TestGeminiAgent_RunCommandGating(t *testing.T) {
 			AllowRunCommand: false,
 		})
 
-		actions := agent.OnFinalizedLine(context.Background(), moonshine.Line{ID: 1, Text: "run ls", IsComplete: true})
+		actions := agent.OnFinalizedLine(context.Background(), serveapi.Line{ID: 1, Text: "run ls", IsComplete: true})
 		for _, a := range actions {
 			if a.Verb == "run_command" {
 				t.Fatalf("expected run_command action to be blocked when AllowRunCommand=false")
@@ -112,7 +112,7 @@ func TestGeminiAgent_RunCommandGating(t *testing.T) {
 			AllowRunCommand: true,
 		})
 
-		actions := agent.OnFinalizedLine(context.Background(), moonshine.Line{ID: 2, Text: "run ls", IsComplete: true})
+		actions := agent.OnFinalizedLine(context.Background(), serveapi.Line{ID: 2, Text: "run ls", IsComplete: true})
 		found := false
 		for _, a := range actions {
 			if a.Verb == "run_command" {

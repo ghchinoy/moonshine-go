@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 // IntentRule defines a single pattern-matching rule for fast-path voice commands.
@@ -78,7 +78,7 @@ func DefaultIntentRules() []IntentRule {
 }
 
 // OnFinalizedLine satisfies AgentHandler. On a match, returns ActionRequests; returns nil on miss.
-func (m *IntentMatcher) OnFinalizedLine(ctx context.Context, line moonshine.Line) []event.ActionRequest {
+func (m *IntentMatcher) OnFinalizedLine(ctx context.Context, line serveapi.Line) []event.ActionRequest {
 	text := strings.TrimSpace(line.Text)
 	if text == "" {
 		return nil

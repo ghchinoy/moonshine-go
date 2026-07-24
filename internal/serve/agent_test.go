@@ -5,16 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 type fakeAgentHandler struct {
-	fn func(line moonshine.Line) []event.ActionRequest
+	fn func(line serveapi.Line) []event.ActionRequest
 }
 
-func (f *fakeAgentHandler) OnFinalizedLine(ctx context.Context, line moonshine.Line) []event.ActionRequest {
+func (f *fakeAgentHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []event.ActionRequest {
 	if f.fn != nil {
 		return f.fn(line)
 	}
@@ -23,21 +23,21 @@ func (f *fakeAgentHandler) OnFinalizedLine(ctx context.Context, line moonshine.L
 
 func TestExternalAgent(t *testing.T) {
 	var agent serve.ExternalAgent
-	actions := agent.OnFinalizedLine(context.Background(), moonshine.Line{ID: 1, Text: "hello", IsComplete: true})
+	actions := agent.OnFinalizedLine(context.Background(), serveapi.Line{ID: 1, Text: "hello", IsComplete: true})
 	if len(actions) != 0 {
 		t.Fatalf("expected no actions from ExternalAgent, got %v", actions)
 	}
 }
 
 func TestCompositeHandler(t *testing.T) {
-	h1 := &fakeAgentHandler{fn: func(line moonshine.Line) []event.ActionRequest {
+	h1 := &fakeAgentHandler{fn: func(line serveapi.Line) []event.ActionRequest {
 		if line.Text == "first" {
 			return []event.ActionRequest{{Verb: "h1"}}
 		}
 		return nil
 	}}
 
-	h2 := &fakeAgentHandler{fn: func(line moonshine.Line) []event.ActionRequest {
+	h2 := &fakeAgentHandler{fn: func(line serveapi.Line) []event.ActionRequest {
 		if line.Text == "second" {
 			return []event.ActionRequest{{Verb: "h2"}}
 		}
@@ -48,21 +48,21 @@ func TestCompositeHandler(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("first handler matches", func(t *testing.T) {
-		res := comp.OnFinalizedLine(ctx, moonshine.Line{ID: 1, Text: "first", IsComplete: true})
+		res := comp.OnFinalizedLine(ctx, serveapi.Line{ID: 1, Text: "first", IsComplete: true})
 		if len(res) != 1 || res[0].Verb != "h1" {
 			t.Fatalf("expected h1 action, got %v", res)
 		}
 	})
 
 	t.Run("second handler matches", func(t *testing.T) {
-		res := comp.OnFinalizedLine(ctx, moonshine.Line{ID: 2, Text: "second", IsComplete: true})
+		res := comp.OnFinalizedLine(ctx, serveapi.Line{ID: 2, Text: "second", IsComplete: true})
 		if len(res) != 1 || res[0].Verb != "h2" {
 			t.Fatalf("expected h2 action, got %v", res)
 		}
 	})
 
 	t.Run("no handler matches", func(t *testing.T) {
-		res := comp.OnFinalizedLine(ctx, moonshine.Line{ID: 3, Text: "none", IsComplete: true})
+		res := comp.OnFinalizedLine(ctx, serveapi.Line{ID: 3, Text: "none", IsComplete: true})
 		if len(res) != 0 {
 			t.Fatalf("expected no action, got %v", res)
 		}
@@ -76,15 +76,15 @@ func TestAgentRunner_DeduplicationAndDispatch(t *testing.T) {
 		return event.ActionResult{OK: true}, nil
 	})
 
-	handler := &fakeAgentHandler{fn: func(line moonshine.Line) []event.ActionRequest {
+	handler := &fakeAgentHandler{fn: func(line serveapi.Line) []event.ActionRequest {
 		return []event.ActionRequest{{ID: "action-1", Verb: "speak"}}
 	}}
 
 	runner := serve.NewAgentRunner(handler, sink)
 	ctx := context.Background()
 
-	line1 := moonshine.Line{ID: 100, Text: "first line", IsComplete: true}
-	line1Interim := moonshine.Line{ID: 100, Text: "first line (interim)", IsComplete: false}
+	line1 := serveapi.Line{ID: 100, Text: "first line", IsComplete: true}
+	line1Interim := serveapi.Line{ID: 100, Text: "first line (interim)", IsComplete: false}
 
 	// 1. Process incomplete line -> should ignore
 	runner.ProcessLine(ctx, line1Interim)
@@ -106,7 +106,7 @@ func TestAgentRunner_DeduplicationAndDispatch(t *testing.T) {
 
 	// 4. Process event carrying the same finalized line
 	ev := event.TranscriptEvent{
-		Lines:            []moonshine.Line{line1},
+		Lines:            []serveapi.Line{line1},
 		FinalizedLineIDs: []uint64{100},
 	}
 	runner.ProcessEvent(ctx, ev)
@@ -122,7 +122,7 @@ func TestAgentRunner_RunLoop(t *testing.T) {
 		return event.ActionResult{OK: true}, nil
 	})
 
-	handler := &fakeAgentHandler{fn: func(line moonshine.Line) []event.ActionRequest {
+	handler := &fakeAgentHandler{fn: func(line serveapi.Line) []event.ActionRequest {
 		return []event.ActionRequest{{Verb: line.Text}}
 	}}
 
@@ -133,9 +133,9 @@ func TestAgentRunner_RunLoop(t *testing.T) {
 	ch := make(chan event.TranscriptEvent, 5)
 	go runner.Run(ctx, ch)
 
-	line := moonshine.Line{ID: 200, Text: "say_hello", IsComplete: true}
+	line := serveapi.Line{ID: 200, Text: "say_hello", IsComplete: true}
 	ch <- event.TranscriptEvent{
-		Lines:            []moonshine.Line{line},
+		Lines:            []serveapi.Line{line},
 		FinalizedLineIDs: []uint64{200},
 	}
 

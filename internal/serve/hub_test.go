@@ -8,6 +8,7 @@ import (
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
 	"github.com/ghchinoy/moonshine-go/internal/session"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 func TestHub_FanOutToMultipleSubscribers(t *testing.T) {
@@ -95,7 +96,7 @@ func TestHub_FinalizedEvent_NeverDroppedUnderBackpressure(t *testing.T) {
 	// Now publish an event carrying a newly-finalized line. It must be
 	// delivered even though the buffer was full.
 	finalEv := event.TranscriptEvent{
-		Lines:            []moonshine.Line{{ID: 42, Text: "done", IsComplete: true}},
+		Lines:            []serveapi.Line{{ID: 42, Text: "done", IsComplete: true}},
 		FinalizedLineIDs: []uint64{42},
 	}
 	h.Publish(finalEv)

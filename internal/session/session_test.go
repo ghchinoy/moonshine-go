@@ -1,10 +1,12 @@
 package session
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 // newTestLive builds a Live with just enough state for trackLines/summarize
@@ -163,5 +165,48 @@ func TestSummarize(t *testing.T) {
 	}
 	if want := 0.6; s.AvgStabilityRatio != want {
 		t.Errorf("AvgStabilityRatio = %v, want %v", s.AvgStabilityRatio, want)
+	}
+}
+
+// fakeAudioSource is a minimal serveapi.AudioSource for tests: no native mic,
+// no cgo. Confirms NewLive/Run depend only on the interface, not on
+// *audio.MicCapture.
+type fakeAudioSource struct {
+	ch  chan []float32
+	err error
+}
+
+func newFakeAudioSource() *fakeAudioSource {
+	return &fakeAudioSource{ch: make(chan []float32, 4)}
+}
+
+func (f *fakeAudioSource) Chunks() <-chan []float32 { return f.ch }
+func (f *fakeAudioSource) Err() error               { return f.err }
+
+// Confirms fakeAudioSource (and, by the same shape, *audio.MicCapture)
+// satisfies serveapi.AudioSource -- a compile-time check as much as a
+// runtime one.
+var _ serveapi.AudioSource = (*fakeAudioSource)(nil)
+
+func TestSourceClosedUpdate_CleanEOF(t *testing.T) {
+	src := newFakeAudioSource() // Err() returns nil
+	u, send := sourceClosedUpdate(src, 5*time.Second)
+	if send {
+		t.Fatalf("clean EOF (nil Err()) should not produce an Update to send, got %+v", u)
+	}
+}
+
+func TestSourceClosedUpdate_AbnormalTermination(t *testing.T) {
+	wantErr := errors.New("connection dropped")
+	src := &fakeAudioSource{ch: make(chan []float32), err: wantErr}
+	u, send := sourceClosedUpdate(src, 5*time.Second)
+	if !send {
+		t.Fatal("abnormal termination (non-nil Err()) should produce an Update to send")
+	}
+	if u.Err != wantErr {
+		t.Errorf("Update.Err = %v, want %v", u.Err, wantErr)
+	}
+	if u.Elapsed != 5*time.Second {
+		t.Errorf("Update.Elapsed = %v, want 5s", u.Elapsed)
 	}
 }

@@ -27,31 +27,34 @@ func (NoopRetriever) Retrieve(ctx context.Context, query string) ([]Result, erro
 	return nil, nil
 }
 
-// StaticRetriever is a Retriever backed by a fixed set of results, returning
-// those whose Title or Snippet contains the (case-insensitive) query. Useful
-// for demos, tests, and small fixed knowledge sets.
+// StaticRetriever is an in-memory Retriever populated with static Results,
+// for testing and demos.
 type StaticRetriever struct {
 	items []Result
 }
 
-// NewStaticRetriever creates a StaticRetriever over the given items.
+// NewStaticRetriever creates a StaticRetriever pre-populated with items.
 func NewStaticRetriever(items ...Result) *StaticRetriever {
 	return &StaticRetriever{items: items}
 }
 
-// Retrieve returns items whose Title or Snippet contains query
-// (case-insensitive). An empty query returns all items.
+// Retrieve performs a case-insensitive substring search across Title,
+// Snippet, and Source. An empty (or all-whitespace) query returns no results
+// rather than the full set, so an accidental empty query doesn't silently
+// dump every item.
 func (s *StaticRetriever) Retrieve(ctx context.Context, query string) ([]Result, error) {
-	q := strings.ToLower(strings.TrimSpace(query))
+	q := strings.TrimSpace(strings.ToLower(query))
 	if q == "" {
-		return append([]Result(nil), s.items...), nil
+		return nil, nil
 	}
-	var out []Result
-	for _, it := range s.items {
-		if strings.Contains(strings.ToLower(it.Title), q) ||
-			strings.Contains(strings.ToLower(it.Snippet), q) {
-			out = append(out, it)
+
+	var matched []Result
+	for _, item := range s.items {
+		if strings.Contains(strings.ToLower(item.Title), q) ||
+			strings.Contains(strings.ToLower(item.Snippet), q) ||
+			strings.Contains(strings.ToLower(item.Source), q) {
+			matched = append(matched, item)
 		}
 	}
-	return out, nil
+	return matched, nil
 }
