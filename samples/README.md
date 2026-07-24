@@ -10,6 +10,9 @@ sitting undiscovered in a doc.
 live transcripts over WebSocket or gRPC and executes inbound actions
 (`speak`, `display`, `session.pause/resume/stop`, `run_command`).
 
+Want to add a sample? See [CONTRIBUTING.md](CONTRIBUTING.md) for
+conventions and the verification bar.
+
 ---
 
 ## Architecture overview
@@ -167,6 +170,14 @@ runner.Run(ctx, events)                             // events: <-chan serveapi.T
   module (with a `replace` directive to this checkout) so it builds exactly
   the way a real third-party consumer of `pkg/serveapi` would — verified to
   build with `CGO_ENABLED=0`, zero `internal/*` imports.
+- **`browser-listen`** (planned, `moonshine-go-ly9`) — a static HTML+JS
+  page: `getUserMedia` + `AudioWorklet` captures mic audio in the browser
+  and streams it to a remote `moonshine serve`, rendering the live
+  transcript coming back over the same connection. No build step, no
+  install of anything — the "composability" pillar taken to its logical
+  extreme. Blocked on `moonshine-go-cl3` (the server needs a CLI flag to
+  accept remote audio; the underlying `RemoteAudioSource` type already
+  exists in `pkg/serveapi`, nothing wires it up yet).
 
 ---
 
