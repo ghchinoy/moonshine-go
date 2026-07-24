@@ -6,15 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/ghchinoy/moonshine-go/internal/audio"
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve"
-	"github.com/ghchinoy/moonshine-go/internal/serve/event"
-	"github.com/ghchinoy/moonshine-go/internal/session"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -76,41 +73,6 @@ func init() {
 	serveCmd.Flags().Float64Var(&serveDiarizationClusterWindowSec, "diarization-cluster-window-sec", 120.0, "Diarization cluster window (seconds)")
 }
 
-type liveSessionControl struct {
-	mu     sync.Mutex
-	paused bool
-	cancel context.CancelFunc
-}
-
-func (s *liveSessionControl) Pause(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.paused = true
-	return nil
-}
-
-func (s *liveSessionControl) Resume(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.paused = false
-	return nil
-}
-
-func (s *liveSessionControl) Stop(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.cancel != nil {
-		s.cancel()
-	}
-	return nil
-}
-
-func (s *liveSessionControl) IsPaused() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.paused
-}
-
 func runServe(cmd *cobra.Command, args []string) error {
 	if err := loadLibrary(); err != nil {
 		return err
@@ -147,8 +109,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sessCtrl := &liveSessionControl{cancel: cancel}
-
 	// TTS Speaker
 	ttsOpts := ortProviderOptions(viper.GetString("tts.providers"))
 	if g2pRoot := viper.GetString("tts.g2p_root"); g2pRoot != "" {
@@ -160,13 +120,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	speaker := serve.NewTTSSpeaker(serveTTSLanguage, ttsOpts...)
 	defer speaker.Close()
 
-	// Barge-in guard: mute mic when TTS is speaking or session is paused
-	mic.SetMutedFunc(func() bool {
-		return speaker.Speaking() || sessCtrl.IsPaused()
-	})
-
 	hub := serve.NewHub()
-	dispatcher := serve.NewDispatcher(speaker, hub, sessCtrl, serveAllowActions)
 
 	// Configure Transports
 	var transports []serve.Transport
@@ -183,36 +137,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no valid transports specified in --transport %q", serveTransport)
 	}
 
-	mgr := serve.NewManager(transports...)
-	if err := mgr.Start(ctx); err != nil {
-		return fmt.Errorf("starting transports: %w", err)
-	}
-	defer mgr.Close()
-
-	// Dispatch inbound actions from Transports Manager -> Dispatcher
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case req, ok := <-mgr.Actions():
-				if !ok {
-					return
-				}
-				res := dispatcher.Handle(ctx, req)
-				mgr.Publish(res)
-			}
-		}
-	}()
-
 	// Agent Setup
 	var agentHandler serve.AgentHandler
 	if strings.ToLower(serveAgent) == "gemini" {
 		realClient, err := serve.NewRealGeminiClient(ctx, serveGeminiModel)
-		if err != nil {
-			if !jsonOutput() {
-				fmt.Fprintf(os.Stderr, "%s %v\n", styleWarn.Render("warning: could not initialize Gemini client:"), err)
-			}
+		if err != nil && !jsonOutput() {
+			fmt.Fprintf(os.Stderr, "%s %v\n", styleWarn.Render("warning: could not initialize Gemini client:"), err)
 		}
 		geminiAgent := serve.NewGeminiAgent(serve.GeminiAgentOptions{
 			Model:           serveGeminiModel,
@@ -226,46 +156,20 @@ func runServe(cmd *cobra.Command, args []string) error {
 		agentHandler = serve.ExternalAgent{}
 	}
 
-	agentRunner := serve.NewAgentRunner(agentHandler, serve.ActionSinkFunc(func(ctx context.Context, req event.ActionRequest) (event.ActionResult, error) {
-		res := dispatcher.Handle(ctx, req)
-		return res, nil
-	}))
-
-	subID, eventsCh := hub.Subscribe()
-	defer hub.Unsubscribe(subID)
-
-	agentEventsCh := make(chan event.TranscriptEvent, 16)
-	go func() {
-		defer close(agentEventsCh)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case ev, ok := <-eventsCh:
-				if !ok {
-					return
-				}
-				if te, ok := ev.(event.TranscriptEvent); ok {
-					select {
-					case agentEventsCh <- te:
-					case <-ctx.Done():
-						return
-					}
-				}
-			}
-		}
-	}()
-
-	go agentRunner.Run(ctx, agentEventsCh)
-
-	// Live STT Session
-	sess, err := session.NewLive(tr, mic, servePollInterval)
+	srv, err := serve.NewServer(serve.ServerConfig{
+		Transcriber:  tr,
+		AudioSource:  mic,
+		Hub:          hub,
+		Transports:   transports,
+		Agent:        agentHandler,
+		Speaker:      speaker,
+		AllowActions: serveAllowActions,
+		IncludeAudio: serveIncludeAudio,
+		PollInterval: servePollInterval,
+	})
 	if err != nil {
 		return err
 	}
-
-	go hub.IngestWithAudio(ctx, sess.Updates(), serveIncludeAudio)
-	go sess.Run(ctx)
 
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, stylePass.Render("moonshine serve is running"))
@@ -279,12 +183,22 @@ func runServe(cmd *cobra.Command, args []string) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
+	runErrCh := make(chan error, 1)
+	go func() {
+		runErrCh <- srv.Run(ctx)
+	}()
+
 	select {
 	case <-sigCh:
 		if !jsonOutput() {
 			fmt.Fprintln(os.Stderr, muted("\nstopping sidecar daemon..."))
 		}
-	case <-ctx.Done():
+		cancel()
+		<-runErrCh
+	case err := <-runErrCh:
+		if err != nil && ctx.Err() == nil {
+			return err
+		}
 	}
 
 	return nil
