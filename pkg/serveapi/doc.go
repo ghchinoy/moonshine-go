@@ -22,4 +22,16 @@
 // insulated from internal churn. The conversion between internal types and
 // these public types lives in internal/serve, which already depends on the
 // cgo-bound packages.
+//
+// # Fast/Slow Confidence Routing
+//
+// Each [Line] emitted in [TranscriptEvent] carries per-word confidence scores
+// ([Word.Confidence]) and aggregate line confidence helpers ([Line.MeanConfidence]
+// and [Line.MinConfidence], values 0.0 to 1.0). Agents can use confidence scores
+// to route finalized lines down different execution paths:
+//
+//   - High confidence (e.g. MeanConfidence >= 0.80): dispatch to fast-path,
+//     deterministic handlers like [CompositeHandler] or intent matchers.
+//   - Low confidence (e.g. MeanConfidence < 0.80): ask the user to clarify or repeat,
+//     or escalate to an LLM with extra grounding context.
 package serveapi

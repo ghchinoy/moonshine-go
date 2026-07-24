@@ -68,6 +68,7 @@ type Line struct {
 	LastLatencyMs       uint32        `json:"last_latency_ms"`
 	Words               []Word        `json:"words,omitempty"`
 	SpeakerSpans        []SpeakerSpan `json:"speaker_spans,omitempty"`
+	Confidence          float32       `json:"confidence,omitempty"`
 }
 
 // Transcript is a full (non-streaming) or partial (streaming) transcription
@@ -116,6 +117,34 @@ func (l Line) WordTimingsSummary() string {
 	return strings.Join(parts, " ")
 }
 
+// MeanConfidence returns the average confidence score across Words (0.0 to 1.0).
+// Returns Confidence if Words is empty, or 0.0 if neither is populated.
+func (l Line) MeanConfidence() float32 {
+	if len(l.Words) == 0 {
+		return l.Confidence
+	}
+	var sum float32
+	for _, w := range l.Words {
+		sum += w.Confidence
+	}
+	return sum / float32(len(l.Words))
+}
+
+// MinConfidence returns the lowest word confidence score in the line (0.0 to 1.0).
+// Returns Confidence if Words is empty, or 0.0 if neither is populated.
+func (l Line) MinConfidence() float32 {
+	if len(l.Words) == 0 {
+		return l.Confidence
+	}
+	min := l.Words[0].Confidence
+	for _, w := range l.Words[1:] {
+		if w.Confidence < min {
+			min = w.Confidence
+		}
+	}
+	return min
+}
+
 // FirstNonEmptyText returns the text of the first line with non-empty text,
 // and true, or ("", false) if there isn't one yet. Useful for detecting
 // time-to-first-token in a streaming session.
@@ -158,6 +187,7 @@ func copyTranscript(p unsafe.Pointer) Transcript {
 			for j, w := range cWords {
 				line.Words[j] = Word{Text: goString(w.text), Start: w.start, End: w.end, Confidence: w.confidence}
 			}
+			line.Confidence = line.MeanConfidence()
 		}
 		if cl.speakerSpans != nil && cl.speakerSpanCount > 0 {
 			cSpans := unsafe.Slice(cl.speakerSpans, int(cl.speakerSpanCount))

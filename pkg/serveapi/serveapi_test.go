@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -310,5 +311,37 @@ func TestLineWordTimingsSummary(t *testing.T) {
 	}}
 	if got, want := l.WordTimingsSummary(), "hello@0.10 world@0.50"; got != want {
 		t.Errorf("WordTimingsSummary() = %q, want %q", got, want)
+	}
+}
+
+func TestLineConfidenceAggregation(t *testing.T) {
+	emptyLine := Line{}
+	if got := emptyLine.MeanConfidence(); got != 0 {
+		t.Errorf("emptyLine.MeanConfidence() = %v, want 0", got)
+	}
+	if got := emptyLine.MinConfidence(); got != 0 {
+		t.Errorf("emptyLine.MinConfidence() = %v, want 0", got)
+	}
+
+	lineWithConfidenceOnly := Line{Confidence: 0.85}
+	if got := lineWithConfidenceOnly.MeanConfidence(); got != 0.85 {
+		t.Errorf("MeanConfidence() = %v, want 0.85", got)
+	}
+	if got := lineWithConfidenceOnly.MinConfidence(); got != 0.85 {
+		t.Errorf("MinConfidence() = %v, want 0.85", got)
+	}
+
+	lineWithWords := Line{
+		Words: []Word{
+			{Text: "hello", Confidence: 0.90},
+			{Text: "world", Confidence: 0.70},
+			{Text: "again", Confidence: 0.80},
+		},
+	}
+	if got := lineWithWords.MeanConfidence(); math.Abs(float64(got-0.80)) > 1e-5 {
+		t.Errorf("MeanConfidence() = %v, want 0.80", got)
+	}
+	if got := lineWithWords.MinConfidence(); math.Abs(float64(got-0.70)) > 1e-5 {
+		t.Errorf("MinConfidence() = %v, want 0.70", got)
 	}
 }

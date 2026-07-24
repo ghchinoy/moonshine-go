@@ -93,6 +93,7 @@ func lineFromMoonshine(l moonshine.Line, includeAudio bool) serveapi.Line {
 		HasTextChanged:      l.HasTextChanged,
 		HaveSpeakersChanged: l.HaveSpeakersChanged,
 		LastLatencyMs:       l.LastLatencyMs,
+		Confidence:          l.Confidence,
 	}
 	if includeAudio {
 		out.AudioData = l.AudioData
@@ -106,6 +107,9 @@ func lineFromMoonshine(l moonshine.Line, includeAudio bool) serveapi.Line {
 				End:        w.End,
 				Confidence: w.Confidence,
 			}
+		}
+		if out.Confidence == 0 {
+			out.Confidence = out.MeanConfidence()
 		}
 	}
 	if len(l.SpeakerSpans) > 0 {

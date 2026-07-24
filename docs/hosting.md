@@ -39,23 +39,12 @@ In other words: the *smart half* of the daemon is ready to be hosted.
 
 ---
 
-## What you have to build
+## Core pipeline edges (shipped)
 
-Three things assume a single local box today. Hosting means replacing each
-with a networked equivalent. All three are at the **edges** of the pipeline —
-the core model loop is untouched.
+Three edges that previously assumed a single local box have been decoupled for network deployment:
 
-1. **Audio in — decouple from the local mic.**
-   `runServe` calls `audio.StartMicCapture()` directly, and
-   `session.NewLive(tr, mic *audio.MicCapture, …)` takes the *concrete*
-   `MicCapture`. To accept a remote client's audio you need an `AudioSource`
-   interface (a mic implementation for local use, a network-PCM
-   implementation for hosted use) and to feed those samples into
-   `Stream.AddAudio`. This refactor also unblocks file/stream transcription,
-   so it's useful well beyond hosting.
-
-   The most common hosted case is a **browser that owns the microphone** —
-   see the next subsection.
+1. **Audio in — decoupled from the local mic (`--audio-source remote`).**
+   `session.NewLive` takes `serveapi.AudioSource`. `moonshine serve --audio-source remote` accepts binary PCM streaming frames (Float32 or Int16, with automatic 48kHz→16kHz linear resampling) over WebSocket or gRPC directly into `RemoteAudioSource`. No physical microphone or cgo toolchain is required on the server.
 
 ### Browser as the audio source (JS/Lit front-end)
 
@@ -63,16 +52,13 @@ A natural deployment: a web page uses the browser's own microphone APIs
 (`getUserMedia` + an `AudioWorklet`) to capture audio and streams it to a
 `moonshine serve` backend over WebSocket; the server does the transcription
 and streams `TranscriptEvent`s back on the same socket. The browser owns
-*capture*; the server owns *inference*. This is the concrete instance of the
-"Audio in" work above, tracked as bd `moonshine-go-elj` (remote-PCM
-`AudioSource`) plus `moonshine-go-7br` (per-connection sessions, so each tab
-is its own session).
+*capture*; the server owns *inference*.
 
-> **Status:** the *transcript-out* direction works today — a browser can
-> already connect with the standard WebSocket API and receive events (see the
-> `WSTransport` doc comment in `internal/serve/ws.go`). The *audio-in*
-> direction below is forward-looking: it needs `moonshine-go-elj` to land. The
-> sketch shows the intended shape, not a shipped feature.
+> **Status:** Both *transcript-out* and *audio-in* work today — see
+> [../samples/browser-listen](../samples/browser-listen) for a zero-install
+> HTML/JS sample that captures mic audio via `AudioWorklet`, streams PCM over
+> WebSocket to `moonshine serve --audio-source remote`, and renders live
+> transcript events.
 
 **Why this split helps.** It removes the microphone — and therefore the cgo
 build requirement — from the server entirely. Today `serve` needs
@@ -184,13 +170,11 @@ export class MoonshineMic extends LitElement {
 customElements.define('moonshine-mic', MoonshineMic);
 ```
 
-2. **Audio out — return bytes, not speaker playback.**
-   TTS today uses `audio.PlayFloat32` (the box's default output device), and
-   barge-in is a local mic mute (`mic.SetMutedFunc`). A hosted daemon must
-   instead **return synthesized audio over the transport** to the client, and
-   express barge-in as a protocol signal rather than a local device mute. The
-   synthesizer already exposes `Synthesize(...)` returning audio; `PlayFloat32`
-   is simply the wrong primitive for the hosted case.
+2. **Audio out — in-protocol audio events & barge-in.**
+   `TTSSpeaker` emits `TTSAudioEvent` (`kind: tts_audio`) over transports with
+   raw PCM audio data, state (`start`, `chunk`, `end`, `interrupted`), and sample rate.
+   Remote clients receive synthesized audio over the network, and `session.barge_in`
+   actions trigger in-protocol interrupts (`TTSSpeaker.Interrupt`).
 
 3. **Sessions — one per connection (via `--max-sessions`).**
    In remote audio mode (`--audio-source remote`), `moonshine serve` uses a
