@@ -47,14 +47,14 @@ test:
 smoke:
 	MOONSHINE_LIB_DIR=$(CURDIR)/$(LIB_DIR) go test -tags moonshinesmoke ./internal/moonshine/... -v
 
-## proto: Regenerate internal/serve/servepb from internal/serve/serve.proto.
+## proto: Regenerate pkg/servepb from pkg/servepb/serve.proto.
 ##        Requires protoc, protoc-gen-go, and protoc-gen-go-grpc on PATH
 ##        (e.g. `brew install protobuf && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 ##        google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest`).
 proto:
 	protoc --go_out=. --go_opt=module=github.com/ghchinoy/moonshine-go \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/ghchinoy/moonshine-go \
-		internal/serve/serve.proto
+		pkg/servepb/serve.proto
 
 fmt:
 	gofmt -l .

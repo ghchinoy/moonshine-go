@@ -9,7 +9,7 @@ syntax = "proto3";
 
 package moonshine.serve.v1;
 
-option go_package = "github.com/ghchinoy/moonshine-go/internal/serve/servepb";
+option go_package = "github.com/ghchinoy/moonshine-go/pkg/servepb";
 
 // VoiceSidecar is the single bidirectional-streaming RPC a client opens: it
 // sends ActionRequests in and receives Events out, for as long as the

@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
-	"github.com/ghchinoy/moonshine-go/internal/serve/servepb"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
+	"github.com/ghchinoy/moonshine-go/pkg/servepb"
 )
 
 // GRPCTransport is a gRPC Transport implementation: each call to the

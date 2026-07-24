@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - v0.6.0
 
 ### Added
+- **Public `pkg/servepb` gRPC Stubs**: Relocated generated gRPC client/server stubs and `serve.proto` to public `pkg/servepb` package, enabling external Go consumers/modules to import `servepb.NewVoiceSidecarClient` (`#sz3`).
 - **`--tts-play-local` Flag**: Added CLI flag to `moonshine serve` to explicitly enable/disable local server speaker playback during TTS synthesis (defaults to `true` for `--audio-source local`, `false` for `--audio-source remote`).
 - **Per-Session TTS Isolation**: Multi-tenant `SessionManager` now isolates TTS speak-back routing per session, ensuring concurrent clients receive only their own synthesized audio frames.
 

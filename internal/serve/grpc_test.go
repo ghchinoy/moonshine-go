@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
-	"github.com/ghchinoy/moonshine-go/internal/serve/servepb"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
+	"github.com/ghchinoy/moonshine-go/pkg/servepb"
 )
 
 const bufconnBufSize = 1024 * 1024

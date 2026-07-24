@@ -10,7 +10,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.35.1
-// source: internal/serve/serve.proto
+// source: pkg/servepb/serve.proto
 
 package servepb
 
@@ -46,7 +46,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_internal_serve_serve_proto_msgTypes[0]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -58,7 +58,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_serve_serve_proto_msgTypes[0]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -71,7 +71,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_internal_serve_serve_proto_rawDescGZIP(), []int{0}
+	return file_pkg_servepb_serve_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Event) GetPayload() isEvent_Payload {
@@ -152,7 +152,7 @@ type Line struct {
 
 func (x *Line) Reset() {
 	*x = Line{}
-	mi := &file_internal_serve_serve_proto_msgTypes[1]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -164,7 +164,7 @@ func (x *Line) String() string {
 func (*Line) ProtoMessage() {}
 
 func (x *Line) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_serve_serve_proto_msgTypes[1]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -177,7 +177,7 @@ func (x *Line) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Line.ProtoReflect.Descriptor instead.
 func (*Line) Descriptor() ([]byte, []int) {
-	return file_internal_serve_serve_proto_rawDescGZIP(), []int{1}
+	return file_pkg_servepb_serve_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Line) GetText() string {
@@ -257,7 +257,7 @@ type SessionSummary struct {
 
 func (x *SessionSummary) Reset() {
 	*x = SessionSummary{}
-	mi := &file_internal_serve_serve_proto_msgTypes[2]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -269,7 +269,7 @@ func (x *SessionSummary) String() string {
 func (*SessionSummary) ProtoMessage() {}
 
 func (x *SessionSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_serve_serve_proto_msgTypes[2]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -282,7 +282,7 @@ func (x *SessionSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionSummary.ProtoReflect.Descriptor instead.
 func (*SessionSummary) Descriptor() ([]byte, []int) {
-	return file_internal_serve_serve_proto_rawDescGZIP(), []int{2}
+	return file_pkg_servepb_serve_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SessionSummary) GetLinesFinalized() int32 {
@@ -344,7 +344,7 @@ type TranscriptEvent struct {
 
 func (x *TranscriptEvent) Reset() {
 	*x = TranscriptEvent{}
-	mi := &file_internal_serve_serve_proto_msgTypes[3]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +356,7 @@ func (x *TranscriptEvent) String() string {
 func (*TranscriptEvent) ProtoMessage() {}
 
 func (x *TranscriptEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_serve_serve_proto_msgTypes[3]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +369,7 @@ func (x *TranscriptEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TranscriptEvent.ProtoReflect.Descriptor instead.
 func (*TranscriptEvent) Descriptor() ([]byte, []int) {
-	return file_internal_serve_serve_proto_rawDescGZIP(), []int{3}
+	return file_pkg_servepb_serve_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *TranscriptEvent) GetLines() []*Line {
@@ -443,7 +443,7 @@ type DisplayCard struct {
 
 func (x *DisplayCard) Reset() {
 	*x = DisplayCard{}
-	mi := &file_internal_serve_serve_proto_msgTypes[4]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -455,7 +455,7 @@ func (x *DisplayCard) String() string {
 func (*DisplayCard) ProtoMessage() {}
 
 func (x *DisplayCard) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_serve_serve_proto_msgTypes[4]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -468,7 +468,7 @@ func (x *DisplayCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisplayCard.ProtoReflect.Descriptor instead.
 func (*DisplayCard) Descriptor() ([]byte, []int) {
-	return file_internal_serve_serve_proto_rawDescGZIP(), []int{4}
+	return file_pkg_servepb_serve_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DisplayCard) GetTitle() string {
@@ -513,7 +513,7 @@ type ActionRequest struct {
 
 func (x *ActionRequest) Reset() {
 	*x = ActionRequest{}
-	mi := &file_internal_serve_serve_proto_msgTypes[5]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -525,7 +525,7 @@ func (x *ActionRequest) String() string {
 func (*ActionRequest) ProtoMessage() {}
 
 func (x *ActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_serve_serve_proto_msgTypes[5]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -538,7 +538,7 @@ func (x *ActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionRequest.ProtoReflect.Descriptor instead.
 func (*ActionRequest) Descriptor() ([]byte, []int) {
-	return file_internal_serve_serve_proto_rawDescGZIP(), []int{5}
+	return file_pkg_servepb_serve_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ActionRequest) GetId() string {
@@ -574,7 +574,7 @@ type ActionResult struct {
 
 func (x *ActionResult) Reset() {
 	*x = ActionResult{}
-	mi := &file_internal_serve_serve_proto_msgTypes[6]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -586,7 +586,7 @@ func (x *ActionResult) String() string {
 func (*ActionResult) ProtoMessage() {}
 
 func (x *ActionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_serve_serve_proto_msgTypes[6]
+	mi := &file_pkg_servepb_serve_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -599,7 +599,7 @@ func (x *ActionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionResult.ProtoReflect.Descriptor instead.
 func (*ActionResult) Descriptor() ([]byte, []int) {
-	return file_internal_serve_serve_proto_rawDescGZIP(), []int{6}
+	return file_pkg_servepb_serve_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ActionResult) GetId() string {
@@ -623,11 +623,11 @@ func (x *ActionResult) GetErr() string {
 	return ""
 }
 
-var File_internal_serve_serve_proto protoreflect.FileDescriptor
+var File_pkg_servepb_serve_proto protoreflect.FileDescriptor
 
-const file_internal_serve_serve_proto_rawDesc = "" +
+const file_pkg_servepb_serve_proto_rawDesc = "" +
 	"\n" +
-	"\x1ainternal/serve/serve.proto\x12\x12moonshine.serve.v1\"\xdf\x01\n" +
+	"\x17pkg/servepb/serve.proto\x12\x12moonshine.serve.v1\"\xdf\x01\n" +
 	"\x05Event\x12E\n" +
 	"\n" +
 	"transcript\x18\x01 \x01(\v2#.moonshine.serve.v1.TranscriptEventH\x00R\n" +
@@ -679,22 +679,22 @@ const file_internal_serve_serve_proto_rawDesc = "" +
 	"\x02ok\x18\x02 \x01(\bR\x02ok\x12\x10\n" +
 	"\x03err\x18\x03 \x01(\tR\x03err2Z\n" +
 	"\fVoiceSidecar\x12J\n" +
-	"\x06Stream\x12!.moonshine.serve.v1.ActionRequest\x1a\x19.moonshine.serve.v1.Event(\x010\x01B9Z7github.com/ghchinoy/moonshine-go/internal/serve/servepbb\x06proto3"
+	"\x06Stream\x12!.moonshine.serve.v1.ActionRequest\x1a\x19.moonshine.serve.v1.Event(\x010\x01B.Z,github.com/ghchinoy/moonshine-go/pkg/servepbb\x06proto3"
 
 var (
-	file_internal_serve_serve_proto_rawDescOnce sync.Once
-	file_internal_serve_serve_proto_rawDescData []byte
+	file_pkg_servepb_serve_proto_rawDescOnce sync.Once
+	file_pkg_servepb_serve_proto_rawDescData []byte
 )
 
-func file_internal_serve_serve_proto_rawDescGZIP() []byte {
-	file_internal_serve_serve_proto_rawDescOnce.Do(func() {
-		file_internal_serve_serve_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_internal_serve_serve_proto_rawDesc), len(file_internal_serve_serve_proto_rawDesc)))
+func file_pkg_servepb_serve_proto_rawDescGZIP() []byte {
+	file_pkg_servepb_serve_proto_rawDescOnce.Do(func() {
+		file_pkg_servepb_serve_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pkg_servepb_serve_proto_rawDesc), len(file_pkg_servepb_serve_proto_rawDesc)))
 	})
-	return file_internal_serve_serve_proto_rawDescData
+	return file_pkg_servepb_serve_proto_rawDescData
 }
 
-var file_internal_serve_serve_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_internal_serve_serve_proto_goTypes = []any{
+var file_pkg_servepb_serve_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_pkg_servepb_serve_proto_goTypes = []any{
 	(*Event)(nil),           // 0: moonshine.serve.v1.Event
 	(*Line)(nil),            // 1: moonshine.serve.v1.Line
 	(*SessionSummary)(nil),  // 2: moonshine.serve.v1.SessionSummary
@@ -703,7 +703,7 @@ var file_internal_serve_serve_proto_goTypes = []any{
 	(*ActionRequest)(nil),   // 5: moonshine.serve.v1.ActionRequest
 	(*ActionResult)(nil),    // 6: moonshine.serve.v1.ActionResult
 }
-var file_internal_serve_serve_proto_depIdxs = []int32{
+var file_pkg_servepb_serve_proto_depIdxs = []int32{
 	3, // 0: moonshine.serve.v1.Event.transcript:type_name -> moonshine.serve.v1.TranscriptEvent
 	4, // 1: moonshine.serve.v1.Event.display:type_name -> moonshine.serve.v1.DisplayCard
 	6, // 2: moonshine.serve.v1.Event.action_result:type_name -> moonshine.serve.v1.ActionResult
@@ -718,12 +718,12 @@ var file_internal_serve_serve_proto_depIdxs = []int32{
 	0, // [0:5] is the sub-list for field type_name
 }
 
-func init() { file_internal_serve_serve_proto_init() }
-func file_internal_serve_serve_proto_init() {
-	if File_internal_serve_serve_proto != nil {
+func init() { file_pkg_servepb_serve_proto_init() }
+func file_pkg_servepb_serve_proto_init() {
+	if File_pkg_servepb_serve_proto != nil {
 		return
 	}
-	file_internal_serve_serve_proto_msgTypes[0].OneofWrappers = []any{
+	file_pkg_servepb_serve_proto_msgTypes[0].OneofWrappers = []any{
 		(*Event_Transcript)(nil),
 		(*Event_Display)(nil),
 		(*Event_ActionResult)(nil),
@@ -732,17 +732,17 @@ func file_internal_serve_serve_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_serve_serve_proto_rawDesc), len(file_internal_serve_serve_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_servepb_serve_proto_rawDesc), len(file_pkg_servepb_serve_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_internal_serve_serve_proto_goTypes,
-		DependencyIndexes: file_internal_serve_serve_proto_depIdxs,
-		MessageInfos:      file_internal_serve_serve_proto_msgTypes,
+		GoTypes:           file_pkg_servepb_serve_proto_goTypes,
+		DependencyIndexes: file_pkg_servepb_serve_proto_depIdxs,
+		MessageInfos:      file_pkg_servepb_serve_proto_msgTypes,
 	}.Build()
-	File_internal_serve_serve_proto = out.File
-	file_internal_serve_serve_proto_goTypes = nil
-	file_internal_serve_serve_proto_depIdxs = nil
+	File_pkg_servepb_serve_proto = out.File
+	file_pkg_servepb_serve_proto_goTypes = nil
+	file_pkg_servepb_serve_proto_depIdxs = nil
 }

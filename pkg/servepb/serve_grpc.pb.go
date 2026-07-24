@@ -10,7 +10,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v7.35.1
-// source: internal/serve/serve.proto
+// source: pkg/servepb/serve.proto
 
 package servepb
 
@@ -129,5 +129,5 @@ var VoiceSidecar_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "internal/serve/serve.proto",
+	Metadata: "pkg/servepb/serve.proto",
 }
