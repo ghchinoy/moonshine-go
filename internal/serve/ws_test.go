@@ -2,8 +2,10 @@ package serve
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -121,6 +123,39 @@ func TestWSTransport_Publish_DelegatesToHub(t *testing.T) {
 	}
 	if envelope.Kind != event.KindDisplay {
 		t.Fatalf("Kind = %q, want %q", envelope.Kind, event.KindDisplay)
+	}
+}
+
+func TestWSTransport_BinaryAudioStreaming(t *testing.T) {
+	_, tr, addr := startTestWSTransport(t)
+	sink := NewRemoteAudioSource(AudioFormat{
+		SampleRate: 16000,
+		Channels:   1,
+		Encoding:   AudioEncodingFloat32,
+	}, 10)
+	tr.SetAudioSink(sink)
+
+	conn := dialTestClient(t, addr)
+
+	// Send binary frame over WebSocket with 2 float32 samples [0.25, 0.75]
+	pcm := make([]byte, 8)
+	binary.LittleEndian.PutUint32(pcm[0:4], math.Float32bits(0.25))
+	binary.LittleEndian.PutUint32(pcm[4:8], math.Float32bits(0.75))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := conn.Write(ctx, websocket.MessageBinary, pcm); err != nil {
+		t.Fatalf("Write binary PCM: %v", err)
+	}
+
+	select {
+	case got := <-sink.Chunks():
+		if len(got) != 2 || got[0] != 0.25 || got[1] != 0.75 {
+			t.Fatalf("sink.Chunks() = %v, want [0.25 0.75]", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for binary audio chunk in sink")
 	}
 }
 

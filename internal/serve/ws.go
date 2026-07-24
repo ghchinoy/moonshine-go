@@ -63,11 +63,20 @@ type WSTransport struct {
 
 	actions chan event.ActionRequest
 
-	mu       sync.Mutex
-	srv      *http.Server
-	listener net.Listener
-	closed   bool
-	conns    map[*websocket.Conn]struct{}
+	mu        sync.Mutex
+	srv       *http.Server
+	listener  net.Listener
+	closed    bool
+	conns     map[*websocket.Conn]struct{}
+	audioSink *RemoteAudioSource
+}
+
+// SetAudioSink binds a RemoteAudioSource to WSTransport for receiving
+// client binary PCM audio streams over WebSocket.
+func (t *WSTransport) SetAudioSink(sink *RemoteAudioSource) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.audioSink = sink
 }
 
 // NewWSTransport creates a WebSocket transport bound to addr (host:port,
@@ -175,11 +184,10 @@ func (t *WSTransport) handleConn(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// Reader loop: pull inbound ActionRequest frames from the client.
+	// Reader loop: pull inbound ActionRequest frames (text) or PCM audio (binary) from the client.
 readLoop:
 	for {
-		var req event.ActionRequest
-		err := wsjson.Read(ctx, conn, &req)
+		msgType, data, err := conn.Read(ctx)
 		if err != nil {
 			var closeErr websocket.CloseError
 			if errors.As(err, &closeErr) || ctx.Err() != nil {
@@ -187,10 +195,30 @@ readLoop:
 			}
 			break readLoop // malformed frame or transport error: drop the connection
 		}
-		select {
-		case t.actions <- req:
-		case <-ctx.Done():
-			break readLoop
+
+		switch msgType {
+		case websocket.MessageText:
+			var req event.ActionRequest
+			if err := json.Unmarshal(data, &req); err != nil {
+				continue
+			}
+			select {
+			case t.actions <- req:
+			case <-ctx.Done():
+				break readLoop
+			}
+
+		case websocket.MessageBinary:
+			t.mu.Lock()
+			sink := t.audioSink
+			t.mu.Unlock()
+
+			if sink != nil {
+				if err := sink.WritePCMBytes(ctx, data); err != nil {
+					// Drop invalid PCM frames without terminating connection
+					continue
+				}
+			}
 		}
 	}
 

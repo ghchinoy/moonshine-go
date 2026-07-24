@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestTranscriptEventFinalizedLines(t *testing.T) {
@@ -153,6 +154,38 @@ func TestAudioSourceContract(t *testing.T) {
 	}
 	if f.Err() == nil {
 		t.Fatal("expected non-nil Err after abnormal termination")
+	}
+}
+
+func TestRemoteAudioSource_Basic(t *testing.T) {
+	src := NewRemoteAudioSource(AudioFormat{
+		SampleRate: 16000,
+		Channels:   1,
+		Encoding:   AudioEncodingFloat32,
+	}, 5)
+
+	var _ AudioSource = src
+
+	ctx := context.Background()
+	samples := []float32{0.1, 0.2, 0.3}
+	if err := src.WriteSamples(ctx, samples); err != nil {
+		t.Fatalf("WriteSamples error: %v", err)
+	}
+
+	select {
+	case got := <-src.Chunks():
+		if len(got) != len(samples) {
+			t.Fatalf("chunk len = %d, want %d", len(got), len(samples))
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for chunk")
+	}
+
+	if err := src.Close(); err != nil {
+		t.Fatalf("Close error: %v", err)
+	}
+	if src.Err() != nil {
+		t.Errorf("expected nil Err after clean Close, got %v", src.Err())
 	}
 }
 
