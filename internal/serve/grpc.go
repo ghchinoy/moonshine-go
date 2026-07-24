@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
 	"github.com/ghchinoy/moonshine-go/internal/serve/servepb"
@@ -34,8 +36,21 @@ type GRPCTransport struct {
 
 	actions chan event.ActionRequest
 
-	mu     sync.Mutex
-	closed bool
+	mu       sync.Mutex
+	closed   bool
+	sessMgr  *SessionManager
+	audioFmt AudioFormat
+}
+
+// SetSessionManager binds a SessionManager to GRPCTransport for per-connection
+// sessions in remote audio mode.
+func (t *GRPCTransport) SetSessionManager(mgr *SessionManager, fmtOpt ...AudioFormat) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.sessMgr = mgr
+	if len(fmtOpt) > 0 {
+		t.audioFmt = fmtOpt[0]
+	}
 }
 
 // NewGRPCTransport creates a gRPC transport that will listen on addr
@@ -101,8 +116,34 @@ func (t *GRPCTransport) Addr() string {
 // RPC. Each call registers a new Hub subscription for its lifetime.
 func (t *GRPCTransport) Stream(stream servepb.VoiceSidecar_StreamServer) error {
 	ctx := stream.Context()
-	subID, events := t.hub.Subscribe()
-	defer t.hub.Unsubscribe(subID)
+
+	t.mu.Lock()
+	sessMgr := t.sessMgr
+	audioFmt := t.audioFmt
+	t.mu.Unlock()
+
+	var connHub *Hub
+	var connAudioSink *RemoteAudioSource
+	var connManagedSess *ManagedSession
+
+	if sessMgr != nil {
+		connAudioSink = NewRemoteAudioSource(audioFmt, 100)
+		defer connAudioSink.Close()
+
+		var err error
+		connManagedSess, err = sessMgr.CreateSession(ctx, connAudioSink)
+		if err != nil {
+			return status.Errorf(codes.ResourceExhausted, "%v", err)
+		}
+		defer connManagedSess.Close()
+
+		connHub = connManagedSess.Hub()
+	} else {
+		connHub = t.hub
+	}
+
+	subID, events := connHub.Subscribe()
+	defer connHub.Unsubscribe(subID)
 
 	done := make(chan struct{})
 	go func() {
@@ -131,12 +172,20 @@ func (t *GRPCTransport) Stream(stream servepb.VoiceSidecar_StreamServer) error {
 		if err != nil {
 			break // EOF (client closed send side) or transport error
 		}
+		actReq := fromProtoActionRequest(req)
+		if connManagedSess != nil {
+			res := connManagedSess.Dispatcher().Handle(ctx, actReq)
+			connHub.Publish(res)
+		}
 		select {
-		case t.actions <- fromProtoActionRequest(req):
+		case t.actions <- actReq:
 		case <-ctx.Done():
+			break
+		default:
 		}
 	}
 
+	connHub.Unsubscribe(subID)
 	<-done
 	return nil
 }

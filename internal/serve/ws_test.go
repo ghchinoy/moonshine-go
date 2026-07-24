@@ -207,3 +207,51 @@ func TestEnvelopeFor_KnownTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestWSTransport_SessionManagerPerConnectionSessions(t *testing.T) {
+	mgr := NewSessionManager(SessionManagerConfig{
+		MaxSessions: 2,
+	})
+	_, tr, addr := startTestWSTransport(t)
+	tr.SetSessionManager(mgr)
+
+	// Dial Client 1
+	conn1 := dialTestClient(t, addr)
+	time.Sleep(50 * time.Millisecond)
+
+	if mgr.ActiveSessions() != 1 {
+		t.Fatalf("expected 1 active session, got %d", mgr.ActiveSessions())
+	}
+
+	// Dial Client 2
+	conn2 := dialTestClient(t, addr)
+	time.Sleep(50 * time.Millisecond)
+
+	if mgr.ActiveSessions() != 2 {
+		t.Fatalf("expected 2 active sessions, got %d", mgr.ActiveSessions())
+	}
+
+	// Dial Client 3 -- should be rejected because MaxSessions is 2
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	url := fmt.Sprintf("ws://%s/ws", addr)
+	conn3, _, err := websocket.Dial(ctx, url, nil)
+	if err == nil {
+		// Attempt to read from conn3 -- should see close frame
+		_, _, readErr := conn3.Read(ctx)
+		if readErr == nil {
+			t.Error("expected conn3 to be rejected due to MaxSessions limit")
+		}
+		_ = conn3.Close(websocket.StatusNormalClosure, "")
+	}
+
+	// Close conn1
+	_ = conn1.Close(websocket.StatusNormalClosure, "done")
+	time.Sleep(50 * time.Millisecond)
+
+	if mgr.ActiveSessions() != 1 {
+		t.Errorf("expected 1 active session after conn1 close, got %d", mgr.ActiveSessions())
+	}
+
+	_ = conn2.Close(websocket.StatusNormalClosure, "done")
+}

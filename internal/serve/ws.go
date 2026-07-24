@@ -71,6 +71,19 @@ type WSTransport struct {
 	closed    bool
 	conns     map[*websocket.Conn]struct{}
 	audioSink *RemoteAudioSource
+	sessMgr   *SessionManager
+	audioFmt  AudioFormat
+}
+
+// SetSessionManager binds a SessionManager to WSTransport for per-connection
+// sessions in remote audio mode.
+func (t *WSTransport) SetSessionManager(mgr *SessionManager, fmtOpt ...AudioFormat) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.sessMgr = mgr
+	if len(fmtOpt) > 0 {
+		t.audioFmt = fmtOpt[0]
+	}
 }
 
 // SetAudioSink binds a RemoteAudioSource to WSTransport for receiving
@@ -148,6 +161,8 @@ func (t *WSTransport) handleConn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t.conns[conn] = struct{}{}
+	sessMgr := t.sessMgr
+	audioFmt := t.audioFmt
 	t.mu.Unlock()
 	defer func() {
 		t.mu.Lock()
@@ -155,10 +170,32 @@ func (t *WSTransport) handleConn(w http.ResponseWriter, r *http.Request) {
 		t.mu.Unlock()
 	}()
 
-	subID, events := t.hub.Subscribe()
-	defer t.hub.Unsubscribe(subID)
+	var connHub *Hub
+	var connAudioSink *RemoteAudioSource
+	var connManagedSess *ManagedSession
 
 	ctx := r.Context()
+
+	if sessMgr != nil {
+		connAudioSink = NewRemoteAudioSource(audioFmt, 100)
+		defer connAudioSink.Close()
+
+		var err error
+		connManagedSess, err = sessMgr.CreateSession(ctx, connAudioSink)
+		if err != nil {
+			_ = conn.Close(websocket.StatusPolicyViolation, err.Error())
+			return
+		}
+		defer connManagedSess.Close()
+
+		connHub = connManagedSess.Hub()
+	} else {
+		connHub = t.hub
+	}
+
+	subID, events := connHub.Subscribe()
+	defer connHub.Unsubscribe(subID)
+
 	done := make(chan struct{})
 
 	// Writer goroutine: pump Hub events out to the client.
@@ -204,26 +241,38 @@ readLoop:
 			if err := json.Unmarshal(data, &req); err != nil {
 				continue
 			}
+			if connManagedSess != nil {
+				res := connManagedSess.Dispatcher().Handle(ctx, req)
+				connHub.Publish(res)
+			}
 			select {
 			case t.actions <- req:
 			case <-ctx.Done():
 				break readLoop
+			default:
 			}
 
 		case websocket.MessageBinary:
-			t.mu.Lock()
-			sink := t.audioSink
-			t.mu.Unlock()
-
-			if sink != nil {
-				if err := sink.WritePCMBytes(ctx, data); err != nil {
-					// Drop invalid PCM frames without terminating connection
+			if connAudioSink != nil {
+				if err := connAudioSink.WritePCMBytes(ctx, data); err != nil {
 					continue
+				}
+			} else {
+				t.mu.Lock()
+				sink := t.audioSink
+				t.mu.Unlock()
+
+				if sink != nil {
+					if err := sink.WritePCMBytes(ctx, data); err != nil {
+						// Drop invalid PCM frames without terminating connection
+						continue
+					}
 				}
 			}
 		}
 	}
 
+	connHub.Unsubscribe(subID)
 	<-done
 }
 

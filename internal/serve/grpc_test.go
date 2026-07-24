@@ -203,3 +203,59 @@ func TestFromProtoActionRequest_RoundTrip(t *testing.T) {
 		t.Errorf("title = %q, want %q", m["title"], "t")
 	}
 }
+
+func TestGRPCTransport_SessionManagerPerConnectionSessions(t *testing.T) {
+	mgr := NewSessionManager(SessionManagerConfig{
+		MaxSessions: 2,
+	})
+	_, tr, dial := startTestGRPCTransport(t)
+	tr.SetSessionManager(mgr)
+
+	conn, err := dial(context.Background())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+	client := servepb.NewVoiceSidecarClient(conn)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream1, err := client.Stream(ctx)
+	if err != nil {
+		t.Fatalf("Stream1: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	if mgr.ActiveSessions() != 1 {
+		t.Fatalf("expected 1 active session, got %d", mgr.ActiveSessions())
+	}
+
+	stream2, err := client.Stream(ctx)
+	if err != nil {
+		t.Fatalf("Stream2: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	if mgr.ActiveSessions() != 2 {
+		t.Fatalf("expected 2 active sessions, got %d", mgr.ActiveSessions())
+	}
+
+	// Stream 3 should fail due to MaxSessions limit
+	stream3, err := client.Stream(ctx)
+	if err == nil {
+		_, recvErr := stream3.Recv()
+		if recvErr == nil {
+			t.Error("expected Stream3 to fail due to MaxSessions limit")
+		}
+	}
+
+	_ = stream1.CloseSend()
+	time.Sleep(50 * time.Millisecond)
+
+	if mgr.ActiveSessions() != 1 {
+		t.Errorf("expected 1 active session after stream1 close, got %d", mgr.ActiveSessions())
+	}
+
+	_ = stream2.CloseSend()
+}
