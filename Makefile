@@ -31,7 +31,7 @@ buildlib:
 	./scripts/build-libmoonshine.sh $(MOONSHINE_SRC)
 
 ## fetchlib: Fetch prebuilt libmoonshine release asset into .moonshine/lib.
-##           Usage: make fetchlib [MOONSHINE_TAG=v0.0.71] [MOONSHINE_PLATFORM=linux-x86_64]
+##           Usage: make fetchlib [MOONSHINE_TAG=v0.0.73] [MOONSHINE_PLATFORM=linux-x86_64]
 fetchlib:
 	./scripts/fetch-libmoonshine.sh $(MOONSHINE_TAG) $(MOONSHINE_PLATFORM)
 

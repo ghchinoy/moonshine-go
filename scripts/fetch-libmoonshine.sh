@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 TAG_FILE="${REPO_ROOT}/MOONSHINE_RELEASE_TAG"
-DEFAULT_TAG="v0.0.71"
+DEFAULT_TAG="v0.0.73"
 
 if [[ -f "${TAG_FILE}" ]]; then
   DEFAULT_TAG="$(tr -d '[:space:]' < "${TAG_FILE}")"

@@ -8,8 +8,8 @@ This document describes how `moonshine-go` is versioned, packaged, and released.
 
 `moonshine-go` combines two version concepts:
 
-1. **CLI / Repo Version (`vX.Y.Z`)**: The semver tag of `moonshine-go` itself (e.g. `v0.1.0`), set in `cmd/moonshine/version.go` at build time via `-ldflags`.
-2. **Upstream Library Pin (`MOONSHINE_RELEASE_TAG`)**: The version of `libmoonshine` (e.g. `v0.0.71`) that prebuilt binary assets are fetched from.
+1. **CLI / Repo Version (`vX.Y.Z`)**: The semver tag of `moonshine-go` itself (e.g. `v0.3.0`), set in `cmd/moonshine/version.go` at build time via `-ldflags`.
+2. **Upstream Library Pin (`MOONSHINE_RELEASE_TAG`)**: The version of `libmoonshine` (e.g. `v0.0.73`) that prebuilt binary assets are fetched from.
 
 ---
 
@@ -17,23 +17,17 @@ This document describes how `moonshine-go` is versioned, packaged, and released.
 
 | Platform | Prebuilt Assets | Release Mechanism |
 | :--- | :--- | :--- |
-| **Linux (x86_64)** | ⚠️ Broken as of `v0.0.71` (see below) | Automated via GitHub Actions (`make fetchlib`) |
+| **Linux (x86_64)** | ✅ Supported (fixed upstream in `v0.0.73`) | Automated via GitHub Actions (`make fetchlib`) |
 | **Linux (arm64)** | ✅ Supported | Automated via GitHub Actions (`make fetchlib`) |
 | **macOS (arm64)** | ⏳ Pending upstream `hbq` | Built from source via `make buildlib` |
 | **Windows (x86_64)**| ⏳ Pending upstream `hbq` | Built from source via `make buildlib` |
 
 *(Note: macOS and Windows upstream release assets currently ship static libraries only. They are tracked under task `moonshine-go-hbq` and will be added to automated releases once upstream exports shared libraries).*
 
-**⚠️ Known issue (`moonshine-go-dh7`):** the `linux-x86_64` release asset for
-`v0.0.71` requires GLIBC 2.43, which does not exist in Ubuntu LTS releases
-(20.04/22.04/24.04), Debian 12 (2.36), or even Debian testing/unstable (2.42) --
-`scripts/check-release-asset.sh`'s static checks all pass, but the library
-fails to `dlopen()` at runtime. This was found via a live load test (see
-[testing-with-container.md](testing-with-container.md)); `.github/workflows/release.yml`
-currently has no step that would catch this before publishing a release.
-Reported upstream: [moonshine-ai/moonshine#206](https://github.com/moonshine-ai/moonshine/issues/206).
-The `linux-arm64` asset is unaffected (requires only GLIBC 2.27) and is
-safe to rely on today.
+**Note (`moonshine-go-dh7` resolved):** the `linux-x86_64` release asset for
+`v0.0.71` required GLIBC 2.43, which failed to `dlopen()` on standard Linux distros.
+This was reported upstream ([moonshine-ai/moonshine#206](https://github.com/moonshine-ai/moonshine/issues/206))
+and fixed in `v0.0.73`. Both `linux-x86_64` and `linux-arm64` assets are now fully supported.
 
 ---
 
@@ -49,7 +43,7 @@ make vet
 make test
 ```
 
-Verify that `MOONSHINE_RELEASE_TAG` contains the desired upstream version pin (e.g. `v0.0.71`) and passes asset validation:
+Verify that `MOONSHINE_RELEASE_TAG` contains the desired upstream version pin (e.g. `v0.0.73`) and passes asset validation:
 
 ```sh
 scripts/check-release-asset.sh linux-x86_64 $(cat MOONSHINE_RELEASE_TAG)
