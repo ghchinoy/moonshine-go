@@ -170,6 +170,43 @@ func TestHub_Ingest_ConvertsAndPublishesUpdates(t *testing.T) {
 	}
 }
 
+func TestHub_IngestWithAudio_PreservesAudioData(t *testing.T) {
+	h := NewHub()
+	_, ch := h.Subscribe()
+
+	updates := make(chan session.Update, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		h.IngestWithAudio(ctx, updates, true)
+		close(done)
+	}()
+
+	updates <- session.Update{
+		Transcript: moonshine.Transcript{Lines: []moonshine.Line{
+			{ID: 1, Text: "hi", AudioData: []float32{0.5, 0.6}, IsComplete: true},
+		}},
+	}
+
+	select {
+	case got := <-ch:
+		te, ok := got.(event.TranscriptEvent)
+		if !ok {
+			t.Fatalf("got %#v, want TranscriptEvent", got)
+		}
+		if len(te.Lines) != 1 || len(te.Lines[0].AudioData) != 2 {
+			t.Fatalf("Lines = %+v, want audio data preserved when includeAudio=true", te.Lines)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for ingested event")
+	}
+
+	close(updates)
+	<-done
+}
+
 func TestHub_Ingest_StopsOnContextCancel(t *testing.T) {
 	h := NewHub()
 	updates := make(chan session.Update) // never closed

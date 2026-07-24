@@ -50,6 +50,32 @@ func TestFromUpdate_Basic(t *testing.T) {
 	}
 }
 
+func TestFromUpdate_AudioDataStripping(t *testing.T) {
+	u := session.Update{
+		Transcript: moonshine.Transcript{Lines: []moonshine.Line{
+			{ID: 1, Text: "hello", AudioData: []float32{0.1, 0.2, 0.3}},
+		}},
+	}
+
+	// Default FromUpdate strips audio data for privacy and frame-size efficiency
+	evDefault := FromUpdate(u)
+	if len(evDefault.Lines) != 1 {
+		t.Fatalf("Lines len = %d, want 1", len(evDefault.Lines))
+	}
+	if evDefault.Lines[0].AudioData != nil {
+		t.Errorf("default FromUpdate AudioData = %v, want nil", evDefault.Lines[0].AudioData)
+	}
+
+	// FromUpdateWithAudio(u, true) preserves audio data
+	evWithAudio := FromUpdateWithAudio(u, true)
+	if len(evWithAudio.Lines) != 1 {
+		t.Fatalf("Lines len = %d, want 1", len(evWithAudio.Lines))
+	}
+	if len(evWithAudio.Lines[0].AudioData) != 3 {
+		t.Errorf("FromUpdateWithAudio(u, true) AudioData len = %d, want 3", len(evWithAudio.Lines[0].AudioData))
+	}
+}
+
 func TestFromUpdate_ErrAndDone(t *testing.T) {
 	u := session.Update{Err: errors.New("boom"), Done: false}
 	ev := FromUpdate(u)

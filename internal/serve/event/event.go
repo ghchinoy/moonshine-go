@@ -38,12 +38,17 @@ const (
 )
 
 // FromUpdate converts a session.Update into the wire-format TranscriptEvent.
-// This is the one place that bridges the internal session/moonshine types to
-// the public serveapi wire types -- keep session.Update's shape and this
-// mapping in sync when either changes.
+// By default, raw PCM AudioData is omitted from lines for privacy and wire-size
+// efficiency (see FromUpdateWithAudio to include raw audio).
 func FromUpdate(u session.Update) TranscriptEvent {
+	return FromUpdateWithAudio(u, false)
+}
+
+// FromUpdateWithAudio converts a session.Update into the wire-format
+// TranscriptEvent, optionally preserving raw PCM AudioData on each line.
+func FromUpdateWithAudio(u session.Update, includeAudio bool) TranscriptEvent {
 	ev := TranscriptEvent{
-		Lines:         linesFromMoonshine(u.Transcript.Lines),
+		Lines:         linesFromMoonshine(u.Transcript.Lines, includeAudio),
 		TTFTms:        u.TTFT.Milliseconds(),
 		ElapsedMs:     u.Elapsed.Milliseconds(),
 		PollLatencyMs: u.PollLatency.Milliseconds(),
@@ -74,10 +79,9 @@ func FromUpdate(u session.Update) TranscriptEvent {
 // lineFromMoonshine converts a moonshine.Line (the internal, native-bound
 // transcript line) into the public serveapi.Line shadow struct. Field-for-field
 // mapping; keep in sync with both types.
-func lineFromMoonshine(l moonshine.Line) serveapi.Line {
+func lineFromMoonshine(l moonshine.Line, includeAudio bool) serveapi.Line {
 	out := serveapi.Line{
 		Text:                l.Text,
-		AudioData:           l.AudioData,
 		StartTime:           l.StartTime,
 		Duration:            l.Duration,
 		ID:                  l.ID,
@@ -87,6 +91,9 @@ func lineFromMoonshine(l moonshine.Line) serveapi.Line {
 		HasTextChanged:      l.HasTextChanged,
 		HaveSpeakersChanged: l.HaveSpeakersChanged,
 		LastLatencyMs:       l.LastLatencyMs,
+	}
+	if includeAudio {
+		out.AudioData = l.AudioData
 	}
 	if len(l.Words) > 0 {
 		out.Words = make([]serveapi.Word, len(l.Words))
@@ -116,13 +123,13 @@ func lineFromMoonshine(l moonshine.Line) serveapi.Line {
 }
 
 // linesFromMoonshine converts a slice of moonshine.Line to serveapi.Line.
-func linesFromMoonshine(ls []moonshine.Line) []serveapi.Line {
+func linesFromMoonshine(ls []moonshine.Line, includeAudio bool) []serveapi.Line {
 	if len(ls) == 0 {
 		return nil
 	}
 	out := make([]serveapi.Line, len(ls))
 	for i, l := range ls {
-		out[i] = lineFromMoonshine(l)
+		out[i] = lineFromMoonshine(l, includeAudio)
 	}
 	return out
 }

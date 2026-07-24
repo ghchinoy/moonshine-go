@@ -29,6 +29,8 @@ var (
 	serveAllowActions                bool
 	serveTTSVoice                    string
 	serveTTSLanguage                 string
+	serveTTSG2PRoot                  string
+	serveIncludeAudio                bool
 	serveLanguage                    string
 	serveArch                        string
 	serveProviders                   string
@@ -60,6 +62,9 @@ func init() {
 	serveCmd.Flags().BoolVar(&serveAllowActions, "allow-actions", false, "Gate enabling mutating actions (speak, session control, run_command)")
 	serveCmd.Flags().StringVar(&serveTTSVoice, "tts-voice", "", "Default voice override for TTS speaker")
 	serveCmd.Flags().StringVar(&serveTTSLanguage, "tts-language", "en_us", "TTS speaker language")
+	serveCmd.Flags().StringVar(&serveTTSG2PRoot, "g2p-root", "", "Directory holding kokoro/, <lang>/piper-voices/, etc. (default: derived from moonshine.src_dir)")
+	serveCmd.Flags().BoolVar(&serveIncludeAudio, "include-audio", false, "Include raw PCM audio_data []float32 in transcript event frames")
+	_ = viper.BindPFlag("tts.g2p_root", serveCmd.Flags().Lookup("g2p-root"))
 	serveCmd.Flags().StringVar(&serveLanguage, "language", "en", "STT model language")
 	serveCmd.Flags().StringVar(&serveArch, "arch", "tiny-streaming", "STT model architecture (tiny-streaming, small-streaming, medium-streaming)")
 	serveCmd.Flags().StringVar(&serveProviders, "providers", defaultOrtProviders(), "ONNX Runtime execution providers (e.g. CPU, CoreML,CPU)")
@@ -146,6 +151,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// TTS Speaker
 	ttsOpts := ortProviderOptions(viper.GetString("tts.providers"))
+	if g2pRoot := viper.GetString("tts.g2p_root"); g2pRoot != "" {
+		ttsOpts = append(ttsOpts, moonshine.Option{Name: "g2p_root", Value: g2pRoot})
+	}
 	if serveTTSVoice != "" {
 		ttsOpts = append(ttsOpts, moonshine.Option{Name: "voice", Value: serveTTSVoice})
 	}
@@ -256,13 +264,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	go hub.Ingest(ctx, sess.Updates())
+	go hub.IngestWithAudio(ctx, sess.Updates(), serveIncludeAudio)
 	go sess.Run(ctx)
 
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, stylePass.Render("moonshine serve is running"))
 		fmt.Fprintf(os.Stderr, "  transports:    %s\n", serveTransport)
 		fmt.Fprintf(os.Stderr, "  allow-actions: %v\n", serveAllowActions)
+		fmt.Fprintf(os.Stderr, "  include-audio: %v\n", serveIncludeAudio)
 		fmt.Fprintf(os.Stderr, "  agent:         %s\n", serveAgent)
 		fmt.Fprintln(os.Stderr, muted("press Ctrl-C to stop"))
 	}

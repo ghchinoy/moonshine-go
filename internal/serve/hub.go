@@ -119,11 +119,19 @@ func (h *Hub) Publish(ev any) {
 
 // Ingest reads session.Update values from updates (typically
 // session.Live.Updates()), converts each to an event.TranscriptEvent via
-// event.FromUpdate, and Publishes it. It returns when updates is closed or
-// ctx is cancelled. Run it in its own goroutine:
+// event.FromUpdate (omitting raw audio by default), and Publishes it. It
+// returns when updates is closed or ctx is cancelled. Run it in its own
+// goroutine:
 //
 //	go hub.Ingest(ctx, sess.Updates())
 func (h *Hub) Ingest(ctx context.Context, updates <-chan session.Update) {
+	h.IngestWithAudio(ctx, updates, false)
+}
+
+// IngestWithAudio reads session.Update values from updates, converts each to
+// an event.TranscriptEvent (optionally preserving raw PCM AudioData on lines),
+// and Publishes it.
+func (h *Hub) IngestWithAudio(ctx context.Context, updates <-chan session.Update, includeAudio bool) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -132,7 +140,7 @@ func (h *Hub) Ingest(ctx context.Context, updates <-chan session.Update) {
 			if !ok {
 				return
 			}
-			h.Publish(event.FromUpdate(u))
+			h.Publish(event.FromUpdateWithAudio(u, includeAudio))
 		}
 	}
 }
