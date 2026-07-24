@@ -19,6 +19,10 @@ func TestServeCmd_Flags(t *testing.T) {
 		{"agent", "agent", "external"},
 		{"gemini-model", "gemini-model", "gemini-2.5-flash"},
 		{"allow-actions", "allow-actions", "false"},
+		{"audio-source", "audio-source", "local"},
+		{"remote-audio-rate", "remote-audio-rate", "16000"},
+		{"remote-audio-encoding", "remote-audio-encoding", "float32"},
+		{"remote-audio-channels", "remote-audio-channels", "1"},
 		{"arch", "arch", "tiny-streaming"},
 		{"language", "language", "en"},
 	}
