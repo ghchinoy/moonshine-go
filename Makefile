@@ -13,7 +13,7 @@ export CGO_ENABLED ?= 1
 # checkout (e.g. building from a source tarball with no .git directory).
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: all build buildlib fetchlib release-package clean test smoke fmt fmt-fix vet lint proto
+.PHONY: all build buildlib fetchlib release-package clean test check-nocgo smoke fmt fmt-fix vet lint proto
 
 all: build
 
@@ -42,6 +42,10 @@ release-package: build
 ## test: Run the regular (non-native) Go test suite.
 test:
 	go test ./...
+
+## check-nocgo: Verify public packages (pkg/moonshine, pkg/serveapi, pkg/servepb) build with CGO_ENABLED=0.
+check-nocgo:
+	CGO_ENABLED=0 go build ./pkg/moonshine/... ./pkg/serveapi/... ./pkg/servepb/...
 
 ## smoke: Run the tests that exercise a real built libmoonshine (see pkg/moonshine/smoke_test.go).
 smoke:

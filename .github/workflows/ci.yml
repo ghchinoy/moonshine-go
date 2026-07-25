@@ -33,7 +33,7 @@ jobs:
           cache: true
 
       # internal/audio requires cgo (github.com/gen2brain/malgo, for mic
-      # capture and playback) even though internal/moonshine itself is
+      # capture and playback) even though pkg/moonshine itself is
       # purego-based and cgo-free. windows-latest ships a MinGW gcc toolchain
       # under MSYS2 (C:\msys64) but it isn't on PATH by default -- add it so
       # `go build`/`go vet`/`go test` can actually invoke cgo on this runner.
@@ -44,6 +44,11 @@ jobs:
 
       - name: go build
         run: go build ./...
+
+      - name: go build (CGO_ENABLED=0, public embedding surface)
+        env:
+          CGO_ENABLED: 0
+        run: go build ./pkg/moonshine/... ./pkg/serveapi/... ./pkg/servepb/...
 
       - name: go vet
         run: go vet ./...
