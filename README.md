@@ -17,10 +17,7 @@ reimplementing its model pipeline.
   `internal/` imports). See [samples/](samples/) for real programs built on
   it.
 
-This isn't published to any package registry -- it's built from source
-against a local moonshine checkout (below), and there's no Go-only `go
-install` path since the CLI needs the native `libmoonshine` shared library at
-runtime.
+The `cmd/moonshine` CLI is built from source against a local `libmoonshine` shared library (below); there is no Go-only `go install` path for the CLI binary since it requires native shared libraries at runtime. However, the public Go packages (`pkg/moonshine`, `pkg/serveapi`, `pkg/servepb`) are ordinary Go packages buildable with `CGO_ENABLED=0` for direct in-process embedding in your own Go applications (see [samples/go-embedded](samples/go-embedded/)).
 
 **Mission:** fast local Moonshine STT + Go make the classic
 speech → STT → LLM → TTS → speech *cascade* viable again -- and with it, the
