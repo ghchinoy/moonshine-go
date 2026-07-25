@@ -18,6 +18,8 @@ building and using moonshine-go, beyond what's in the top-level
   CLI, no Docker required.
 - [MISSION.md](MISSION.md) -- why this project exists: bringing the
   STT → LLM → TTS cascade back.
+- [vision/binding-family.md](vision/binding-family.md) -- the Moonshine binding family
+  (Go, Swift, WASM, Android) and daemon IPC vs. native-embedded architecture.
 - [faq.md](faq.md) -- timestamps, transcription speed (RTF), progress
   indicators, model caching, saving output.
 - [hardware-acceleration.md](hardware-acceleration.md) -- `--providers` /
