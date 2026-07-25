@@ -541,11 +541,11 @@ func buildBatchManifest(inputs []string, results []batchFileResult) batchManifes
 
 	manifest.Summary = batchSummary{
 		TotalFiles:       len(inputs),
-		SuccessfulFiles: succCount,
-		FailedFiles:     failCount,
-		TotalAudioSec:   totalAudioSec,
+		SuccessfulFiles:  succCount,
+		FailedFiles:      failCount,
+		TotalAudioSec:    totalAudioSec,
 		TotalInferenceMs: totalInferMs,
-		AggregateRTF:    rtf,
+		AggregateRTF:     rtf,
 		ConfidenceSummary: batchConfidenceSummary{
 			Mean: meanConf,
 			Min:  confMin,
