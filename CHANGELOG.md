@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.8.0] - 2026-07-25
+
+### Added
+- **Public `pkg/moonshine` Pure-Go Reference Binding**: Promoted `internal/moonshine` to public `pkg/moonshine`, making the pure-Go, cgo-free (`CGO_ENABLED=0` buildable) C-API binding layer importable by external Go packages and modules (`#i9l`).
+- **Sample Rating Schema & Developer Guide**: Added 6-axis sample rating schema in `samples/CONTRIBUTING.md`, central narrative guide in `samples/GUIDE.md`, and contributor skill `skills/moonshine-sample-rating/` (`#0v6`).
+
+### Changed
+- **Sample Batch Engine Alignment**: Refactored `samples/go-bulk-analysis` to consume the native `v0.7.0` `moonshine transcribe --json <dir>` batch manifest directly (`#17w`).
+
+---
+
 ## [v0.7.0] - 2026-07-25
 
 ### Added
