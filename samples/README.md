@@ -186,6 +186,13 @@ runner.Run(ctx, events)                             // events: <-chan serveapi.T
   build step, no install of anything — the "composability" pillar taken to
   its logical extreme, and the concrete realization of "browser as the
   audio source" from `docs/hosting.md`.
+- [go-bulk-analysis](go-bulk-analysis/) — batch transcription and LLM corpus
+  analysis ("the cascade as batch"). Ingests a folder of `.wav` files,
+  transcribes them at **~50–70x real-time** speed using `moonshine transcribe --json`,
+  computes aggregate RTF and confidence stats, and runs a Gemini LLM pass to
+  produce a Markdown report with executive synthesis, thematic clusters, and
+  quotes cited back to `[filename @ MM:SS (confidence %)]`. Includes an
+  agent-friendly JSON manifest preserving word timestamps and speaker spans.
 
 ---
 
