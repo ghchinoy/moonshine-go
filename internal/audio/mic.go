@@ -11,7 +11,7 @@ import (
 // input device. This is the one part of moonshine-go that requires cgo
 // (via github.com/gen2brain/malgo, a Go wrapper around the header-only
 // miniaudio library) -- a separate, unavoidable concern from the purego-based
-// libmoonshine bindings in internal/moonshine, which remain cgo-free.
+// libmoonshine bindings in pkg/moonshine, which remain cgo-free.
 type MicCapture struct {
 	ctx       *malgo.AllocatedContext
 	device    *malgo.Device

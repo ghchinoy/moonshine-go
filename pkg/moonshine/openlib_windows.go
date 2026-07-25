@@ -25,7 +25,7 @@ func openLibrary(path string) (uintptr, error) {
 // platform to test against. ucrtbase.dll is the modern (Windows 10+),
 // standard C runtime DLL that MSVC-built binaries dynamically link against
 // by default, which should match, but revisit this once a real Windows
-// libmoonshine exists and can be smoke-tested (see internal/moonshine's
+// libmoonshine exists and can be smoke-tested (see pkg/moonshine's
 // smoke_test.go).
 func crtHandle() (uintptr, error) {
 	h, err := syscall.LoadLibrary("ucrtbase.dll")

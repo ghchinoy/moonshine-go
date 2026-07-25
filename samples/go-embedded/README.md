@@ -4,10 +4,7 @@ In-process batch and streaming Speech-to-Text directly in Go, using
 [`pkg/moonshine`](../../pkg/moonshine) — the public, pure-Go (`CGO_ENABLED=0`)
 reference binding over `libmoonshine`'s C ABI.
 
-This sample demonstrates the **"Native / In-Process Embedding"** runtime model
-(see [docs/vision/binding-family.md](../../docs/vision/binding-family.md)):
-running STT directly inside your own Go application without a `moonshine serve`
-daemon or network IPC connection.
+This sample demonstrates **Native In-Process Embedding**: linking `libmoonshine` and running STT directly inside your own Go application process via `pkg/moonshine` without a `moonshine serve` daemon or network IPC connection.
 
 ## Sample Rating
 

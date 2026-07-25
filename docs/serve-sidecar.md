@@ -75,8 +75,7 @@ Do not relitigate these without updating the epic and this doc:
   must run as a separate process talking `pkg/serveapi` over WS/gRPC (the
   shape `samples/go-cascade-faq` uses). Promoting a public
   `pkg/serveapi.Server`-style wrapper so external modules can embed too is
-  tracked as follow-up, not yet scheduled. See
-  `docs/vision/serveapi-design.md` (gitignored) for the full rationale.
+  tracked as follow-up, not yet scheduled.
 - **New code lives in `internal/serve/`** (+ one file `cmd/moonshine/serve.go`).
 - **Transports:** define a `Transport` interface first, then implement
   **both** WebSocket and gRPC behind it, selectable/concurrent via

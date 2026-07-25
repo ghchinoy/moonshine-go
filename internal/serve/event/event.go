@@ -3,8 +3,7 @@
 // ActionRequest, ActionResult, DisplayCard, SpeakArgs, Kind) are aliases of
 // pkg/serveapi -- this package owns no type definitions of its own, only the
 // FromUpdate conversion, which is the one place that needs to depend on
-// internal/session (and, transitively, internal/audio/cgo). See
-// docs/vision/serveapi-design.md for why the split is shaped this way.
+// internal/session (and, transitively, internal/audio/cgo).
 package event
 
 import (

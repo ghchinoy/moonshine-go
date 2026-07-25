@@ -10,7 +10,7 @@ import (
 // streaming results, IsComplete distinguishes finalized lines from the (at
 // most one) trailing in-progress line.
 //
-// This is a shadow of internal/moonshine.Line: the field set and JSON tags
+// This is a shadow of pkg/moonshine.Line: the field set and JSON tags
 // match the internal type exactly, so the wire format is unchanged, but the
 // public contract does not depend on the internal package.
 type Line struct {

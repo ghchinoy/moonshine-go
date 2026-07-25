@@ -8,7 +8,7 @@ import (
 )
 
 // These tests deliberately avoid calling Speak (which requires libmoonshine
-// to be loaded, real audio output, etc. -- see internal/moonshine/smoke_test.go
+// to be loaded, real audio output, etc. -- see pkg/moonshine/smoke_test.go
 // for that coverage). They only exercise the lazy-construction and
 // lifecycle paths that must work without any native library loaded, per
 // make test's native-free requirement (AGENTS.md).

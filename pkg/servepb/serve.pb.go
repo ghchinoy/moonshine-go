@@ -130,7 +130,7 @@ func (*Event_Display) isEvent_Payload() {}
 
 func (*Event_ActionResult) isEvent_Payload() {}
 
-// Line mirrors moonshine.Line's wire-relevant fields (internal/moonshine/stt.go).
+// Line mirrors moonshine.Line's wire-relevant fields (pkg/moonshine/stt.go).
 // Word/SpeakerSpan details are intentionally omitted from v1 of this proto
 // (available via the WebSocket/JSON transport, which carries the full Go
 // struct) to keep the gRPC surface minimal; extend here if a gRPC consumer

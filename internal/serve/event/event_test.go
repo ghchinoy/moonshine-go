@@ -14,8 +14,8 @@ import (
 func TestFromUpdate_Basic(t *testing.T) {
 	u := session.Update{
 		Transcript: moonshine.Transcript{Lines: []moonshine.Line{
-			{ID: 1, Text: "hello", IsComplete: true},
-			{ID: 2, Text: "wor", IsComplete: false},
+			{ID: 1, Text: "hello", IsComplete: true, LastLatencyMs: 42, Confidence: 0.95},
+			{ID: 2, Text: "wor", IsComplete: false, LastLatencyMs: 15, Confidence: 0.80},
 		}},
 		TTFT:        250 * time.Millisecond,
 		Elapsed:     1500 * time.Millisecond,
@@ -29,6 +29,12 @@ func TestFromUpdate_Basic(t *testing.T) {
 
 	if len(ev.Lines) != 2 {
 		t.Fatalf("Lines len = %d, want 2", len(ev.Lines))
+	}
+	if got, want := ev.Lines[0].LastLatencyMs, uint32(42); got != want {
+		t.Errorf("Lines[0].LastLatencyMs = %d, want %d", got, want)
+	}
+	if got, want := ev.Lines[0].Confidence, float32(0.95); got != want {
+		t.Errorf("Lines[0].Confidence = %f, want %f", got, want)
 	}
 	if got, want := ev.TTFTms, int64(250); got != want {
 		t.Errorf("TTFTms = %d, want %d", got, want)
