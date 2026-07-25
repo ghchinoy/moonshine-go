@@ -36,14 +36,15 @@ A sample earns a place in `samples/` if it:
   pattern it demonstrates, not accumulate a list of bugs that no longer
   exist.
 - Go samples are **their own Go module** (`go.mod`), not part of the root
-  `moonshine-go` module. If the sample depends on `pkg/serveapi`, use a
-  `replace github.com/ghchinoy/moonshine-go => ../..` directive pointed at
-  the local checkout — see `samples/go-cascade-faq/go.mod` for the pattern.
-  This matters structurally, not just cosmetically: a sample living inside
-  the root module could `import "internal/serve"` by accident (same-module
+  `moonshine-go` module. If the sample depends on `pkg/serveapi`, `pkg/servepb`,
+  or `pkg/moonshine`, use a `replace github.com/ghchinoy/moonshine-go => ../..`
+  directive pointed at the local checkout — see `samples/go-cascade-faq/go.mod`
+  for the pattern. This matters structurally, not just cosmetically: a sample
+  living inside the root module could `import "internal/serve"` by accident (same-module
   code isn't blocked by Go's `internal/` rule) and you'd never notice the
-  mistake. A separate module makes that a compile error, the same as it
-  would be for a real external consumer.
+  mistake. A separate module makes importing `internal/*` packages a compile
+  error for samples, the same as it would be for a real external consumer, while
+  allowing imports of public packages (`pkg/serveapi`, `pkg/servepb`, `pkg/moonshine`).
 - Python (or other non-Go) samples get a `requirements.txt` (or equivalent)
   and should have no dependency on any moonshine-go package — they exist to
   prove the wire contract (JSON over WebSocket/gRPC) works from any
@@ -55,9 +56,9 @@ Every sample must include a **Sample Rating** table near the top of its own `REA
 
 | Axis | Format / Values | Description |
 |---|---|---|
-| **Tier** | `Tier 0` / `Tier 1` / `Tier 2` | `Tier 0`: subscribe only; `Tier 1`: external IPC agent; `Tier 2`: `pkg/serveapi` Go extension. |
+| **Tier** | `Tier 0` / `Tier 1` / `Tier 2` / `Native / in-process` | `Tier 0`: subscribe only; `Tier 1`: external IPC agent; `Tier 2`: `pkg/serveapi` Go extension; `Native / in-process`: direct `pkg/moonshine` C-API binding without a daemon. |
 | **Complexity** | `1/5` to `5/5` | Implementation intricacy (1 = ~40 lines zero-SDK; 5 = full multi-tool LLM loop). |
-| **Setup Cost** | `Low` / `Medium` / `High` | `Low`: plain socket client; `Medium`: local mic/tmux/browser; `High`: multi-service or API key required. |
+| **Setup Cost** | `Low` / `Medium` / `High` | `Low`: plain socket client; `Medium`: local mic/tmux/browser/libmoonshine; `High`: multi-service or API key required. |
 | **Pillars** | `Control`, `Observability`, `Privacy`, `Composability` | Subset of core pillars from `MISSION.md` demonstrated. |
 | **Industry / Use Case** | Freeform tags | Primary application vertical (e.g. `Developer Tooling`, `Customer Service / Kiosk`). |
 | **Appeal** | `1/5` to `5/5` | Demoability and developer appeal (1 = utility test; 5 = standalone showcase). |
@@ -83,14 +84,10 @@ Before calling a sample done:
 
 1. It builds/runs cleanly on its own (`go build`, `go vet`, `gofmt -l .` for
    Go; `python3 -m py_compile` at minimum for Python).
-2. It has been run **live** against a real `./bin/moonshine serve` process
-   — actually connect, actually see transcript events, actually trigger
-   whatever action the sample sends, and actually observe the effect (TTS
-   audio, a paused session, whatever it claims to do). Mic-loopback test
-   harnesses (e.g. macOS `say` piped into a live mic) are fine for
-   exercising the wire path even if transcription accuracy is poor in that
-   setup — the point is verifying the round trip, not benchmarking STT.
-3. If a Go sample claims to be a genuine external `pkg/serveapi` consumer,
+2. It has been run **live**:
+   - For daemon IPC samples (Tiers 0–2): run against a real `./bin/moonshine serve` process — actually connect, receive transcript events, trigger actions, and observe effects.
+   - For native-embedding samples (`pkg/moonshine`): run against a real `libmoonshine` shared library and downloaded model — load transcriber, process audio, and verify output lines and stats.
+3. If a Go sample claims to be a genuine external `pkg/serveapi` or `pkg/moonshine` consumer,
    verify `CGO_ENABLED=0 go build ./...` passes in that sample's directory.
 4. Real bugs found while doing the above get filed in `bd`, not silently
    worked around in the sample without a trace. Reference the sample's

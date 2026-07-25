@@ -196,6 +196,14 @@ runner.Run(ctx, events)                             // events: <-chan serveapi.T
 
 ---
 
+## Native / In-Process Embedding (`pkg/moonshine`)
+
+For Go applications that do not run a `moonshine serve` daemon or network IPC connection, [`pkg/moonshine`](../pkg/moonshine) provides a public, pure-Go (`CGO_ENABLED=0`) C-API reference binding over `libmoonshine`.
+
+- [go-embedded](go-embedded/) — in-process batch and streaming Speech-to-Text directly in Go without a daemon (`moonshine.Load()`, `Transcriber.Transcribe`, `Transcriber.NewStream`). Demonstrates Model B (Native In-Process Embedding) from `docs/vision/binding-family.md`.
+
+---
+
 ## A note on transcript frame size
 
 By default, `moonshine serve` omits each line's raw PCM audio

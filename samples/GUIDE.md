@@ -42,6 +42,7 @@ Every sample in `samples/` self-reports its rating schema in its own `README.md`
 | **[go-cascade-faq](go-cascade-faq/)** | Tier 1 | 3/5 | Medium | Control, Observability, Privacy, Composability | Flagship Go offline RAG voice agent | 4/5 |
 | **[python-agent](python-agent/)** | Tier 2 | 4/5 | Medium | Control, Composability | Multi-turn spoken LLM agent with tools | 4/5 |
 | **[go-bulk-analysis](go-bulk-analysis/)** | Tier 2 | 3/5 | Medium | Observability, Composability, Privacy | Batch audio corpus transcription & LLM report synthesis | 5/5 |
+| **[go-embedded](go-embedded/)** | Native / in-process | 2/5 | Medium | Privacy, Composability | Direct in-process batch & streaming STT (no daemon) | 4/5 |
 
 ---
 
