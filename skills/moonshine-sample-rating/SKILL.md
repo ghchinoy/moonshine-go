@@ -62,4 +62,4 @@ Generate the exact Markdown block to paste into the sample's `README.md` (placed
 
 Once the `README.md` is updated:
 1. Paste the row into `samples/GUIDE.md`'s **Sample Catalog Rating Matrix**.
-2. Verify `samples/CONTRIBUTING.md` verification bar item 5 passes.
+2. Verify the block matches the **Sample Rating Schema** template in `samples/CONTRIBUTING.md`.
