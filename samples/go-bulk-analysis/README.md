@@ -1,23 +1,26 @@
 # samples/go-bulk-analysis — batch transcription & corpus analysis
 
 Ingest a directory of audio recordings, transcribe them at **~50–70x real-time**
-speed using `moonshine transcribe --json`, compute throughput and confidence
-stats, and run a post-processing Gemini LLM pass to extract themes, cited quotes,
-and cross-recording synthesis.
+speed using `moonshine transcribe <dir> --json` (core v0.7.0 native batch mode),
+compute throughput and confidence stats, and run a post-processing Gemini LLM pass
+to extract themes, cited quotes, and cross-recording synthesis.
 
-This sample demonstrates the **"cascade as batch"** thesis: the same fast STT +
-LLM processing pipeline that drives live voice agents can be applied offline
-to audio corpora (qualitative interviews, call-center archives, legal depositions,
-media indexing) without live microphone or server daemons.
+## Sample Rating
+
+| Axis | Rating / Details |
+|---|---|
+| **Tier** | Tier 2 (Go extension via `pkg/serveapi`) |
+| **Complexity** | 3/5 |
+| **Setup Cost** | Medium (requires moonshine CLI + optional GEMINI_API_KEY) |
+| **Pillars** | Observability, Composability, Privacy |
+| **Industry / Use Case** | Qualitative UX Research, Call Center QA, Legal Discovery |
+| **Appeal** | 5/5 |
 
 ---
 
 ## What it demonstrates
 
-1. **Faster-than-real-time batch STT** — processes audio files in parallel using
-   `moonshine transcribe --json`, computing aggregate **Real-Time Factor (RTF)**
-   and throughput across the corpus (e.g., 5 minutes of audio transcribed in 4
-   seconds = 75x real-time).
+1. **Faster-than-real-time batch STT** — consumes native `v0.7.0` `moonshine transcribe <dir> --json` batch manifest with worker-pool concurrency (`-concurrency 8`) and single-instance ONNX model reuse.
 2. **Citation primitives & confidence tracking** — preserves per-line timestamps
    (`Line.StartTime`), per-word timings (`Word.Start`/`End`), speaker labels
    (`Line.SpeakerSpans`), and mean confidence scores (`Line.MeanConfidence`).

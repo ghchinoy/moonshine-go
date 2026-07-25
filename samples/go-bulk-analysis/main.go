@@ -11,15 +11,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
-// TranscribeStats holds timing and throughput metrics from moonshine transcribe --json.
+// TranscribeStats holds timing and throughput metrics for a single file.
 type TranscribeStats struct {
 	ModelLoadMs      float64 `json:"model_load_ms"`
 	DownloadMs       float64 `json:"download_ms,omitempty"`
@@ -52,20 +51,51 @@ type AggregateStats struct {
 	ConfidenceHistogram  map[string]int `json:"confidence_histogram"`
 }
 
-// CorpusManifest is the agent-friendly JSON manifest structure.
+// CorpusManifest is the agent-friendly JSON manifest structure exported by the sample.
 type CorpusManifest struct {
-	GeneratedAt time.Time      `json:"generated_at"`
-	Stats       AggregateStats `json:"aggregate_stats"`
-	Files       []FileResult   `json:"files"`
+	GeneratedAt time.Time       `json:"generated_at"`
+	Stats       AggregateStats  `json:"aggregate_stats"`
+	Files       []FileResult    `json:"files"`
 	Analysis    *AnalysisReport `json:"analysis,omitempty"`
 }
 
 // AnalysisReport holds the LLM-generated synthesis.
 type AnalysisReport struct {
-	ModelUsed       string   `json:"model_used"`
-	Themes          []string `json:"themes,omitempty"`
-	CrossSummary    string   `json:"cross_summary"`
-	MarkdownContent string   `json:"markdown_content"`
+	ModelUsed       string `json:"model_used"`
+	MarkdownContent string `json:"markdown_content"`
+}
+
+// Native Core v0.7.0 Batch Manifest Structures
+type CoreBatchFileStats struct {
+	DownloadMs       float64 `json:"download_ms,omitempty"`
+	DecodeMs         float64 `json:"decode_ms"`
+	InferenceMs      float64 `json:"inference_ms"`
+	AudioDurationSec float64 `json:"audio_duration_sec"`
+	RealTimeFactor   float64 `json:"real_time_factor"`
+	MeanConfidence   float64 `json:"mean_confidence,omitempty"`
+}
+
+type CoreBatchFileResult struct {
+	Input  string             `json:"input"`
+	Status string             `json:"status"` // "ok" or "failed"
+	Error  string             `json:"error,omitempty"`
+	Stats  CoreBatchFileStats `json:"stats"`
+	Lines  []serveapi.Line    `json:"lines,omitempty"`
+}
+
+type CoreBatchSummary struct {
+	TotalFiles       int     `json:"total_files"`
+	SuccessfulFiles  int     `json:"successful_files"`
+	FailedFiles      int     `json:"failed_files"`
+	TotalAudioSec    float64 `json:"total_audio_sec"`
+	TotalInferenceMs float64 `json:"total_inference_ms"`
+	AggregateRTF     float64 `json:"aggregate_rtf"`
+}
+
+type CoreBatchManifest struct {
+	Version string                `json:"version"`
+	Summary CoreBatchSummary      `json:"summary"`
+	Results []CoreBatchFileResult `json:"results"`
 }
 
 func main() {
@@ -86,7 +116,7 @@ func main() {
 
 	flag.StringVar(&dirFlag, "dir", "", "Directory containing .wav audio files to transcribe in bulk")
 	flag.StringVar(&binaryFlag, "binary", "", "Path to moonshine CLI binary (default: searches ./bin/moonshine or PATH)")
-	flag.IntVar(&concurrencyFlag, "concurrency", 4, "Maximum parallel transcription workers")
+	flag.IntVar(&concurrencyFlag, "concurrency", 4, "Maximum parallel transcription workers for core batch mode")
 	flag.StringVar(&outMDFlag, "out-md", "corpus_report.md", "Output path for the Markdown analysis report")
 	flag.StringVar(&outJSONFlag, "out-json", "corpus_manifest.json", "Output path for the agent-friendly JSON manifest")
 	flag.BoolVar(&noLLMFlag, "no-llm", false, "Skip the Gemini LLM analysis pass (transcribe and compute stats only)")
@@ -112,27 +142,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	files, err := findWAVFiles(dirFlag)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding WAV files in %s: %v\n", dirFlag, err)
-		os.Exit(1)
-	}
-
-	if len(files) == 0 {
-		fmt.Fprintf(os.Stderr, "No .wav files found in %s\n", dirFlag)
-		os.Exit(1)
-	}
-
-	fmt.Fprintf(os.Stderr, "[bulk-analysis] Found %d .wav files in %s\n", len(files), dirFlag)
-	fmt.Fprintf(os.Stderr, "[bulk-analysis] Transcribing with concurrency=%d using binary %s...\n", concurrencyFlag, binaryPath)
+	fmt.Fprintf(os.Stderr, "[bulk-analysis] Transcribing directory %s via core v0.7.0 native batch mode (-c %d)...\n", dirFlag, concurrencyFlag)
 
 	tStart := time.Now()
-	results := transcribeCorpus(files, binaryPath, concurrencyFlag, langFlag, archFlag, wordTimestampsFlag, identifySpeakersFlag)
+	coreManifest, err := runCoreNativeBatch(binaryPath, dirFlag, concurrencyFlag, langFlag, archFlag, wordTimestampsFlag, identifySpeakersFlag)
 	wallDuration := time.Since(tStart)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error during core batch transcription: %v\n", err)
+		os.Exit(1)
+	}
 
-	manifest := buildCorpusManifest(results, wallDuration)
+	manifest := convertCoreManifestToSampleCorpus(coreManifest, wallDuration)
 
 	fmt.Fprintf(os.Stderr, "\n[bulk-analysis] Transcription complete:\n")
+	fmt.Fprintf(os.Stderr, "  Total Files:  %d (%d ok, %d failed)\n", manifest.Stats.TotalFiles, manifest.Stats.SuccessfulFiles, manifest.Stats.FailedFiles)
 	fmt.Fprintf(os.Stderr, "  Total Audio:  %.2fs (%.1f min)\n", manifest.Stats.TotalAudioSec, manifest.Stats.TotalAudioSec/60.0)
 	fmt.Fprintf(os.Stderr, "  Wall Clock:   %.2fs\n", wallDuration.Seconds())
 	fmt.Fprintf(os.Stderr, "  Overall RTF:  %.1fx real-time\n", manifest.Stats.AggregateRTF)
@@ -193,77 +216,18 @@ func resolveBinary(custom string) string {
 	return ""
 }
 
-func findWAVFiles(root string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && strings.HasSuffix(strings.ToLower(info.Name()), ".wav") {
-			files = append(files, path)
-		}
-		return nil
-	})
-	sort.Strings(files)
-	return files, err
-}
+// runCoreNativeBatch invokes moonshine transcribe <dir> --json -c N once, using v0.7.0 core batch mode.
+func runCoreNativeBatch(binary, dir string, concurrency int, lang, arch string, wordTs, speakers bool) (CoreBatchManifest, error) {
+	var manifest CoreBatchManifest
 
-func transcribeCorpus(files []string, binary string, concurrency int, lang, arch string, wordTs, speakers bool) []FileResult {
-	results := make([]FileResult, len(files))
-	jobs := make(chan int, len(files))
-	for i := range files {
-		jobs <- i
+	args := []string{
+		"transcribe",
+		dir,
+		"--json",
+		"-c", strconv.Itoa(concurrency),
+		"--language", lang,
+		"--arch", arch,
 	}
-	close(jobs)
-
-	var wg sync.WaitGroup
-	workers := concurrency
-	if workers > len(files) {
-		workers = len(files)
-	}
-
-	var progressMu sync.Mutex
-	completed := 0
-
-	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range jobs {
-				fpath := files[idx]
-				res := transcribeOneFile(binary, fpath, lang, arch, wordTs, speakers)
-				results[idx] = res
-
-				progressMu.Lock()
-				completed++
-				status := fmt.Sprintf("[%d/%d] %s", completed, len(files), filepath.Base(fpath))
-				if res.Error != "" {
-					fmt.Fprintf(os.Stderr, "%s FAILED: %s\n", status, res.Error)
-				} else {
-					fmt.Fprintf(os.Stderr, "%s -> %.2fs audio transcribed in %.0fms (%.1fx RTF, conf %.0f%%)\n",
-						status, res.Stats.AudioDurationSec, res.Stats.InferenceMs, res.Stats.RealTimeFactor, res.MeanConfidence*100)
-				}
-				progressMu.Unlock()
-			}
-		}()
-	}
-
-	wg.Wait()
-	return results
-}
-
-type cliOutput struct {
-	Lines []serveapi.Line `json:"lines"`
-	Stats TranscribeStats `json:"stats"`
-}
-
-func transcribeOneFile(binary, fpath, lang, arch string, wordTs, speakers bool) FileResult {
-	res := FileResult{
-		FilePath: fpath,
-		FileName: filepath.Base(fpath),
-	}
-
-	args := []string{"transcribe", fpath, "--json", "--language", lang, "--arch", arch}
 	if wordTs {
 		args = append(args, "--word-timestamps")
 	}
@@ -276,71 +240,71 @@ func transcribeOneFile(binary, fpath, lang, arch string, wordTs, speakers bool) 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-		res.Error = fmt.Sprintf("exec error: %v (stderr: %s)", err, strings.TrimSpace(stderr.String()))
-		return res
+	// Pass through stderr output for real-time progress indicators
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil && stdout.Len() == 0 {
+		return manifest, fmt.Errorf("exec error: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
 	}
 
-	var parsed cliOutput
-	if err := json.Unmarshal(stdout.Bytes(), &parsed); err != nil {
-		res.Error = fmt.Sprintf("json parse error: %v", err)
-		return res
+	if err := json.Unmarshal(stdout.Bytes(), &manifest); err != nil {
+		return manifest, fmt.Errorf("json parse batchManifest error: %w (raw output len: %d)", err, stdout.Len())
 	}
 
-	res.Lines = parsed.Lines
-	res.Stats = parsed.Stats
-
-	var confSum float32
-	var wordCount int
-	for _, line := range res.Lines {
-		if len(line.Words) > 0 {
-			for _, w := range line.Words {
-				confSum += w.Confidence
-				wordCount++
-			}
-		} else if line.Confidence > 0 {
-			confSum += line.Confidence
-			wordCount++
-		}
-	}
-	if wordCount > 0 {
-		res.MeanConfidence = confSum / float32(wordCount)
-	}
-
-	return res
+	return manifest, nil
 }
 
-func buildCorpusManifest(results []FileResult, wallDuration time.Duration) CorpusManifest {
-	var (
-		totalAudio float64
-		totalInfer float64
-		confSum    float32
-		confCount  int
-		succCount  int
-		failCount  int
-		hist       = map[string]int{">=90%": 0, "80-89%": 0, "<80%": 0}
-	)
+func convertCoreManifestToSampleCorpus(coreCore CoreBatchManifest, wallDuration time.Duration) CorpusManifest {
+	files := make([]FileResult, len(coreCore.Results))
+	hist := map[string]int{">=90%": 0, "80-89%": 0, "<80%": 0}
 
-	for _, r := range results {
-		if r.Error != "" {
-			failCount++
-			continue
+	var confSum float32
+	var confCount int
+
+	for i, res := range coreCore.Results {
+		fr := FileResult{
+			FilePath: res.Input,
+			FileName: filepath.Base(res.Input),
+			Lines:    res.Lines,
+			Error:    res.Error,
+			Stats: TranscribeStats{
+				DownloadMs:       res.Stats.DownloadMs,
+				DecodeMs:         res.Stats.DecodeMs,
+				InferenceMs:      res.Stats.InferenceMs,
+				AudioDurationSec: res.Stats.AudioDurationSec,
+				RealTimeFactor:   res.Stats.RealTimeFactor,
+			},
 		}
-		succCount++
-		totalAudio += r.Stats.AudioDurationSec
-		totalInfer += r.Stats.InferenceMs
 
-		if r.MeanConfidence > 0 {
-			confSum += r.MeanConfidence
+		if res.Stats.MeanConfidence > 0 {
+			fr.MeanConfidence = float32(res.Stats.MeanConfidence)
+		} else {
+			var total float32
+			var count int
+			for _, line := range res.Lines {
+				if conf := line.MeanConfidence(); conf > 0 {
+					total += conf
+					count++
+				}
+			}
+			if count > 0 {
+				fr.MeanConfidence = total / float32(count)
+			}
+		}
+
+		if res.Status == "ok" && fr.MeanConfidence > 0 {
+			confSum += fr.MeanConfidence
 			confCount++
-			if r.MeanConfidence >= 0.90 {
+			if fr.MeanConfidence >= 0.90 {
 				hist[">=90%"]++
-			} else if r.MeanConfidence >= 0.80 {
+			} else if fr.MeanConfidence >= 0.80 {
 				hist["80-89%"]++
 			} else {
 				hist["<80%"]++
 			}
 		}
+
+		files[i] = fr
 	}
 
 	var meanConf float32
@@ -351,23 +315,23 @@ func buildCorpusManifest(results []FileResult, wallDuration time.Duration) Corpu
 	wallMs := float64(wallDuration.Milliseconds())
 	var aggRTF float64
 	if wallMs > 0 {
-		aggRTF = totalAudio / (wallMs / 1000.0)
+		aggRTF = coreCore.Summary.TotalAudioSec / (wallMs / 1000.0)
 	}
 
 	return CorpusManifest{
 		GeneratedAt: time.Now().UTC(),
 		Stats: AggregateStats{
-			TotalFiles:          len(results),
-			SuccessfulFiles:     succCount,
-			FailedFiles:         failCount,
-			TotalAudioSec:       totalAudio,
-			TotalInferenceMs:    totalInfer,
+			TotalFiles:          coreCore.Summary.TotalFiles,
+			SuccessfulFiles:     coreCore.Summary.SuccessfulFiles,
+			FailedFiles:         coreCore.Summary.FailedFiles,
+			TotalAudioSec:       coreCore.Summary.TotalAudioSec,
+			TotalInferenceMs:    coreCore.Summary.TotalInferenceMs,
 			TotalWallMs:         wallMs,
 			AggregateRTF:        aggRTF,
 			MeanConfidence:      meanConf,
 			ConfidenceHistogram: hist,
 		},
-		Files: results,
+		Files: files,
 	}
 }
 
