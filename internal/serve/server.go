@@ -28,9 +28,10 @@ type ServerConfig struct {
 	Transports   []Transport
 	Agent        AgentHandler
 	Speaker      Speaker
-	AllowActions bool
-	IncludeAudio bool
-	PollInterval time.Duration
+	AllowActions       bool
+	IncludeAudio       bool
+	PollInterval       time.Duration
+	FinalizationPolicy session.FinalizationPolicy
 }
 
 // LiveSessionControl implements SessionControl for a live serve session.
@@ -195,7 +196,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	sess := s.cfg.Session
 	if sess == nil {
-		liveSess, err := session.NewLive(s.cfg.Transcriber, s.cfg.AudioSource, s.cfg.PollInterval)
+		liveSess, err := session.NewLiveWithPolicy(s.cfg.Transcriber, s.cfg.AudioSource, s.cfg.PollInterval, s.cfg.FinalizationPolicy)
 		if err != nil {
 			return fmt.Errorf("creating live session: %w", err)
 		}

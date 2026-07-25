@@ -210,3 +210,132 @@ func TestSourceClosedUpdate_AbnormalTermination(t *testing.T) {
 		t.Errorf("Update.Elapsed = %v, want 5s", u.Elapsed)
 	}
 }
+
+func TestTrackLines_FinalizationPolicy_PostFinalDelay(t *testing.T) {
+	l := &Live{
+		policy:  FinalizationPolicy{PostFinalDelay: 100 * time.Millisecond},
+		tracked: make(map[uint64]*lineProgress),
+	}
+
+	// Poll 1: line complete, but PostFinalDelay not met yet (0ms)
+	got := l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "Hello world", IsComplete: true},
+	}})
+	if len(got) != 0 {
+		t.Fatalf("poll 1: expected 0 finalized lines during hold, got %d", len(got))
+	}
+
+	// Poll 2: 50ms elapsed, still held
+	time.Sleep(50 * time.Millisecond)
+	got = l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "Hello world", IsComplete: true},
+	}})
+	if len(got) != 0 {
+		t.Fatalf("poll 2: expected 0 finalized lines during hold, got %d", len(got))
+	}
+
+	// Poll 3: sleep past 100ms total, delay expired -> line finalized
+	time.Sleep(60 * time.Millisecond)
+	got = l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "Hello world", IsComplete: true},
+	}})
+	if len(got) != 1 {
+		t.Fatalf("poll 3: expected 1 finalized line after delay, got %d", len(got))
+	}
+	if got[0].ID != 1 {
+		t.Errorf("ID = %d, want 1", got[0].ID)
+	}
+}
+
+func TestTrackLines_FinalizationPolicy_PostFinalDelay_ResetOnRevision(t *testing.T) {
+	l := &Live{
+		policy:  FinalizationPolicy{PostFinalDelay: 80 * time.Millisecond},
+		tracked: make(map[uint64]*lineProgress),
+	}
+
+	// Poll 1: line complete with "Hello"
+	l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "Hello", IsComplete: true},
+	}})
+
+	// Sleep 50ms (partway through hold)
+	time.Sleep(50 * time.Millisecond)
+
+	// Poll 2: text changes to "Hello world", still complete -> timer resets!
+	got := l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "Hello world", IsComplete: true},
+	}})
+	if len(got) != 0 {
+		t.Fatalf("poll 2: expected 0 finalized lines after reset, got %d", len(got))
+	}
+
+	// Sleep 50ms (50ms after reset, so < 80ms delay)
+	time.Sleep(50 * time.Millisecond)
+	got = l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "Hello world", IsComplete: true},
+	}})
+	if len(got) != 0 {
+		t.Fatalf("poll 3: expected 0 finalized lines (50ms < 80ms since reset), got %d", len(got))
+	}
+
+	// Sleep another 40ms (> 80ms since reset) -> now finalized
+	time.Sleep(40 * time.Millisecond)
+	got = l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "Hello world", IsComplete: true},
+	}})
+	if len(got) != 1 {
+		t.Fatalf("poll 4: expected 1 finalized line after reset delay expired, got %d", len(got))
+	}
+}
+
+func TestTrackLines_FinalizationPolicy_MinUtteranceChars(t *testing.T) {
+	l := &Live{
+		policy:  FinalizationPolicy{MinUtteranceChars: 10},
+		tracked: make(map[uint64]*lineProgress),
+	}
+
+	// Poll 1: complete, but text "hi" is 2 chars < 10 -> suppressed
+	got := l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "hi", IsComplete: true},
+	}})
+	if len(got) != 0 {
+		t.Fatalf("expected 0 finalized lines for short text, got %d", len(got))
+	}
+
+	// Poll 2: text grows to "hi everyone" (11 chars) -> finalized
+	got = l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "hi everyone", IsComplete: true},
+	}})
+	if len(got) != 1 {
+		t.Fatalf("expected 1 finalized line after reaching min chars, got %d", len(got))
+	}
+}
+
+func TestTrackLines_FinalizationPolicy_MaxUtteranceDuration(t *testing.T) {
+	l := &Live{
+		policy:  FinalizationPolicy{MaxUtteranceDuration: 50 * time.Millisecond},
+		tracked: make(map[uint64]*lineProgress),
+	}
+
+	// Poll 1: line appears incomplete
+	got := l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "still speaking...", IsComplete: false},
+	}})
+	if len(got) != 0 {
+		t.Fatalf("poll 1: expected 0 finalized lines, got %d", len(got))
+	}
+
+	// Sleep past MaxUtteranceDuration (60ms > 50ms)
+	time.Sleep(60 * time.Millisecond)
+
+	// Poll 2: line remains IsComplete = false, but policy force-finalizes it!
+	got = l.trackLines(moonshine.Transcript{Lines: []moonshine.Line{
+		{ID: 1, Text: "still speaking...", IsComplete: false},
+	}})
+	if len(got) != 1 {
+		t.Fatalf("poll 2: expected force-finalized line after MaxUtteranceDuration, got %d", len(got))
+	}
+	if got[0].ID != 1 {
+		t.Errorf("ID = %d, want 1", got[0].ID)
+	}
+}

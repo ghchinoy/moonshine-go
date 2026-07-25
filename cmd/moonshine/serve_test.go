@@ -26,6 +26,9 @@ func TestServeCmd_Flags(t *testing.T) {
 		{"arch", "arch", "tiny-streaming"},
 		{"language", "language", "en"},
 		{"tts-play-local", "tts-play-local", "true"},
+		{"endpoint-post-final-delay", "endpoint-post-final-delay", "0s"},
+		{"endpoint-min-utterance-chars", "endpoint-min-utterance-chars", "0"},
+		{"endpoint-max-utterance-duration", "endpoint-max-utterance-duration", "0s"},
 	}
 
 	for _, tt := range tests {

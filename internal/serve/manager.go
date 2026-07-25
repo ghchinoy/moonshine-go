@@ -73,9 +73,10 @@ type SessionManagerConfig struct {
 	Speaker      Speaker
 	MaxSessions  int
 	PollInterval time.Duration
-	AllowActions bool
-	IncludeAudio bool
-	Agent        AgentHandler
+	AllowActions       bool
+	IncludeAudio       bool
+	Agent              AgentHandler
+	FinalizationPolicy session.FinalizationPolicy
 }
 
 // SessionManager manages per-connection serve sessions, enforcing a maximum
@@ -187,7 +188,7 @@ func (m *SessionManager) CreateSession(ctx context.Context, source serveapi.Audi
 
 	var liveSess LiveSession
 	if m.cfg.Transcriber != nil {
-		ls, err := session.NewLive(m.cfg.Transcriber, source, m.cfg.PollInterval)
+		ls, err := session.NewLiveWithPolicy(m.cfg.Transcriber, source, m.cfg.PollInterval, m.cfg.FinalizationPolicy)
 		if err != nil {
 			cancel()
 			m.removeSession(id)

@@ -107,14 +107,34 @@ func summarize(finalized []LineTiming) *SessionSummary {
 	return s
 }
 
+// FinalizationPolicy controls when streaming lines are treated as finalized.
+// All fields default to zero (no-op policy), preserving moonshine's internal
+// VAD/IsComplete signal as the default finalization trigger.
+type FinalizationPolicy struct {
+	// PostFinalDelay is the minimum time a line must hold IsComplete without
+	// text revisions before being emitted as finalized. If the line's text
+	// changes while holding, the delay timer resets.
+	PostFinalDelay time.Duration
+
+	// MinUtteranceChars is the minimum character count required for a line
+	// to be finalized. Lines shorter than this character count remain in
+	// progress (interim) and do not trigger finalization events.
+	MinUtteranceChars int
+
+	// MaxUtteranceDuration is the maximum wall-clock duration a line can
+	// remain incomplete before being force-finalized.
+	MaxUtteranceDuration time.Duration
+}
+
 // lineProgress tracks one in-progress line's stability bookkeeping between
 // polls, keyed by Line.ID in Live.tracked.
 type lineProgress struct {
-	firstSeen time.Time
-	pollCount int
-	revisions int
-	lastText  string
-	done      bool // true once its finalization has been recorded, to guard against double-counting if a complete line is somehow seen again
+	firstSeen      time.Time
+	isCompleteSeen time.Time
+	pollCount      int
+	revisions      int
+	lastText       string
+	done           bool // true once its finalization has been recorded, to guard against double-counting if a complete line is somehow seen again
 }
 
 // Live runs a live audio -> streaming transcription session. Audio comes
@@ -125,6 +145,7 @@ type Live struct {
 	stream       *moonshine.Stream
 	source       serveapi.AudioSource
 	pollInterval time.Duration
+	policy       FinalizationPolicy
 	updates      chan Update
 
 	tracked   map[uint64]*lineProgress
@@ -137,6 +158,11 @@ type Live struct {
 // re-analysis of audio it's seen in the last ~200ms unless forced, so
 // anything below that is wasted work.
 func NewLive(tr *moonshine.Transcriber, source serveapi.AudioSource, pollInterval time.Duration) (*Live, error) {
+	return NewLiveWithPolicy(tr, source, pollInterval, FinalizationPolicy{})
+}
+
+// NewLiveWithPolicy creates and starts a streaming session against tr with policy.
+func NewLiveWithPolicy(tr *moonshine.Transcriber, source serveapi.AudioSource, pollInterval time.Duration, policy FinalizationPolicy) (*Live, error) {
 	stream, err := tr.NewStream(0)
 	if err != nil {
 		return nil, err
@@ -149,6 +175,7 @@ func NewLive(tr *moonshine.Transcriber, source serveapi.AudioSource, pollInterva
 		stream:       stream,
 		source:       source,
 		pollInterval: pollInterval,
+		policy:       policy,
 		updates:      make(chan Update, 8),
 		tracked:      make(map[uint64]*lineProgress),
 	}, nil
@@ -214,43 +241,83 @@ func (l *Live) Run(ctx context.Context) {
 
 // trackLines updates per-line stability bookkeeping (l.tracked) from the
 // latest transcript snapshot and returns a LineTiming for each line that
-// finalized (transitioned to IsComplete) on this call. Lines with empty
-// text are ignored until they have something to show, so the clock starts
-// on first real content rather than on an empty placeholder.
+// finalized on this call according to l.policy. Lines with empty text are
+// ignored until they have something to show, so the clock starts on first
+// real content rather than on an empty placeholder.
 func (l *Live) trackLines(transcript moonshine.Transcript) []LineTiming {
 	var newlyFinalized []LineTiming
+	now := time.Now()
+
 	for _, line := range transcript.Lines {
 		if line.Text == "" {
 			continue
 		}
 		lp, ok := l.tracked[line.ID]
 		if !ok {
-			lp = &lineProgress{firstSeen: time.Now(), lastText: line.Text}
+			lp = &lineProgress{firstSeen: now, lastText: line.Text}
 			l.tracked[line.ID] = lp
-		} else if !lp.done && !line.IsComplete {
-			lp.pollCount++
+		} else if !lp.done {
 			if line.Text != lp.lastText {
 				lp.revisions++
+				// Reset post-final hold timer if text changed mid-hold
+				lp.isCompleteSeen = time.Time{}
+			}
+			if !line.IsComplete {
+				lp.pollCount++
 			}
 		}
 		lp.lastText = line.Text
 
-		if line.IsComplete && !lp.done {
-			lp.done = true
-			stability := 1.0
-			if lp.pollCount > 0 {
-				stability = 1 - float64(lp.revisions)/float64(lp.pollCount)
-			}
-			timing := LineTiming{
-				ID:             line.ID,
-				TimeToFinal:    time.Since(lp.firstSeen),
-				PollCount:      lp.pollCount,
-				Revisions:      lp.revisions,
-				StabilityRatio: stability,
-			}
-			l.finalized = append(l.finalized, timing)
-			newlyFinalized = append(newlyFinalized, timing)
+		if lp.done {
+			continue
 		}
+
+		// Track when IsComplete was first observed
+		isComplete := line.IsComplete
+		if isComplete && lp.isCompleteSeen.IsZero() {
+			lp.isCompleteSeen = now
+		}
+
+		// Force-finalize if line exceeded MaxUtteranceDuration
+		if l.policy.MaxUtteranceDuration > 0 && !isComplete {
+			if now.Sub(lp.firstSeen) >= l.policy.MaxUtteranceDuration {
+				isComplete = true
+				if lp.isCompleteSeen.IsZero() {
+					lp.isCompleteSeen = now
+				}
+			}
+		}
+
+		if !isComplete {
+			continue
+		}
+
+		// MinUtteranceChars gate
+		if l.policy.MinUtteranceChars > 0 && len([]rune(line.Text)) < l.policy.MinUtteranceChars {
+			continue
+		}
+
+		// PostFinalDelay gate
+		if l.policy.PostFinalDelay > 0 {
+			if now.Sub(lp.isCompleteSeen) < l.policy.PostFinalDelay {
+				continue
+			}
+		}
+
+		lp.done = true
+		stability := 1.0
+		if lp.pollCount > 0 {
+			stability = 1 - float64(lp.revisions)/float64(lp.pollCount)
+		}
+		timing := LineTiming{
+			ID:             line.ID,
+			TimeToFinal:    now.Sub(lp.firstSeen),
+			PollCount:      lp.pollCount,
+			Revisions:      lp.revisions,
+			StabilityRatio: stability,
+		}
+		l.finalized = append(l.finalized, timing)
+		newlyFinalized = append(newlyFinalized, timing)
 	}
 	return newlyFinalized
 }

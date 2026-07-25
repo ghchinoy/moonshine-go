@@ -12,6 +12,7 @@ import (
 	"github.com/ghchinoy/moonshine-go/internal/audio"
 	"github.com/ghchinoy/moonshine-go/internal/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve"
+	"github.com/ghchinoy/moonshine-go/internal/session"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,6 +45,10 @@ var (
 	serveDiarizationClusterCadence   float64
 	serveDiarizationAnalyzeCadence   float64
 	serveDiarizationClusterWindowSec float64
+
+	serveEndpointPostFinalDelay      time.Duration
+	serveEndpointMinUtteranceChars  int
+	serveEndpointMaxUtteranceDuration time.Duration
 )
 
 var serveCmd = &cobra.Command{
@@ -84,6 +89,9 @@ func init() {
 	serveCmd.Flags().Float64Var(&serveDiarizationClusterCadence, "diarization-cluster-cadence", 2.0, "Diarization re-clustering cadence (seconds)")
 	serveCmd.Flags().Float64Var(&serveDiarizationAnalyzeCadence, "diarization-analyze-cadence", 1.0, "Diarization analyze cadence (seconds)")
 	serveCmd.Flags().Float64Var(&serveDiarizationClusterWindowSec, "diarization-cluster-window-sec", 120.0, "Diarization cluster window (seconds)")
+	serveCmd.Flags().DurationVar(&serveEndpointPostFinalDelay, "endpoint-post-final-delay", 0, "Minimum time a line must hold complete status before finalization (debounce)")
+	serveCmd.Flags().IntVar(&serveEndpointMinUtteranceChars, "endpoint-min-utterance-chars", 0, "Minimum line character length required for finalization")
+	serveCmd.Flags().DurationVar(&serveEndpointMaxUtteranceDuration, "endpoint-max-utterance-duration", 0, "Maximum duration a line can remain incomplete before force-finalizing")
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
@@ -182,6 +190,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		agentHandler = serve.ExternalAgent{}
 	}
 
+	finalizationPolicy := session.FinalizationPolicy{
+		PostFinalDelay:       serveEndpointPostFinalDelay,
+		MinUtteranceChars:    serveEndpointMinUtteranceChars,
+		MaxUtteranceDuration: serveEndpointMaxUtteranceDuration,
+	}
+
 	var sessMgr *serve.SessionManager
 	var audioFmt serve.AudioFormat
 
@@ -192,13 +206,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 			Encoding:   serve.AudioEncoding(serveRemoteAudioEncoding),
 		}
 		sessMgr = serve.NewSessionManager(serve.SessionManagerConfig{
-			Transcriber:  tr,
-			Speaker:      speaker,
-			MaxSessions:  serveMaxSessions,
-			PollInterval: servePollInterval,
-			AllowActions: serveAllowActions,
-			IncludeAudio: serveIncludeAudio,
-			Agent:        agentHandler,
+			Transcriber:        tr,
+			Speaker:            speaker,
+			MaxSessions:        serveMaxSessions,
+			PollInterval:       servePollInterval,
+			AllowActions:       serveAllowActions,
+			IncludeAudio:       serveIncludeAudio,
+			Agent:              agentHandler,
+			FinalizationPolicy: finalizationPolicy,
 		})
 		defer sessMgr.Close()
 	}
@@ -226,15 +241,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	srv, err := serve.NewServer(serve.ServerConfig{
-		Transcriber:  tr,
-		AudioSource:  audioSource,
-		Hub:          hub,
-		Transports:   transports,
-		Agent:        agentHandler,
-		Speaker:      speaker,
-		AllowActions: serveAllowActions,
-		IncludeAudio: serveIncludeAudio,
-		PollInterval: servePollInterval,
+		Transcriber:        tr,
+		AudioSource:        audioSource,
+		Hub:                hub,
+		Transports:         transports,
+		Agent:              agentHandler,
+		Speaker:            speaker,
+		AllowActions:       serveAllowActions,
+		IncludeAudio:       serveIncludeAudio,
+		PollInterval:       servePollInterval,
+		FinalizationPolicy: finalizationPolicy,
 	})
 	if err != nil {
 		return err
