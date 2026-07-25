@@ -90,6 +90,7 @@ few tool-calls ago is still the latest one.
   -- shared files are the real collision surface and benefit from a visible
   diff to review against; purely additive work in an owned area doesn't
   need that ceremony.
+- **Untracked file collisions during `git pull` / `git rebase`**: A `git pull --ff-only` or `git rebase` can abort if an untracked file or directory in your working tree collides with an incoming path from another agent's merged commit. Before assuming a git merge conflict, `diff` the untracked path against the incoming commit (`git show origin/main:<path>`). If identical or stale, safe to remove (`rm -rf <path>`) and retry the pull.
 - Before starting `internal/serve` work specifically, skim
   [docs/serve-sidecar.md](docs/serve-sidecar.md) -- it's largely a
   historical record of the original two-track parallel build (epic
@@ -227,6 +228,8 @@ bd stores issue history in Dolt:
 - Do not treat `.beads/issues.jsonl` as the sync protocol
 
 **Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+
+**Pre-commit hook auto-export gotcha:** This repository's `bd` git hook (`core.hooksPath` → `.beads/hooks/prepare-commit-msg`) auto-re-exports `.beads/issues.jsonl` whenever a git commit is made (`export.auto: true`). If you commit and immediately attempt `git rebase` / `git pull --rebase`, git will reject it with *"cannot rebase: you have unstaged changes"* because `.beads/issues.jsonl` was re-dirtied during the commit itself. To proceed cleanly, stage the auto-exported `.beads/issues.jsonl` and amend (`git add .beads/issues.jsonl && git commit --amend --no-edit`) before running the rebase.
 
 ### Important Rules
 
