@@ -49,6 +49,34 @@ A sample earns a place in `samples/` if it:
   prove the wire contract (JSON over WebSocket/gRPC) works from any
   language, not to wrap a Go library.
 
+### Sample Rating Schema
+
+Every sample must include a **Sample Rating** table near the top of its own `README.md`. This self-reported rating makes sample complexity, setup cost, and capabilities transparent before a developer runs it:
+
+| Axis | Format / Values | Description |
+|---|---|---|
+| **Tier** | `Tier 0` / `Tier 1` / `Tier 2` | `Tier 0`: subscribe only; `Tier 1`: external IPC agent; `Tier 2`: `pkg/serveapi` Go extension. |
+| **Complexity** | `1/5` to `5/5` | Implementation intricacy (1 = ~40 lines zero-SDK; 5 = full multi-tool LLM loop). |
+| **Setup Cost** | `Low` / `Medium` / `High` | `Low`: plain socket client; `Medium`: local mic/tmux/browser; `High`: multi-service or API key required. |
+| **Pillars** | `Control`, `Observability`, `Privacy`, `Composability` | Subset of core pillars from `MISSION.md` demonstrated. |
+| **Industry / Use Case** | Freeform tags | Primary application vertical (e.g. `Developer Tooling`, `Customer Service / Kiosk`). |
+| **Appeal** | `1/5` to `5/5` | Demoability and developer appeal (1 = utility test; 5 = standalone showcase). |
+
+#### Markdown Template for Sample READMEs
+
+```markdown
+## Sample Rating
+
+| Axis | Rating / Details |
+|---|---|
+| **Tier** | Tier 2 (Go extension via `pkg/serveapi`) |
+| **Complexity** | 3/5 |
+| **Setup Cost** | Medium (requires local mic + moonshine serve) |
+| **Pillars** | Control, Observability, Privacy, Composability |
+| **Industry / Use Case** | Developer Tooling, Offline Voice Agent |
+| **Appeal** | 4/5 |
+```
+
 ## The verification bar
 
 Before calling a sample done:
@@ -68,6 +96,9 @@ Before calling a sample done:
    worked around in the sample without a trace. Reference the sample's
    README so the workaround (if the sample still needs one) is explained,
    not just present.
+5. **Self-reported rating included**: verify the sample's `README.md` includes
+   the **Sample Rating** table formatted per the template under
+   [Directory conventions](#directory-conventions).
 
 ## `bd` conventions for this directory
 
