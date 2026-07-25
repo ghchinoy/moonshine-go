@@ -74,8 +74,12 @@ contract — no SDK, no codegen, just JSON over a socket.
 ### Examples
 
 - [go-listen](go-listen/) — ~90 lines of Go, zero moonshine-go dependency
-  (hand-decodes the wire envelope). Proves the transcript is a real
-  cross-process, cross-language bus with the smallest possible surface.
+  (hand-decodes the wire envelope over WebSocket). Proves the transcript is a
+  real cross-process, cross-language bus with the smallest possible surface.
+- [grpc-listen](grpc-listen/) — ~100 lines of Go, using the strongly-typed,
+  public protobuf contract in `pkg/servepb` (`#sz3`) over gRPC (`:9090`).
+  Identical Tier 0 job as `go-listen`, proving gRPC and WebSocket are equal
+  first-class citizens in `moonshine serve`.
 - [python-listen](python-listen/) — the same idea in ~40 lines of Python
   with the `websockets` library.
 

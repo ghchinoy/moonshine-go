@@ -29,7 +29,17 @@ one small, runnable program:
   `internal/serve`'s own `IntentMatcher` uses, implemented independently
   against the public interfaces.
 - **Observability** — every finalized line, every keyword match, and every
-  action this agent takes is printed to stdout as it happens.
+  action this agent takes is printed to stdout as it happens, timestamped,
+  with real numbers rather than a demo trick: the STT engine's own
+  per-line latency (`Line.LastLatencyMs`), the session's time-to-first-token
+  (`TranscriptEvent.TTFTms`, logged once), and each action's actual
+  round-trip time (`ActionRequest` sent → matching `ActionResult`
+  received). If a finalized line doesn't match anything, the agent says so
+  (`[agent] no match -- try: ...`) instead of looking stuck. Pass `-debug`
+  for the underlying per-rule/per-keyword matching trace (which keyword was
+  checked, hit or miss, in order) plus per-poll latency
+  (`TranscriptEvent.PollLatencyMs`) — useful for telling a phrasing miss
+  apart from the STT engine mis-transcribing what you said.
 - **Privacy** — answers come from a fixed, in-process
   `serveapi.StaticRetriever`. Nothing about what you say leaves this
   process except the `speak`/`session.*` actions it deliberately sends back
@@ -80,6 +90,13 @@ Then say something containing one of: **mission**, **cascade**,
 **privacy**, **control**, **observability**, **composability** — or say
 **"stop listening"** / **"resume listening"**.
 
+Pass `-debug` for the underlying per-rule/per-keyword matching trace and
+per-poll latency:
+
+```sh
+go run . -addr ws://localhost:8765/ws -debug
+```
+
 ## A note on the demo dataset
 
 The FAQ answers are five short entries pulled straight from
@@ -88,21 +105,3 @@ your own knowledge base means implementing `serveapi.Retriever` — the
 interface this sample already calls through — with a real backend (a local
 file, a vector store, whatever you like); nothing about the agent-runner
 wiring above it needs to change.
-
-## Bugs found and fixed while building this sample
-
-Two real defects in `moonshine serve` were found and fixed live against
-this sample, not from code review:
-
-- **`moonshine-go-6ba`** (fixed) — every `TranscriptEvent` frame used to
-  embed each line's raw PCM audio unconditionally, pushing frame sizes to
-  300KB+ for a single short sentence. `moonshine serve` now omits
-  `Line.AudioData` by default (opt in with `--include-audio`); this
-  sample's `conn.SetReadLimit` call is now just defensive headroom, not a
-  required workaround.
-- **`moonshine-go-ule`** (fixed) — `moonshine serve`'s TTS speak-back path
-  never passed the `g2p_root` option to the synthesizer, so every `speak`
-  action failed with `creating tts synthesizer: ... Unknown error (code
-  -1)` even in an environment where the standalone `moonshine tts` command
-  worked fine. `cmd/moonshine/serve.go` now mirrors `cmd/moonshine/tts.go`'s
-  `g2p_root` wiring (and exposes it as a `--g2p-root` flag on `serve` too).

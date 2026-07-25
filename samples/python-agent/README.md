@@ -25,7 +25,15 @@ export MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib"
 `--allow-actions` is required — without it the sidecar rejects `speak` and
 `session.*` actions.
 
-In another terminal:
+In another terminal, with [uv](https://docs.astral.sh/uv/) (no manual venv
+or `pip install` needed):
+
+```sh
+cd samples/python-agent
+uv run agent.py --addr ws://localhost:8765/ws
+```
+
+Without uv:
 
 ```sh
 cd samples/python-agent
@@ -40,14 +48,32 @@ listening"**.
 ## What it demonstrates
 
 - The full Tier 1 round trip: read a `TranscriptEvent` frame, decide on an
-  action, send an `ActionRequest` frame back, all with plain
-  `json.dumps`/`json.loads` — no code generation, no shared types with the
-  server.
+  action, send an `ActionRequest` frame back, read the matching
+  `action_result` frame, all with plain `json.dumps`/`json.loads` — no code
+  generation, no shared types with the server.
 - `classify()` is the whole "agent" — a couple of `re.match`/`re.search`
   calls. Compare with [../go-cascade-faq](../go-cascade-faq)'s
   `controlHandler`, which does the same match-then-`ActionRequest` pattern
   in Go against `pkg/serveapi`'s typed interfaces instead of hand-rolled
   dicts.
+- **Real speed, not a demo trick.** Every finalized line is logged with a
+  wall-clock timestamp and the STT engine's own reported per-line latency
+  (`Line.LastLatencyMs` off the wire — a real server-side number, not a
+  client-side stopwatch). The session's time-to-first-token (`ttft_ms`) is
+  logged once, the moment it's known. A successful action logs its actual
+  round-trip time too (dial → `ActionRequest` sent → matching
+  `action_result` received). This is what "the cascade is fast enough now"
+  (see [docs/MISSION.md](../../docs/MISSION.md)) looks like as data instead
+  of a claim.
+- **Nothing is silent.** If a finalized line doesn't match any rule, the
+  agent says so (`[agent] no match -- try: ...`) instead of looking stuck.
+  Pass `--debug` for the underlying trace: which rule was tried, hit or
+  miss, in order — useful for figuring out *why* something didn't match
+  (a phrasing miss vs. the STT engine mis-transcribing what you said).
+
+```sh
+uv run agent.py --addr ws://localhost:8765/ws --debug
+```
 
 See [../README.md](../README.md) for the full Tier 0/1/2 walkthrough this
 sample is part of.

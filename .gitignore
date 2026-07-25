@@ -18,6 +18,9 @@ coverage.txt
 
 # samples/ Go module build output and Python virtualenvs/bytecode
 samples/*/moonshine-sample-*
+samples/grpc-listen/grpc-listen
+samples/go-cascade-faq/go-cascade-faq
+samples/go-listen/go-listen
 samples/**/.venv/
 samples/**/__pycache__/
 samples/**/*.pyc
