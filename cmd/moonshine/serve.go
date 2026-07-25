@@ -46,8 +46,8 @@ var (
 	serveDiarizationAnalyzeCadence   float64
 	serveDiarizationClusterWindowSec float64
 
-	serveEndpointPostFinalDelay      time.Duration
-	serveEndpointMinUtteranceChars  int
+	serveEndpointPostFinalDelay       time.Duration
+	serveEndpointMinUtteranceChars    int
 	serveEndpointMaxUtteranceDuration time.Duration
 )
 

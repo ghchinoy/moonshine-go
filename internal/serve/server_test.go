@@ -10,10 +10,9 @@ import (
 )
 
 type fakeAudioSource struct {
-	ch     chan []float32
-	err    error
-	muted  func() bool
-	closed bool
+	ch    chan []float32
+	err   error
+	muted func() bool
 }
 
 func (f *fakeAudioSource) Chunks() <-chan []float32 { return f.ch }

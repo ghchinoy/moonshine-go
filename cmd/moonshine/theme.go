@@ -26,7 +26,7 @@ func style(color string, bold bool) lipgloss.Style {
 // Semantic colour tokens, consistent across the moonshine-go CLI.
 var (
 	styleAccent  = style("33", true)   // headers, section titles
-	styleCommand = style("245", false) // command names / flags in help text
+	styleCommand = style("245", false) //nolint:unused // command names / flags in help text
 	stylePass    = style("34", false)  // success / final transcript lines
 	styleWarn    = style("214", false) // interim / in-progress state
 	styleFail    = style("196", false) // errors

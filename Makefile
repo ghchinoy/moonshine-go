@@ -13,7 +13,7 @@ export CGO_ENABLED ?= 1
 # checkout (e.g. building from a source tarball with no .git directory).
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: all build buildlib fetchlib release-package clean test smoke fmt vet proto
+.PHONY: all build buildlib fetchlib release-package clean test smoke fmt fmt-fix vet lint proto
 
 all: build
 
@@ -57,10 +57,21 @@ proto:
 		pkg/servepb/serve.proto
 
 fmt:
-	gofmt -l .
+	@unformatted="$$(gofmt -l .)"; \
+	if [ -n "$$unformatted" ]; then \
+		echo "The following files are not gofmt-formatted:"; \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
+
+fmt-fix:
+	gofmt -w .
 
 vet:
 	go vet ./...
+
+lint:
+	golangci-lint run ./...
 
 ## clean: Remove build output (leaves .moonshine/lib alone; see `make distclean`).
 clean:

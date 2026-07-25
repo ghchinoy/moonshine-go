@@ -69,10 +69,10 @@ func (s *scopedSpeaker) Interrupt(ctx context.Context) {
 
 // SessionManagerConfig holds options for initializing a SessionManager.
 type SessionManagerConfig struct {
-	Transcriber  *moonshine.Transcriber
-	Speaker      Speaker
-	MaxSessions  int
-	PollInterval time.Duration
+	Transcriber        *moonshine.Transcriber
+	Speaker            Speaker
+	MaxSessions        int
+	PollInterval       time.Duration
 	AllowActions       bool
 	IncludeAudio       bool
 	Agent              AgentHandler

@@ -21,13 +21,13 @@ type LiveSession interface {
 
 // ServerConfig defines the options to start a moonshine serve sidecar daemon.
 type ServerConfig struct {
-	Transcriber  *moonshine.Transcriber
-	AudioSource  serveapi.AudioSource
-	Session      LiveSession
-	Hub          *Hub
-	Transports   []Transport
-	Agent        AgentHandler
-	Speaker      Speaker
+	Transcriber        *moonshine.Transcriber
+	AudioSource        serveapi.AudioSource
+	Session            LiveSession
+	Hub                *Hub
+	Transports         []Transport
+	Agent              AgentHandler
+	Speaker            Speaker
 	AllowActions       bool
 	IncludeAudio       bool
 	PollInterval       time.Duration

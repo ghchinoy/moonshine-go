@@ -58,6 +58,11 @@ jobs:
             exit 1
           fi
 
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.0
+
       # Plain `go test ./...`, matching `make test` -- excludes the
       # moonshinesmoke-tagged tests in internal/moonshine/smoke_test.go,
       # which require a real built/fetched libmoonshine and are not run in
