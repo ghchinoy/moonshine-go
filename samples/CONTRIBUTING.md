@@ -27,8 +27,14 @@ A sample earns a place in `samples/` if it:
   (e.g. `go-listen`, `python-agent`, `go-cascade-faq`). This keeps the same
   concept in different languages visually paired in a directory listing.
 - Every sample directory has its own `README.md`: what it demonstrates, how
-  to run it, and any real rough edges hit while building it (with the `bd`
-  issue ID if one was filed).
+  to run it, and any *currently active* workaround it needs (with the `bd`
+  issue ID if one was filed). Document workarounds only while they're still
+  needed: once the referenced bug is fixed upstream, remove that note from
+  the sample's own README in the same change (or a prompt follow-up) that
+  drops the workaround code — `bd`'s close reason and git history are the
+  changelog, not the sample's docs. A sample README should teach the
+  pattern it demonstrates, not accumulate a list of bugs that no longer
+  exist.
 - Go samples are **their own Go module** (`go.mod`), not part of the root
   `moonshine-go` module. If the sample depends on `pkg/serveapi`, use a
   `replace github.com/ghchinoy/moonshine-go => ../..` directive pointed at

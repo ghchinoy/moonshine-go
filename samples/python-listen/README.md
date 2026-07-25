@@ -16,7 +16,16 @@ export MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib"  # see repo README if you haven
 ./bin/moonshine serve --transport ws --addr :8765
 ```
 
-In another terminal:
+In another terminal, with [uv](https://docs.astral.sh/uv/) (no manual venv or
+`pip install` needed -- the script's inline metadata declares its one
+dependency):
+
+```sh
+cd samples/python-listen
+uv run listen.py --addr ws://localhost:8765/ws
+```
+
+Without uv:
 
 ```sh
 cd samples/python-listen
@@ -34,12 +43,12 @@ Speak into your microphone. Finalized lines print as `[FINAL] <text>`.
 - The **finalized-once idempotency** invariant every subscriber must honor:
   dedupe on `finalized_line_ids`, not by re-scanning `is_complete` on every
   frame (which would double-count lines finalized on earlier polls).
-- A cross-language JSON gotcha worth knowing about even though it's fixed
-  server-side now (`moonshine-go-b6f`): a naive `payload.get("lines", [])`
-  in Python does **not** protect against a JSON `null` value the way you'd
-  expect — the key still has to be *absent* for the default to kick in, not
-  just falsy. `listen.py`'s `(payload.get("lines") or [])` handles both
-  "key absent" and "key present but null" defensively.
+- A cross-language JSON gotcha worth knowing in general: a naive
+  `payload.get("lines", [])` in Python does **not** protect against a JSON
+  `null` value the way you'd expect — the key still has to be *absent* for
+  the default to kick in, not just falsy. `listen.py`'s
+  `(payload.get("lines") or [])` handles both "key absent" and "key present
+  but null" defensively, regardless of what the server currently sends.
 
 See [../README.md](../README.md) for the full Tier 0/1/2 walkthrough this
 sample is part of.

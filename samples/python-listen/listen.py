@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["websockets>=12.0"]
+# ///
 """Tier 0: the smallest possible Python consumer of `moonshine serve`'s live
 transcript feed.
 
@@ -9,7 +13,8 @@ un-privileged subscriber in any language sees.
 
 Usage:
     moonshine serve --transport ws --addr :8765
-    python3 listen.py --addr ws://localhost:8765/ws
+    uv run listen.py --addr ws://localhost:8765/ws
+    # or, without uv: pip install -r requirements.txt && python3 listen.py ...
 """
 import argparse
 import asyncio
