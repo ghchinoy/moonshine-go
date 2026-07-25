@@ -60,6 +60,8 @@ jobs:
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.8.0
 
       # Plain `go test ./...`, matching `make test` -- excludes the
       # moonshinesmoke-tagged tests in internal/moonshine/smoke_test.go,
