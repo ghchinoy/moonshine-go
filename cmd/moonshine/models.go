@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

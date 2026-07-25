@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ghchinoy/moonshine-go/internal/audio"
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
 )
 

@@ -43,9 +43,9 @@ release-package: build
 test:
 	go test ./...
 
-## smoke: Run the tests that exercise a real built libmoonshine (see internal/moonshine/smoke_test.go).
+## smoke: Run the tests that exercise a real built libmoonshine (see pkg/moonshine/smoke_test.go).
 smoke:
-	MOONSHINE_LIB_DIR=$(CURDIR)/$(LIB_DIR) go test -tags moonshinesmoke ./internal/moonshine/... -v
+	MOONSHINE_LIB_DIR=$(CURDIR)/$(LIB_DIR) go test -tags moonshinesmoke ./pkg/moonshine/... -v
 
 ## proto: Regenerate pkg/servepb from pkg/servepb/serve.proto.
 ##        Requires protoc, protoc-gen-go, and protoc-gen-go-grpc on PATH

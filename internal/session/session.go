@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 

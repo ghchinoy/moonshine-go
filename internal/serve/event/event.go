@@ -8,7 +8,7 @@
 package event
 
 import (
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/session"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )

@@ -6,7 +6,7 @@ reimplementing its model pipeline.
 
 <img width="1152" height="784" alt="Image" src="https://github.com/user-attachments/assets/46d0d6bf-eeb5-4c2b-9ac8-3c3b0bfa3643" />
 
-- `internal/moonshine` -- a pure-Go binding (no cgo needed to *build* it) that
+- `pkg/moonshine` -- a public pure-Go binding (no cgo needed to *build* it) that
   dlopens `libmoonshine.{dylib,so}` at runtime via
   [`ebitengine/purego`](https://github.com/ebitengine/purego) and calls
   directly into its exported C functions. This is the same integration point
@@ -289,13 +289,13 @@ make smoke   # basic round-trip only
 MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib" \
 MOONSHINE_SMOKE_WAV=/path/to/moonshine/test-assets/two_cities_16k.wav \
 MOONSHINE_SMOKE_TTS_ROOT=/path/to/moonshine/core/moonshine-tts/data \
-go test -tags moonshinesmoke ./internal/moonshine/... -v
+go test -tags moonshinesmoke ./pkg/moonshine/... -v
 ```
 
 ## Project layout
 
 ```
-internal/moonshine/   purego bindings over moonshine-c-api.h (STT, TTS, model download manifests)
+pkg/moonshine/        purego bindings over moonshine-c-api.h (STT, TTS, model download manifests)
 internal/audio/       WAV decode/resample + mic capture (cgo, via malgo)
 internal/gcsfetch/    gs:// URI download for `transcribe`
 internal/session/     live streaming session orchestration (TTFT/latency stats)

@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ghchinoy/moonshine-go/internal/moonshine"
+	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
 	"github.com/ghchinoy/moonshine-go/internal/session"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"

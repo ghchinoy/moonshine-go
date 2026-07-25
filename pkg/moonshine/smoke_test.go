@@ -4,7 +4,7 @@
 // downloaded model assets. Not run by default (needs native artifacts and
 // network access); run explicitly with:
 //
-//	MOONSHINE_LIB_DIR=$(pwd)/.moonshine/lib go test -tags moonshinesmoke ./internal/moonshine/... -run Smoke -v
+//	MOONSHINE_LIB_DIR=$(pwd)/.moonshine/lib go test -tags moonshinesmoke ./pkg/moonshine/... -run Smoke -v
 package moonshine
 
 import (

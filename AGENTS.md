@@ -29,17 +29,17 @@ paths matter if you want to avoid pulling the entire LFS payload).
 
 ## Architecture notes for future changes
 
-- `internal/moonshine` is purego-based (no cgo to *build*) and must stay that
+- `pkg/moonshine` is purego-based (no cgo to *build*) and must stay that
   way -- it's the whole point of this project over reimplementing the model
   pipeline. `internal/audio`'s mic capture (`gen2brain/malgo`) is a
   deliberate, separate exception that does require cgo.
-- C struct layouts in `internal/moonshine/ctypes.go` are hand-mirrored from
+- C struct layouts in `pkg/moonshine/ctypes.go` are hand-mirrored from
   `moonshine-c-api.h` with explicit padding. If that header's structs change
   upstream, re-verify offsets (see the throwaway `offsetof`/`sizeof` C
   program used during initial development, not checked in -- rewrite it
   against the new header if needed) before touching `ctypes.go`.
 - STT model downloads are namespaced per (language, arch) under
-  `GroupDir()`/`PrimaryModelDir()` in `internal/moonshine/download.go`
+  `GroupDir()`/`PrimaryModelDir()` in `pkg/moonshine/download.go`
   precisely because different models share filenames
   (`encoder_model.ort`, etc.) -- don't "simplify" this back to a flat
   directory.
