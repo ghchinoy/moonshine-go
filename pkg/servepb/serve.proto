@@ -45,6 +45,8 @@ message Line {
   bool is_new = 7;
   bool has_text_changed = 8;
   string speaker_label = 9; // derived, see moonshine.Line.SpeakerLabel()
+  uint32 last_latency_ms = 10;
+  float confidence = 11;
 }
 
 message SessionSummary {

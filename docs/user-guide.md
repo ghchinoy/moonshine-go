@@ -180,6 +180,8 @@ moonshine --json transcribe --with-audio recording.wav > result-with-audio.json
 | `--with-audio` | `false` | Include each line's raw per-line audio samples in `--json` output |
 | `--identify-speakers` | `false` | Enable speaker diarization -- see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) below |
 | `--word-timestamps` | `false` | Enable per-word timing -- see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) below |
+| `-c, --concurrency` | `1` | Worker pool concurrency for batch mode (reuses single ONNX model) |
+| `-r, --recursive` | `true` | Recursively scan subdirectories for `.wav` files in batch mode |
 | `--json` (global) | `false` | Machine-readable output on stdout instead of styled text |
 
 Currently only `.wav` input is decoded directly. For other formats, convert
@@ -217,6 +219,83 @@ was model loading vs decoding vs actual inference, and how many times faster
 than real-time the transcription ran (`rtf`). See
 [docs/faq.md](faq.md#does-transcription-run-at-1x-speed-real-time-or-fasterslower)
 for what affects that number.
+
+### Multi-file & Batch Transcription
+
+`moonshine transcribe` accepts multiple positional files, directories, file globs, or GCS URIs/prefixes. When given multiple inputs, it operates in **batch mode**: the ONNX model is loaded **once** and reused across all inputs, bounded by worker pool concurrency (`--concurrency` / `-c`).
+
+```sh
+# Transcribe multiple files in one batch
+moonshine transcribe audio1.wav audio2.wav audio3.wav
+
+# Transcribe all .wav files in a directory (recursive by default)
+moonshine transcribe audio_dir/
+
+# Transcribe matching file globs
+moonshine transcribe "recordings/*.wav"
+
+# Transcribe a GCS folder prefix
+moonshine transcribe gs://my-bucket/audio/
+
+# Concurrency tuning (worker pool size)
+moonshine transcribe -c 4 audio_dir/
+
+# Export structured batch manifest JSON
+moonshine --json transcribe audio_dir/ > batch_manifest.json
+```
+
+#### Batch Manifest JSON Schema (`--json`)
+
+When running in batch mode with `--json`, `stdout` outputs a structured **Batch Manifest** containing aggregate statistics and per-file results:
+
+```json
+{
+  "version": "1.0",
+  "summary": {
+    "total_files": 3,
+    "successful_files": 3,
+    "failed_files": 0,
+    "total_audio_sec": 45.2,
+    "total_inference_ms": 1250.0,
+    "aggregate_rtf": 36.16,
+    "confidence_summary": {
+      "mean": 0.92,
+      "min": 0.74,
+      "max": 0.98
+    }
+  },
+  "results": [
+    {
+      "input": "audio_dir/file1.wav",
+      "status": "ok",
+      "error": "",
+      "stats": {
+        "download_ms": 0,
+        "decode_ms": 12.5,
+        "inference_ms": 410.0,
+        "audio_duration_sec": 15.0,
+        "real_time_factor": 36.58,
+        "mean_confidence": 0.94
+      },
+      "lines": [
+        {
+          "text": "it was the best of times",
+          "start_time": 0.0,
+          "duration": 2.5,
+          "last_latency_ms": 180,
+          "confidence": 0.95,
+          "words": [
+            { "word": "it", "start_time": 0.0, "end_time": 0.2, "confidence": 0.98 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+- **Fault Isolation**: If a file fails to decode or transcribe, `status` is set to `"failed"` with the `error` details, and processing continues uninterrupted for the remaining files.
+- **Deterministic Ordering**: Output results preserve the exact order inputs were supplied or expanded.
 
 ### Example audio: `test-assets/` in the moonshine checkout
 

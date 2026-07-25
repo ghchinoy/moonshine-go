@@ -70,7 +70,7 @@ func TestGRPCTransport_ClientReceivesPublishedTranscriptEvent(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	hub.Publish(event.TranscriptEvent{
-		Lines:            []serveapi.Line{{ID: 1, Text: "hello", IsComplete: true}},
+		Lines:            []serveapi.Line{{ID: 1, Text: "hello", IsComplete: true, LastLatencyMs: 42, Confidence: 0.95}},
 		FinalizedLineIDs: []uint64{1},
 		ElapsedMs:        123,
 	})
@@ -88,6 +88,12 @@ func TestGRPCTransport_ClientReceivesPublishedTranscriptEvent(t *testing.T) {
 	}
 	if len(te.Lines) != 1 || te.Lines[0].Text != "hello" {
 		t.Fatalf("Lines = %+v, want one line with text 'hello'", te.Lines)
+	}
+	if te.Lines[0].GetLastLatencyMs() != 42 {
+		t.Errorf("LastLatencyMs = %d, want 42", te.Lines[0].GetLastLatencyMs())
+	}
+	if te.Lines[0].GetConfidence() != 0.95 {
+		t.Errorf("Confidence = %f, want 0.95", te.Lines[0].GetConfidence())
 	}
 	if len(te.FinalizedLineIds) != 1 || te.FinalizedLineIds[0] != 1 {
 		t.Errorf("FinalizedLineIds = %v, want [1]", te.FinalizedLineIds)

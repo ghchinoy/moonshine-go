@@ -152,10 +152,23 @@ func statsLine(u session.Update) string {
 	if u.TTFT > 0 {
 		ttft = fmtDuration(u.TTFT)
 	}
-	return fmt.Sprintf("%s ttft=%s  %s elapsed=%s  %s last_poll=%s",
+	sttLat := "-"
+	confStr := "-"
+	if len(u.Transcript.Lines) > 0 {
+		lastLine := u.Transcript.Lines[len(u.Transcript.Lines)-1]
+		if lastLine.LastLatencyMs > 0 {
+			sttLat = fmt.Sprintf("%dms", lastLine.LastLatencyMs)
+		}
+		if conf := lastLine.MeanConfidence(); conf > 0 {
+			confStr = fmt.Sprintf("%.0f%%", conf*100)
+		}
+	}
+	return fmt.Sprintf("%s ttft=%s  %s elapsed=%s  %s poll=%s  %s stt_lat=%s  %s conf=%s",
 		styleID.Render("stats:"), ttft,
 		styleMuted.Render("|"), fmtDuration(u.Elapsed),
 		styleMuted.Render("|"), fmtDuration(u.PollLatency),
+		styleMuted.Render("|"), sttLat,
+		styleMuted.Render("|"), confStr,
 	)
 }
 

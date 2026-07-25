@@ -97,3 +97,13 @@ writes plain `[start] text` lines (or the same JSON as `--json`'s stdout
 output, if `--json` is also set). `live --output` appends each completed
 line to the file as it finalizes, independent of whether you're using the
 TUI or `--no-tui`.
+
+## How should I tune `--concurrency` for batch transcription?
+
+`moonshine transcribe` uses a worker pool when given multiple files, directories, or GCS prefixes (`-c/--concurrency`, default `1`).
+
+Because ONNX Runtime model inference is thread-safe, all workers share a single loaded model instance in memory without reloading model weights per file.
+
+- **CPU execution provider** (default): Setting `--concurrency` up to the number of CPU cores (e.g. `-c 4` or `-c 8`) maximizes batch throughput when transcribing collections of files.
+- **CoreML execution provider** (macOS): CoreML hardware dispatch runs best with `--concurrency 1` or `2`. Higher concurrency on CoreML can cause driver queue contention.
+- **Memory footprint**: Workers share model parameters in memory (~100MB for `tiny`). Per-worker memory overhead is minimal (only the PCM audio buffer for the active file).

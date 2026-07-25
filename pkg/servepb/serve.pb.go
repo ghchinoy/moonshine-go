@@ -146,6 +146,8 @@ type Line struct {
 	IsNew          bool                   `protobuf:"varint,7,opt,name=is_new,json=isNew,proto3" json:"is_new,omitempty"`
 	HasTextChanged bool                   `protobuf:"varint,8,opt,name=has_text_changed,json=hasTextChanged,proto3" json:"has_text_changed,omitempty"`
 	SpeakerLabel   string                 `protobuf:"bytes,9,opt,name=speaker_label,json=speakerLabel,proto3" json:"speaker_label,omitempty"` // derived, see moonshine.Line.SpeakerLabel()
+	LastLatencyMs  uint32                 `protobuf:"varint,10,opt,name=last_latency_ms,json=lastLatencyMs,proto3" json:"last_latency_ms,omitempty"`
+	Confidence     float32                `protobuf:"fixed32,11,opt,name=confidence,proto3" json:"confidence,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -241,6 +243,20 @@ func (x *Line) GetSpeakerLabel() string {
 		return x.SpeakerLabel
 	}
 	return ""
+}
+
+func (x *Line) GetLastLatencyMs() uint32 {
+	if x != nil {
+		return x.LastLatencyMs
+	}
+	return 0
+}
+
+func (x *Line) GetConfidence() float32 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
 }
 
 type SessionSummary struct {
@@ -634,7 +650,7 @@ const file_pkg_servepb_serve_proto_rawDesc = "" +
 	"transcript\x12;\n" +
 	"\adisplay\x18\x02 \x01(\v2\x1f.moonshine.serve.v1.DisplayCardH\x00R\adisplay\x12G\n" +
 	"\raction_result\x18\x03 \x01(\v2 .moonshine.serve.v1.ActionResultH\x00R\factionResultB\t\n" +
-	"\apayload\"\x8b\x02\n" +
+	"\apayload\"\xd3\x02\n" +
 	"\x04Line\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1d\n" +
 	"\n" +
@@ -647,7 +663,12 @@ const file_pkg_servepb_serve_proto_rawDesc = "" +
 	"is_updated\x18\x06 \x01(\bR\tisUpdated\x12\x15\n" +
 	"\x06is_new\x18\a \x01(\bR\x05isNew\x12(\n" +
 	"\x10has_text_changed\x18\b \x01(\bR\x0ehasTextChanged\x12#\n" +
-	"\rspeaker_label\x18\t \x01(\tR\fspeakerLabel\"\x93\x02\n" +
+	"\rspeaker_label\x18\t \x01(\tR\fspeakerLabel\x12&\n" +
+	"\x0flast_latency_ms\x18\n" +
+	" \x01(\rR\rlastLatencyMs\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\v \x01(\x02R\n" +
+	"confidence\"\x93\x02\n" +
 	"\x0eSessionSummary\x12'\n" +
 	"\x0flines_finalized\x18\x01 \x01(\x05R\x0elinesFinalized\x12.\n" +
 	"\x14avg_time_to_final_ms\x18\x02 \x01(\x03R\x10avgTimeToFinalMs\x12.\n" +

@@ -277,6 +277,8 @@ func toProtoLine(l serveapi.Line) *servepb.Line {
 		IsNew:          l.IsNew,
 		HasTextChanged: l.HasTextChanged,
 		SpeakerLabel:   l.SpeakerLabel(),
+		LastLatencyMs:  l.LastLatencyMs,
+		Confidence:     l.Confidence,
 	}
 }
 

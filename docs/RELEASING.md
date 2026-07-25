@@ -132,7 +132,8 @@ Users can extract the archive and run `./run.sh` or set `MOONSHINE_LIB_DIR=./lib
 
 Below is a concise summary of major additions per release. Detailed commit logs live in [`CHANGELOG.md`](../CHANGELOG.md).
 
-- **`v0.6.0` (Unreleased / Next)**: Remote TTS speak-back wiring (`--tts-play-local` flag) and per-session TTS publisher isolation in `SessionManager`.
+- **`v0.7.0`**: Multi-file/batch transcribe engine with worker pool concurrency (`--concurrency`), GCS prefix listing, structured batch manifest JSON, live TUI latency/confidence display, and gRPC `Line` proto parity.
+- **`v0.6.0`**: Remote TTS speak-back wiring (`--tts-play-local` flag), per-session TTS publisher isolation in `SessionManager`, and tunable endpointing policy flags (`--endpoint-*`).
 - **`v0.5.1`**: Surfaced confidence scores on `Line`/`Word` in `pkg/serveapi` and fixed `AgentRunner` action dispatch deadlock.
 - **`v0.5.0`**: Multi-tenant `SessionManager` (`--max-sessions`) with isolated per-connection WS/gRPC sessions.
 - **`v0.4.1`**: Remote PCM audio streaming flag (`--audio-source remote`) and browser client sample (`samples/browser-listen`).

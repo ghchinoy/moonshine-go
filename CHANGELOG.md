@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] - v0.6.0
+## [v0.7.0] - 2026-07-25
+
+### Added
+- **Multi-File & Batch Transcription Engine**: Extended `moonshine transcribe` (`MinimumNArgs(1)`) to support processing multiple audio files, directories, globs, and GCS `gs://` prefixes/buckets with ONNX model instance reuse and bounded worker pool concurrency (`--concurrency` / `-c`, `--recursive` / `-r`) (`#hqv`, `#4mq`).
+- **Batch Manifest JSON Schema**: Introduced structured batch manifest `--json` schema output containing overall batch summary metrics (`total_files`, `total_audio_sec`, `total_inference_ms`, `aggregate_rtf`, `confidence_summary`) and per-file results with per-line word timings, speaker spans, confidence scores, and latencies (`#38s`).
+- **GCS Prefix Listing**: Added `ListPrefix` in `internal/gcsfetch` to recursively resolve GCS folder URIs into individual object targets (`#4mq`).
+- **TUI Latency & Confidence Display**: Enhanced `moonshine live` TUI stats bar in `internal/tui` to prominently render per-line STT inference latency (`stt_lat`) and mean confidence (`conf`) (`#h2j`).
+- **gRPC Line Protobuf Parity**: Added `last_latency_ms` (field 10) and `confidence` (field 11) to `Line` in `pkg/servepb/serve.proto` (`#31c`).
+
+### Fixed
+- **Per-File Batch Error Isolation**: Isolated per-file transcription and download failures in batch mode so individual corrupted files record an error status without aborting processing for remaining files (`#m77`).
+
+---
+
+## [v0.6.0] - 2026-07-24
 
 ### Added
 - **Tunable Endpointing Policy**: Added `session.FinalizationPolicy` and `--endpoint-*` CLI flags (`--endpoint-post-final-delay`, `--endpoint-min-utterance-chars`, `--endpoint-max-utterance-duration`) to `moonshine serve` for session-layer finalization debouncing, utterance length thresholds, and max duration force-finalization (`#qii`).
