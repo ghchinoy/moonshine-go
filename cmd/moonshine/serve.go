@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/ghchinoy/moonshine-go/internal/audio"
-	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve"
 	"github.com/ghchinoy/moonshine-go/internal/session"
+	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 
 	"github.com/ghchinoy/moonshine-go/internal/audio"
-	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/internal/serve/event"
+	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 )
 
 // TTSSpeaker implements Speaker using a lazily-constructed

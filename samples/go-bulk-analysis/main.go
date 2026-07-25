@@ -40,15 +40,15 @@ type FileResult struct {
 
 // AggregateStats holds summary metrics across the entire corpus.
 type AggregateStats struct {
-	TotalFiles           int            `json:"total_files"`
-	SuccessfulFiles      int            `json:"successful_files"`
-	FailedFiles          int            `json:"failed_files"`
-	TotalAudioSec        float64        `json:"total_audio_sec"`
-	TotalInferenceMs     float64        `json:"total_inference_ms"`
-	TotalWallMs          float64        `json:"total_wall_ms"`
-	AggregateRTF         float64        `json:"aggregate_rtf"`
-	MeanConfidence       float32        `json:"mean_confidence"`
-	ConfidenceHistogram  map[string]int `json:"confidence_histogram"`
+	TotalFiles          int            `json:"total_files"`
+	SuccessfulFiles     int            `json:"successful_files"`
+	FailedFiles         int            `json:"failed_files"`
+	TotalAudioSec       float64        `json:"total_audio_sec"`
+	TotalInferenceMs    float64        `json:"total_inference_ms"`
+	TotalWallMs         float64        `json:"total_wall_ms"`
+	AggregateRTF        float64        `json:"aggregate_rtf"`
+	MeanConfidence      float32        `json:"mean_confidence"`
+	ConfidenceHistogram map[string]int `json:"confidence_histogram"`
 }
 
 // CorpusManifest is the agent-friendly JSON manifest structure exported by the sample.
