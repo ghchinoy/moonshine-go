@@ -36,7 +36,7 @@ This sample demonstrates embedding `pkg/moonshine` directly inside a standalone 
 
 ### 1. Build or fetch `libmoonshine` and setup models
 
-Ensure `libmoonshine.{dylib,so}` is available and point `MOONSHINE_LIB_DIR` at it:
+Ensure `libmoonshine.{dylib,so}` is available and point `MOONSHINE_LIB_DIR` at it (for production packaging and distribution guidance, see [`docs/bundling-libmoonshine.md`](../../docs/bundling-libmoonshine.md)):
 
 ```sh
 cd ../.. # repo root

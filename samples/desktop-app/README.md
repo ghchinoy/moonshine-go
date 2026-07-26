@@ -45,7 +45,7 @@ navigator.mediaDevices.getUserMedia          wails.Run() / App struct
    go install github.com/wailsapp/wails/v2/cmd/wails@latest
    ```
 3. **`libmoonshine` Shared Library**:
-   Point `MOONSHINE_LIB_DIR` at your local `libmoonshine.{dylib,so}` directory:
+   Point `MOONSHINE_LIB_DIR` at your local `libmoonshine.{dylib,so}` directory (for production application bundling, macOS `.app` code-signing, and Windows deployment, see [`docs/bundling-libmoonshine.md`](../../docs/bundling-libmoonshine.md)):
    ```sh
    export MOONSHINE_LIB_DIR="/path/to/moonshine-go/.moonshine/lib"
    ```
