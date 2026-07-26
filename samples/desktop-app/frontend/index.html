@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moonshine Voice Desktop App</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #111827;
+      color: #f3f4f6;
+      margin: 0;
+      padding: 2rem;
+    }
+    .card {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    h1 { margin-top: 0; font-size: 1.5rem; color: #60a5fa; }
+    h2 { margin-top: 0; font-size: 1.1rem; color: #9ca3af; }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-right: 0.5rem;
+    }
+    button:disabled { background: #4b5563; cursor: not-allowed; }
+    button.stop { background: #dc2626; }
+    #transcript {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      padding: 1rem;
+      border-radius: 6px;
+      min-height: 120px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .interim { color: #f59e0b; font-style: italic; }
+    .status { font-size: 0.85rem; color: #9ca3af; margin-top: 0.5rem; }
+    input[type="file"] { margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎙️ Moonshine Voice Desktop App</h1>
+    <p>In-process Speech-to-Text via <code>pkg/moonshine</code> (purego C-API binding, zero daemon).</p>
+  </div>
+
+  <div class="card">
+    <h2>1. Live Microphone Streaming</h2>
+    <div>
+      <button id="startBtn">Start Dictation</button>
+      <button id="stopBtn" class="stop" disabled>Stop</button>
+    </div>
+    <div id="micStatus" class="status">Status: Idle</div>
+  </div>
+
+  <div class="card">
+    <h2>2. Local WAV File Upload</h2>
+    <div>
+      <input type="file" id="fileInput" accept=".wav" />
+    </div>
+    <div id="fileStatus" class="status">Select a 16kHz .wav file to transcribe.</div>
+  </div>
+
+  <div class="card">
+    <h2>Transcript Output</h2>
+    <div id="transcript">Ready. Click "Start Dictation" or upload a WAV file.</div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
