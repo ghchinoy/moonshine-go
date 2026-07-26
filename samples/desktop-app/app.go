@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // LineOutput represents a line of transcription returned to the frontend.
@@ -190,7 +191,75 @@ func (a *App) StopStream() error {
 	return nil
 }
 
-// TranscribeFile transcribes a local WAV file in-process in batch mode.
+// SelectAudioFile opens a native OS open file dialog to select a local audio file.
+func (a *App) SelectAudioFile() (string, error) {
+	file, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Audio File",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "Audio Files (*.wav, *.mp3, *.m4a, *.flac, *.ogg)",
+				Pattern:     "*.wav;*.mp3;*.m4a;*.flac;*.ogg;*.WAV;*.MP3;*.M4A;*.FLAC;*.OGG",
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("opening file dialog: %w", err)
+	}
+	return file, nil
+}
+
+// TranscribePCM transcribes in-memory float32 PCM samples (mono) directly.
+func (a *App) TranscribePCM(samples []float32, sampleRate int, language, arch string) (BatchOutput, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if len(samples) == 0 {
+		return BatchOutput{}, fmt.Errorf("empty audio samples")
+	}
+	if sampleRate <= 0 {
+		sampleRate = 16000
+	}
+
+	tr, err := a.getTranscriber(language, arch)
+	if err != nil {
+		return BatchOutput{}, err
+	}
+
+	audioSec := float64(len(samples)) / float64(sampleRate)
+
+	t0 := time.Now()
+	transcript, err := tr.Transcribe(samples, int32(sampleRate), 0)
+	inferenceMs := float64(time.Since(t0).Milliseconds())
+	if err != nil {
+		return BatchOutput{}, fmt.Errorf("transcribing audio: %w", err)
+	}
+
+	rtf := 0.0
+	if inferenceMs > 0 {
+		rtf = audioSec / (inferenceMs / 1000.0)
+	}
+
+	outLines := make([]LineOutput, 0, len(transcript.Lines))
+	for _, l := range transcript.Lines {
+		outLines = append(outLines, LineOutput{
+			ID:             l.ID,
+			StartTime:      l.StartTime,
+			Duration:       l.Duration,
+			Text:           l.Text,
+			IsComplete:     l.IsComplete,
+			MeanConfidence: float64(l.MeanConfidence()),
+		})
+	}
+
+	return BatchOutput{
+		Lines:            outLines,
+		AudioDurationSec: audioSec,
+		InferenceMs:      inferenceMs,
+		RealTimeFactor:   rtf,
+	}, nil
+}
+
+// TranscribeFile transcribes a local audio file (.wav, .mp3) in-process in batch mode.
 func (a *App) TranscribeFile(filePath, language, arch string) (BatchOutput, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -204,9 +273,9 @@ func (a *App) TranscribeFile(filePath, language, arch string) (BatchOutput, erro
 		return BatchOutput{}, err
 	}
 
-	samples, sampleRate, err := loadWAVSamples(filePath)
+	samples, sampleRate, err := loadAudioSamples(filePath)
 	if err != nil {
-		return BatchOutput{}, fmt.Errorf("reading WAV audio %s: %w", filePath, err)
+		return BatchOutput{}, fmt.Errorf("reading audio %s: %w", filePath, err)
 	}
 
 	audioSec := float64(len(samples)) / float64(sampleRate)

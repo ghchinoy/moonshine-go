@@ -6,6 +6,10 @@ export function PushPCMChunk(arg1) {
   return window['go']['main']['App']['PushPCMChunk'](arg1);
 }
 
+export function SelectAudioFile() {
+  return window['go']['main']['App']['SelectAudioFile']();
+}
+
 export function StartStream(arg1, arg2) {
   return window['go']['main']['App']['StartStream'](arg1, arg2);
 }
@@ -16,4 +20,8 @@ export function StopStream() {
 
 export function TranscribeFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['TranscribeFile'](arg1, arg2, arg3);
+}
+
+export function TranscribePCM(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['TranscribePCM'](arg1, arg2, arg3, arg4);
 }

@@ -4,8 +4,12 @@ import {main} from '../models';
 
 export function PushPCMChunk(arg1:Array<number>):Promise<Array<main.LineOutput>>;
 
+export function SelectAudioFile():Promise<string>;
+
 export function StartStream(arg1:string,arg2:string):Promise<void>;
 
 export function StopStream():Promise<void>;
 
 export function TranscribeFile(arg1:string,arg2:string,arg3:string):Promise<main.BatchOutput>;
+
+export function TranscribePCM(arg1:Array<number>,arg2:number,arg3:string,arg4:string):Promise<main.BatchOutput>;
