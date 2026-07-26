@@ -3,7 +3,6 @@ import { StartStream, PushPCMChunk, StopStream, TranscribeFile, TranscribePCM, S
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const browseBtn = document.getElementById("browseBtn");
-const fileInput = document.getElementById("fileInput");
 const micStatus = document.getElementById("micStatus");
 const fileStatus = document.getElementById("fileStatus");
 const transcriptEl = document.getElementById("transcript");
@@ -39,7 +38,8 @@ function renderLines(lines) {
 function renderBatchResult(res, fileName) {
   let text = "";
   for (const line of res.lines) {
-    text += (text ? "\n" : "") + `[${formatTime(line.start_time)}] ${line.text} (conf: ${Math.round(line.mean_confidence * 100)}%)`;
+    const confSuffix = line.mean_confidence > 0 ? ` (conf: ${Math.round(line.mean_confidence * 100)}%)` : "";
+    text += (text ? "\n" : "") + `[${formatTime(line.start_time)}] ${line.text}${confSuffix}`;
   }
   transcriptEl.textContent = text || `No speech text detected in ${fileName}.`;
   fileStatus.textContent = `Done in ${Math.round(res.inference_ms)}ms (${res.real_time_factor.toFixed(1)}x RTF).`;
@@ -199,12 +199,6 @@ if (browseBtn) {
     }
   });
 }
-
-fileInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  await processAudioFile(file);
-});
 
 startBtn.addEventListener("click", startDictation);
 stopBtn.addEventListener("click", stopDictation);
