@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.0] - 2026-07-26
+
+### Added
+- **ZipVoice Zero-Shot Voice Cloning**: Added `NewSynthesizerFromClone` in `pkg/moonshine` (binding `moonshine_create_tts_synthesizer_from_memory`) and `--clone <wav_path>` / `--clone-transcript <text>` flags to `moonshine tts` for zero-shot voice cloning using reference WAV audio clips (`#21v`).
+- **Clone-Ready Audio Recording**: Added `--record-audio [path_or_dir]` to `moonshine live` (saving microphone capture to a WAV file upon session end with timestamped naming `moonshine_clip_YYYYMMDD-HHMMSS_16k_mono.wav`) and `--save-line-audio <dir>` to `moonshine live` and `moonshine transcribe` (exporting each finalized line's audio + transcript as individual `.wav` and `.txt` files) (`#4ai`).
+- **Native WAV Sample-Rate Decoding**: Added `LoadFileWithSampleRate` in `internal/audio` to decode WAV files to mono float32 PCM while preserving native sample rate for ZipVoice cloning inputs (`#21v`).
+
+---
+
 ## [v0.8.0] - 2026-07-25
 
 ### Added
