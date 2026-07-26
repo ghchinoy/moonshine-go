@@ -44,6 +44,7 @@ Every sample in `samples/` self-reports its rating schema in its own `README.md`
 | **[go-bulk-analysis](go-bulk-analysis/)** | Tier 2 | 3/5 | Medium | Observability, Composability, Privacy | Batch audio corpus transcription & LLM report synthesis | 5/5 |
 | **[go-embedded](go-embedded/)** | Native / in-process | 2/5 | Medium | Privacy, Composability | Direct in-process batch & streaming STT (no daemon) | 4/5 |
 | **[mcp-transcribe](mcp-transcribe/)** | Native / in-process | 3/5 | Medium | Composability, Privacy | Embedded MCP server exposing in-process STT tool | 5/5 |
+| **[desktop-app](desktop-app/)** | Native / in-process | 3/5 | High | Privacy, Composability | Native Wails v2 GUI app with in-process STT (no daemon) | 5/5 |
 
 ---
 
