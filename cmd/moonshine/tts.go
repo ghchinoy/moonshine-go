@@ -34,11 +34,13 @@ var ttsCmd = &cobra.Command{
 	Short:   "Synthesize speech from text",
 	Args:    cobra.MaximumNArgs(1),
 	Long: `Synthesizes text to speech using moonshine's TTS engines (Kokoro, Piper,
-or ZipVoice, selected via --voice). --g2p-root must point at a directory
-laid out like a moonshine checkout's core/moonshine-tts/data (containing
-kokoro/, <lang>/piper-voices/, etc.) -- see docs/user-guide.md for how to
-fetch these voice assets; "moonshine setup" only automates STT model
-downloads (see its --help for why).
+or ZipVoice, selected via --voice), or clones a voice from a reference .wav
+clip with --clone (also ZipVoice, but uses your reference audio instead of a
+preset voice -- see docs/user-guide.md's "Recording and cloning a voice").
+--g2p-root must point at a directory laid out like a moonshine checkout's
+core/moonshine-tts/data (containing kokoro/, <lang>/piper-voices/, etc.) -- see
+docs/user-guide.md for how to fetch these voice assets; "moonshine setup" only
+automates STT model downloads (see its --help for why).
 
 --g2p-root defaults to <moonshine.src_dir>/core/moonshine-tts/data if
 moonshine.src_dir is set (env $MOONSHINE_SRC, or the moonshine.src_dir key

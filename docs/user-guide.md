@@ -180,6 +180,7 @@ moonshine --json transcribe --with-audio recording.wav > result-with-audio.json
 | `--with-audio` | `false` | Include each line's raw per-line audio samples in `--json` output |
 | `--identify-speakers` | `false` | Enable speaker diarization -- see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) below |
 | `--word-timestamps` | `false` | Enable per-word timing -- see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) below |
+| `--save-line-audio` | (none) | Save each transcribed line's raw audio and transcript text as individual `.wav`/`.txt` files under this directory (see [Recording and cloning a voice](#recording-and-cloning-a-voice)) |
 | `-c, --concurrency` | `1` | Worker pool concurrency for batch mode (reuses single ONNX model) |
 | `-r, --recursive` | `true` | Recursively scan subdirectories for `.wav` files in batch mode |
 | `--json` (global) | `false` | Machine-readable output on stdout instead of styled text |
@@ -546,6 +547,42 @@ The phonemes are normalized to the active voice's phoneme inventory before
 synthesis, so passing G2P's own unedited output back through `--ipa` for the
 same language/voice produces audio equivalent to not using `--ipa` at all --
 only the parts you actually change differ.
+
+### Recording and cloning a voice
+
+`--record-audio` (`live`) and `--save-line-audio` (`live`/`transcribe`) exist
+specifically to produce clone-ready inputs for `tts --clone`: a reference
+`.wav` clip plus its exact transcript, with no manual trimming or re-typing.
+
+**Option A -- record a short clip live, then clone it:**
+
+```sh
+# Speak a sentence or two, then Ctrl-C.
+moonshine live --arch tiny-streaming --record-audio my_voice.wav
+
+# Clone from the full session recording. Since --record-audio captures the
+# whole mic stream (not per-line), --clone-transcript isn't known
+# automatically here -- omit it and moonshine tts will auto-transcribe the
+# clip internally before cloning.
+moonshine tts --clone my_voice.wav "Hello, this is a cloned voice." -o cloned.wav
+```
+
+**Option B -- capture one clean per-line clip with its exact transcript:**
+
+```sh
+# Saves line_<id>_<start-ms>ms_16k.wav + a matching .txt per finalized line.
+moonshine live --arch tiny-streaming --save-line-audio ./clips
+
+# Pick the best line, then clone using its exact transcript -- higher
+# quality than auto-transcribing, since there's no ASR round-trip.
+moonshine tts --clone ./clips/line_1_000250ms_16k.wav \
+  --clone-transcript "$(cat ./clips/line_1_000250ms_16k.txt)" \
+  "Hello, this is a cloned voice." -o cloned.wav
+```
+
+`transcribe --save-line-audio <dir>` works the same way against an existing
+audio file instead of the live microphone, useful for extracting a clean
+reference clip from a pre-recorded interview or voicemail.
 
 ### Configuring `--g2p-root` once instead of every time
 
