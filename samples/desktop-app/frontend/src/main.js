@@ -44,7 +44,7 @@ function formatTime(secs) {
 async function startDictation() {
   try {
     micStatus.textContent = "Status: Starting stream...";
-    await StartStream("en_us", "tiny-streaming");
+    await StartStream("en", "tiny-streaming");
 
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -122,7 +122,7 @@ fileInput.addEventListener("change", async (e) => {
   transcriptEl.textContent = "Processing audio file in-process...";
 
   try {
-    const res = await TranscribeFile(file.path || file.name, "en_us", "tiny");
+    const res = await TranscribeFile(file.path || file.name, "en", "tiny");
     let text = "";
     for (const line of res.lines) {
       text += (text ? "\n" : "") + `[${formatTime(line.start_time)}] ${line.text} (conf: ${Math.round(line.mean_confidence * 100)}%)`;

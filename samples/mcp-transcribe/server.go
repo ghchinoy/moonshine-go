@@ -14,7 +14,7 @@ import (
 // TranscribeInput defines arguments accepted by the 'transcribe' tool.
 type TranscribeInput struct {
 	Path             string `json:"path" jsonschema:"Path to local .wav audio file to transcribe in-process"`
-	Language         string `json:"language,omitempty" jsonschema:"STT model language code (e.g. en_us; default: en_us)"`
+	Language         string `json:"language,omitempty" jsonschema:"STT model language code (e.g. en, Spanish; default: en)"`
 	Arch             string `json:"arch,omitempty" jsonschema:"STT model architecture (tiny, base; default: tiny)"`
 	WordTimestamps   bool   `json:"word_timestamps,omitempty" jsonschema:"Include per-word timing details in line summaries"`
 	IdentifySpeakers bool   `json:"identify_speakers,omitempty" jsonschema:"Enable speaker diarization"`
@@ -94,13 +94,21 @@ func (s *MCPServer) Close() {
 	s.transcribers = make(map[string]*moonshine.Transcriber)
 }
 
-func (s *MCPServer) getTranscriber(lang, arch string, identifySpeakers bool) (*moonshine.Transcriber, string, string, error) {
+func normalizeSTTLanguage(lang string) string {
+	if lang == "en_us" || lang == "en_gb" || lang == "en-US" || lang == "en-GB" {
+		return "en"
+	}
+	if lang == "" {
+		return "en"
+	}
+	return lang
+}
+
+func (s *MCPServer) getTranscriber(rawLang, arch string, identifySpeakers bool) (*moonshine.Transcriber, string, string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if lang == "" {
-		lang = s.defaultLang
-	}
+	lang := normalizeSTTLanguage(rawLang)
 	if arch == "" {
 		arch = s.defaultArch
 	}
@@ -117,7 +125,11 @@ func (s *MCPServer) getTranscriber(lang, arch string, identifySpeakers bool) (*m
 
 	modelDir := resolveModelDir(lang, arch)
 	if modelDir == "" {
-		return nil, lang, arch, fmt.Errorf("STT model for %s/%s not found (run 'moonshine setup --language %s --arch %s' first)", lang, arch, lang, arch)
+		hint := ""
+		if rawLang == "en_us" || rawLang == "en_gb" {
+			hint = fmt.Sprintf(" (Note: STT uses short language codes like 'en', whereas TTS uses tags like 'en_us').")
+		}
+		return nil, lang, arch, fmt.Errorf("STT model for %s/%s not found%s (run 'moonshine setup --language %s --arch %s' first)", lang, arch, hint, lang, arch)
 	}
 
 	archID := moonshine.ModelArchTiny

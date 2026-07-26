@@ -25,7 +25,7 @@ func main() {
 	flag.StringVar(&transportFlag, "transport", "stdio", "MCP transport: stdio or http")
 	flag.StringVar(&portFlag, "port", "8080", "HTTP port when running with -transport http")
 	flag.StringVar(&authTokenFlag, "auth-token", "", "Optional bearer auth token for HTTP transport mode (e.g. -auth-token secret123)")
-	flag.StringVar(&langFlag, "language", "en_us", "Default STT model language")
+	flag.StringVar(&langFlag, "language", "en", "Default STT model language")
 	flag.StringVar(&archFlag, "arch", "tiny", "Default STT model architecture")
 	flag.Parse()
 
