@@ -13,7 +13,7 @@ import (
 
 // TranscribeInput defines arguments accepted by the 'transcribe' tool.
 type TranscribeInput struct {
-	Path             string `json:"path" jsonschema:"Path to local .wav audio file to transcribe in-process"`
+	Path             string `json:"path" jsonschema:"Path to local .wav or .mp3 audio file to transcribe in-process"`
 	Language         string `json:"language,omitempty" jsonschema:"STT model language code (e.g. en, Spanish; default: en)"`
 	Arch             string `json:"arch,omitempty" jsonschema:"STT model architecture (tiny, base; default: tiny)"`
 	WordTimestamps   bool   `json:"word_timestamps,omitempty" jsonschema:"Include per-word timing details in line summaries"`
@@ -165,9 +165,9 @@ func (s *MCPServer) handleTranscribe(ctx context.Context, req *mcp.CallToolReque
 		return nil, TranscribeOutput{}, err
 	}
 
-	samples, sampleRate, err := loadWAVSamples(input.Path)
+	samples, sampleRate, err := loadAudioSamples(input.Path)
 	if err != nil {
-		return nil, TranscribeOutput{}, fmt.Errorf("reading WAV audio from %s: %w", input.Path, err)
+		return nil, TranscribeOutput{}, fmt.Errorf("reading audio from %s: %w", input.Path, err)
 	}
 
 	audioSec := float64(len(samples)) / float64(sampleRate)
