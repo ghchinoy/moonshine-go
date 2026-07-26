@@ -38,7 +38,7 @@ This sample demonstrates **Native In-Process Embedding**: linking `libmoonshine`
 
 ### 1. Build or fetch `libmoonshine`
 
-Ensure `libmoonshine.{dylib,so}` is available locally and point `MOONSHINE_LIB_DIR` at it:
+Ensure `libmoonshine.{dylib,so}` is available locally and point `MOONSHINE_LIB_DIR` at it (for production bundling without environment variables, see [`docs/bundling-libmoonshine.md`](../../docs/bundling-libmoonshine.md)):
 
 ```sh
 cd ../.. # repo root

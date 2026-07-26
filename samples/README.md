@@ -198,7 +198,7 @@ runner.Run(ctx, events)                             // events: <-chan serveapi.T
 
 ## Native / In-Process Embedding (`pkg/moonshine`)
 
-For Go applications that do not run a `moonshine serve` daemon or network IPC connection, [`pkg/moonshine`](../pkg/moonshine) provides a public, pure-Go (`CGO_ENABLED=0`) C-API reference binding over `libmoonshine`.
+For Go applications that do not run a `moonshine serve` daemon or network IPC connection, [`pkg/moonshine`](../pkg/moonshine) provides a public, pure-Go (`CGO_ENABLED=0`) C-API reference binding over `libmoonshine`. For production bundling guidance (macOS `.app`, Windows, Linux, and MCP servers), see [`docs/bundling-libmoonshine.md`](../docs/bundling-libmoonshine.md).
 
 - [go-embedded](go-embedded/) — in-process batch and streaming Speech-to-Text directly in Go without a daemon (`moonshine.Load()`, `Transcriber.Transcribe`, `Transcriber.NewStream`), demonstrating direct native embedding in Go memory space without network IPC serialization.
 - [mcp-transcribe](mcp-transcribe/) — standalone Go MCP server exposing an embedded `transcribe` tool to Claude Desktop or agent hosts via stdio or streamable HTTP (`mcp.StdioTransport`, `mcp.StreamableHTTPHandler`).
