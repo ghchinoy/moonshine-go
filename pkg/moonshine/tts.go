@@ -3,6 +3,7 @@ package moonshine
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"runtime"
 	"time"
 	"unsafe"
@@ -28,10 +29,12 @@ func (a Audio) Duration() time.Duration {
 }
 
 // Synthesizer wraps a moonshine TTS synthesizer handle
-// (moonshine_create_tts_synthesizer_from_files).
+// (moonshine_create_tts_synthesizer_from_files /
+// moonshine_create_tts_synthesizer_from_memory).
 type Synthesizer struct {
-	handle int32
-	closed bool
+	handle     int32
+	closed     bool
+	pcmBuffers [][]byte // backing buffer references kept alive while handle is open
 }
 
 // NewSynthesizer creates a TTS synthesizer for language (a moonshine
@@ -58,6 +61,79 @@ func NewSynthesizer(language string, opts ...Option) (*Synthesizer, error) {
 	return s, nil
 }
 
+// NewSynthesizerFromClone creates a TTS synthesizer configured for zero-shot
+// voice cloning via ZipVoice using a reference audio clip (pcm mono float32
+// samples in [-1, 1]).
+//
+// pcm is the reference audio waveform. sampleRate is the sample rate of pcm
+// (e.g. 16000 or 24000). transcript is the text spoken in the reference clip
+// (strongly recommended for optimal voice cloning accuracy).
+//
+// Additional options (e.g. "g2p_root", "speed") may be passed in opts.
+func NewSynthesizerFromClone(language string, pcm []float32, sampleRate int32, transcript string, opts ...Option) (*Synthesizer, error) {
+	if !Loaded() {
+		return nil, errNotLoaded
+	}
+	if len(pcm) == 0 {
+		return nil, fmt.Errorf("moonshine: clone pcm audio cannot be empty")
+	}
+	if sampleRate <= 0 {
+		return nil, fmt.Errorf("moonshine: invalid clone sample rate %d", sampleRate)
+	}
+
+	// Convert float32 slice to little-endian byte buffer
+	pcmBytes := make([]byte, len(pcm)*4)
+	for i, sample := range pcm {
+		bits := math.Float32bits(sample)
+		pcmBytes[i*4] = byte(bits)
+		pcmBytes[i*4+1] = byte(bits >> 8)
+		pcmBytes[i*4+2] = byte(bits >> 16)
+		pcmBytes[i*4+3] = byte(bits >> 24)
+	}
+
+	keyPtr, keyBuf := cString("zipvoice/clone_audio")
+	keyArray := []*byte{keyPtr}
+	memArray := []*byte{&pcmBytes[0]}
+	memSizeArray := []uint64{uint64(len(pcmBytes))}
+
+	cloneOpts := append([]Option{
+		{Name: "voice", Value: "zipvoice"},
+		{Name: "zipvoice_clone_sample_rate", Value: fmt.Sprintf("%d", sampleRate)},
+	}, opts...)
+	if transcript != "" {
+		cloneOpts = append(cloneOpts, Option{Name: "zipvoice_clone_transcript", Value: transcript})
+	}
+
+	cOpts, optCount, keep := toCOptions(cloneOpts)
+
+	h := fnCreateTTSSynthesizerFromMemory(
+		language,
+		unsafe.Pointer(&keyArray[0]), 1,
+		unsafe.Pointer(&memArray[0]),
+		unsafe.Pointer(&memSizeArray[0]),
+		cOpts, optCount,
+		HeaderVersion,
+	)
+	runtime.KeepAlive(keep)
+	runtime.KeepAlive(keyBuf)
+	runtime.KeepAlive(keyArray)
+	runtime.KeepAlive(memArray)
+	runtime.KeepAlive(memSizeArray)
+	runtime.KeepAlive(pcmBytes)
+
+	handle, err := checkHandle("create_tts_synthesizer_from_memory", h)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &Synthesizer{
+		handle:     handle,
+		pcmBuffers: [][]byte{pcmBytes},
+	}
+	runtime.SetFinalizer(s, func(sy *Synthesizer) { _ = sy.Close() })
+	return s, nil
+}
+
 // Close releases the synthesizer's resources. Safe to call more than once.
 func (s *Synthesizer) Close() error {
 	if s.closed {
@@ -66,6 +142,7 @@ func (s *Synthesizer) Close() error {
 	s.closed = true
 	runtime.SetFinalizer(s, nil)
 	fnFreeTTSSynthesizer(s.handle)
+	s.pcmBuffers = nil
 	return nil
 }
 

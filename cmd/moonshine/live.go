@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ghchinoy/moonshine-go/internal/audio"
 	"github.com/ghchinoy/moonshine-go/internal/session"
 	"github.com/ghchinoy/moonshine-go/internal/tui"
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 var (
@@ -29,6 +31,8 @@ var (
 	liveDiarizationAnalyzeCadence   float64
 	liveDiarizationClusterWindowSec float64
 	liveLineStats                   bool
+	liveRecordAudio                 string
+	liveSaveLineAudio               string
 )
 
 var liveCmd = &cobra.Command{
@@ -57,6 +61,8 @@ func init() {
 	liveCmd.Flags().Float64Var(&liveDiarizationAnalyzeCadence, "diarization-analyze-cadence", 1.0, "Seconds between diarization segmentation/embedding model runs (only applies with --identify-speakers)")
 	liveCmd.Flags().Float64Var(&liveDiarizationClusterWindowSec, "diarization-cluster-window-sec", 120.0, "How much audio history diarization re-clustering considers on each refresh; 0 = unlimited full history (only applies with --identify-speakers)")
 	liveCmd.Flags().BoolVar(&liveLineStats, "line-stats", false, "In --no-tui mode, print a stderr note per finalized line with its time-to-final and revision count (the bubbletea TUI always shows this in its footer; the end-of-session summary is always printed either way)")
+	liveCmd.Flags().StringVar(&liveRecordAudio, "record-audio", "", "Record captured microphone audio to a WAV file (pass filename or directory; default filename: moonshine_clip_YYYYMMDD-HHMMSS_16k_mono.wav)")
+	liveCmd.Flags().StringVar(&liveSaveLineAudio, "save-line-audio", "", "Save each finalized line's raw audio and transcript text as individual .wav and .txt files under this directory")
 }
 
 func runLive(cmd *cobra.Command, args []string) error {
@@ -94,7 +100,14 @@ func runLive(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, muted("listening... (ctrl-c to stop)"))
 	}
 
-	sess, err := session.NewLive(tr, mic, livePollInterval)
+	var audioSource serveapi.AudioSource = mic
+	var recSource *recordingAudioSource
+	if liveRecordAudio != "" {
+		recSource = newRecordingAudioSource(mic)
+		audioSource = recSource
+	}
+
+	sess, err := session.NewLive(tr, audioSource, livePollInterval)
 	if err != nil {
 		return err
 	}
@@ -117,6 +130,12 @@ func runLive(cmd *cobra.Command, args []string) error {
 	go sess.Run(ctx)
 
 	updates := sess.Updates()
+	if liveSaveLineAudio != "" {
+		updates = teeLineAudioToDir(updates, liveSaveLineAudio)
+		if !jsonOutput() {
+			fmt.Fprintf(os.Stderr, "%s %s\n", muted("saving line audio & transcripts to:"), liveSaveLineAudio)
+		}
+	}
 	if liveOutput != "" {
 		var terr error
 		updates, terr = teeUpdatesToFile(updates, liveOutput)
@@ -128,12 +147,90 @@ func runLive(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	var runErr error
 	if liveNoTUI {
-		return runLivePlain(updates)
+		runErr = runLivePlain(updates)
+	} else {
+		p := tea.NewProgram(tui.NewLive(updates, cancel))
+		_, runErr = p.Run()
 	}
-	p := tea.NewProgram(tui.NewLive(updates, cancel))
-	_, err = p.Run()
-	return err
+
+	if recSource != nil {
+		path := resolveAudioRecordPath(liveRecordAudio)
+		samples := recSource.RecordedSamples()
+		if len(samples) > 0 {
+			if sErr := audio.SaveWAV(path, samples, audio.TargetSampleRate); sErr != nil {
+				fmt.Fprintf(os.Stderr, "error saving recorded audio to %s: %v\n", path, sErr)
+			} else if !jsonOutput() {
+				fmt.Fprintf(os.Stderr, "%s %s (%d samples, %.2fs)\n", stylePass.Render("Saved recorded audio:"), path, len(samples), float64(len(samples))/float64(audio.TargetSampleRate))
+			}
+		}
+	}
+
+	return runErr
+}
+
+type recordingAudioSource struct {
+	source serveapi.AudioSource
+	chunks chan []float32
+	pcm    []float32
+	mu     sync.Mutex
+}
+
+func newRecordingAudioSource(source serveapi.AudioSource) *recordingAudioSource {
+	r := &recordingAudioSource{
+		source: source,
+		chunks: make(chan []float32, 64),
+	}
+	go r.run()
+	return r
+}
+
+func (r *recordingAudioSource) run() {
+	for chunk := range r.source.Chunks() {
+		r.mu.Lock()
+		r.pcm = append(r.pcm, chunk...)
+		r.mu.Unlock()
+		r.chunks <- chunk
+	}
+	close(r.chunks)
+}
+
+func (r *recordingAudioSource) Chunks() <-chan []float32 {
+	return r.chunks
+}
+
+func (r *recordingAudioSource) Err() error {
+	return r.source.Err()
+}
+
+func (r *recordingAudioSource) RecordedSamples() []float32 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cp := make([]float32, len(r.pcm))
+	copy(cp, r.pcm)
+	return cp
+}
+
+func teeLineAudioToDir(in <-chan session.Update, dir string) <-chan session.Update {
+	out := make(chan session.Update, 8)
+	go func() {
+		saved := map[uint64]bool{}
+		for u := range in {
+			if u.Err == nil {
+				for _, l := range u.Transcript.Lines {
+					if !l.IsComplete || saved[l.ID] {
+						continue
+					}
+					saved[l.ID] = true
+					_ = saveLineAudio(dir, l)
+				}
+			}
+			out <- u
+		}
+		close(out)
+	}()
+	return out
 }
 
 // teeUpdatesToFile forwards every update from in unchanged, while also

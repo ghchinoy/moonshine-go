@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/ghchinoy/moonshine-go/internal/audio"
 	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -152,4 +155,42 @@ func archFlagName(arch uint32) string {
 	default:
 		return "tiny"
 	}
+}
+
+// resolveAudioRecordPath resolves a destination filename for audio recording.
+// If target is empty or a directory path, a default timestamped filename is generated
+// (e.g. moonshine_clip_YYYYMMDD-HHMMSS_16k_mono.wav).
+func resolveAudioRecordPath(target string) string {
+	timestamp := time.Now().Format("20060102-150405")
+	defaultName := fmt.Sprintf("moonshine_clip_%s_16k_mono.wav", timestamp)
+	if target == "" {
+		return defaultName
+	}
+	fi, err := os.Stat(target)
+	if (err == nil && fi.IsDir()) || strings.HasSuffix(target, "/") || strings.HasSuffix(target, "\\") {
+		return filepath.Join(target, defaultName)
+	}
+	return target
+}
+
+// saveLineAudio writes line's raw PCM (AudioData) to a .wav file and line.Text
+// to a matching .txt file under dir.
+func saveLineAudio(dir string, line moonshine.Line) error {
+	if dir == "" || len(line.AudioData) == 0 {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("creating line audio directory %s: %w", dir, err)
+	}
+	baseName := fmt.Sprintf("line_%d_%06dms_16k", line.ID, int(line.StartTime*1000))
+	wavPath := filepath.Join(dir, baseName+".wav")
+	txtPath := filepath.Join(dir, baseName+".txt")
+
+	if err := audio.SaveWAV(wavPath, line.AudioData, audio.TargetSampleRate); err != nil {
+		return fmt.Errorf("saving line wav %s: %w", wavPath, err)
+	}
+	if err := os.WriteFile(txtPath, []byte(line.Text), 0o644); err != nil {
+		return fmt.Errorf("saving line txt %s: %w", txtPath, err)
+	}
+	return nil
 }

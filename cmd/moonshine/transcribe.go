@@ -27,6 +27,7 @@ var (
 	transcribeWordTimestamps   bool
 	transcribeConcurrency      int
 	transcribeRecursive        bool
+	transcribeSaveLineAudio    string
 )
 
 var transcribeCmd = &cobra.Command{
@@ -56,6 +57,7 @@ func init() {
 	transcribeCmd.Flags().BoolVar(&transcribeWordTimestamps, "word-timestamps", false, "Enable per-word timing: --json output gets a words array per line (automatically enabled by --identify-speakers)")
 	transcribeCmd.Flags().IntVarP(&transcribeConcurrency, "concurrency", "c", 1, "Number of concurrent transcription workers for batch mode (default 1)")
 	transcribeCmd.Flags().BoolVarP(&transcribeRecursive, "recursive", "r", true, "Recursively scan directories for audio files in batch mode")
+	transcribeCmd.Flags().StringVar(&transcribeSaveLineAudio, "save-line-audio", "", "Save each transcribed line's raw audio and transcript text as individual .wav and .txt files under this directory")
 }
 
 type transcribeStats struct {
@@ -274,6 +276,14 @@ func runSingleTranscribe(cmd *cobra.Command, input string) error {
 		stats.RealTimeFactor = stats.AudioDurationSec / (stats.InferenceMs / 1000.0)
 	}
 
+	if transcribeSaveLineAudio != "" {
+		for _, line := range transcript.Lines {
+			if err := saveLineAudio(transcribeSaveLineAudio, line); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: saving line audio: %v\n", err)
+			}
+		}
+	}
+
 	lines := transcript.Lines
 	if !transcribeWithAudio {
 		lines = make([]moonshine.Line, len(transcript.Lines))
@@ -456,6 +466,12 @@ func processBatchItem(cmd *cobra.Command, tr *moonshine.Transcriber, input strin
 		return res
 	}
 	inferenceMs := msSince(t0)
+
+	if transcribeSaveLineAudio != "" {
+		for _, line := range transcript.Lines {
+			_ = saveLineAudio(transcribeSaveLineAudio, line)
+		}
+	}
 
 	lines := transcript.Lines
 	if !transcribeWithAudio {

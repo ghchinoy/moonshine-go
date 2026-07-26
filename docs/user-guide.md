@@ -377,6 +377,8 @@ moonshine live --arch tiny-streaming --poll-interval 500ms
 | `--no-tui` | `false` | Plain text output instead of the bubbletea TUI |
 | `--poll-interval` | `250ms` | How often to ask the library for an updated transcript |
 | `-o, --output` | (none) | Append completed lines to this file as they finalize (works in either display mode) |
+| `--record-audio` | (none) | Save captured microphone audio to a WAV file (default filename if empty/directory: `moonshine_clip_YYYYMMDD-HHMMSS_16k_mono.wav`) |
+| `--save-line-audio` | (none) | Save each finalized line's raw audio and transcript as individual `.wav` and `.txt` files under this directory |
 | `--identify-speakers` | `false` | Enable speaker diarization -- lines/TUI get a `[S0]`-style label; see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) |
 | `--word-timestamps` | `false` | Enable per-word timing (`--no-tui` prints a `word@1.23` summary line per completed line) |
 | `--diarization-cluster-cadence` | `2.0` (seconds) | Minimum time between diarization re-clustering passes; raise to reduce cost on long sessions (only with `--identify-speakers`) |
@@ -474,11 +476,11 @@ Moonshine's TTS isn't one proprietary model -- it's a G2P (text
 normalization/phonemization) layer moonshine built itself, sitting in front
 of **three separate third-party engines** you pick between with `--voice`:
 
-| Engine | What it actually is | Voice prefix |
+| Engine | What it actually is | Voice prefix / flags |
 |---|---|---|
 | **Kokoro** | [hexgrad/Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an open-weight 82M-parameter TTS model, exported to ONNX | `kokoro_<id>`, e.g. `kokoro_af_heart` |
 | **Piper** | [Piper TTS](https://github.com/rhasspy/piper)'s per-voice ONNX files | `piper_<stem>`, e.g. `piper_en_US-amy-low` |
-| **ZipVoice** | A separate zero-shot voice-cloning engine, weights/reference clips compiled into `libmoonshine` itself | `zipvoice_<id>`, e.g. `zipvoice_american_female` |
+| **ZipVoice** | Zero-shot voice-cloning engine (built-in VCTK voices or custom reference clips via `--clone`) | `zipvoice_<id>` or `--clone ref.wav` |
 
 None of the three are "moonshine's own" acoustic model -- moonshine's actual
 contribution is the shared G2P pipeline that feeds text to whichever one you
@@ -504,7 +506,9 @@ moonshine tts --voice kokoro_af_heart --play "Hi there."
 | Flag | Default | Notes |
 |---|---|---|
 | `--language` | `en_us` | Language / CLI tag (config key: `tts.language`) |
-| `--voice` | (auto) | `kokoro_<id>`, `piper_<stem>`, or `zipvoice_<id>` -- see `--list-voices` (config key: `tts.voice`) |
+| `--voice` | (auto) | `kokoro_<id>`, `piper_<stem>`, or `zipvoice_<id>` -- see `--list-voices` (config key: `tts.voice`; mutually exclusive with `--clone`) |
+| `--clone` | (none) | Clone the voice from a reference `.wav` clip using ZipVoice (mutually exclusive with `--voice`) |
+| `--clone-transcript` | (none) | Transcript of the `--clone` reference clip (optional; recommended for optimal voice cloning accuracy) |
 | `--speed` | `1.0` | Synthesis speed multiplier (config key: `tts.speed`) |
 | `--g2p-root` | derived from `moonshine.src_dir` | Directory laid out like moonshine's `core/moonshine-tts/data` (`kokoro/`, `<lang>/piper-voices/`, ...) (config key: `tts.g2p_root`) |
 | `-o, --output` | `out.wav` | Output WAV path |

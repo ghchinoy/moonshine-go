@@ -23,30 +23,40 @@ const TargetSampleRate = 16000
 // return an error naming the extension, since converting them (e.g. via
 // ffmpeg) is left to the caller for now.
 func LoadFile(path string) ([]float32, error) {
+	samples, sampleRate, err := LoadFileWithSampleRate(path)
+	if err != nil {
+		return nil, err
+	}
+	return Resample(samples, sampleRate, TargetSampleRate), nil
+}
+
+// LoadFileWithSampleRate decodes a local WAV file into mono float32 PCM in [-1, 1]
+// without resampling, returning the decoded samples and its native sample rate.
+func LoadFileWithSampleRate(path string) ([]float32, int, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".wav":
-		return loadWAV(path)
+		return loadWAVNative(path)
 	default:
-		return nil, fmt.Errorf("audio: unsupported file extension %q (only .wav is supported directly; convert other formats with ffmpeg first, e.g. `ffmpeg -i in.mp3 -ar 16000 -ac 1 out.wav`)", ext)
+		return nil, 0, fmt.Errorf("audio: unsupported file extension %q (only .wav is supported directly; convert other formats with ffmpeg first, e.g. `ffmpeg -i in.mp3 -ar 16000 -ac 1 out.wav`)", ext)
 	}
 }
 
-func loadWAV(path string) ([]float32, error) {
+func loadWAVNative(path string) ([]float32, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer f.Close()
 
 	dec := wav.NewDecoder(f)
 	dec.ReadInfo()
 	if !dec.IsValidFile() {
-		return nil, fmt.Errorf("audio: %s is not a valid WAV file", path)
+		return nil, 0, fmt.Errorf("audio: %s is not a valid WAV file", path)
 	}
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {
-		return nil, fmt.Errorf("audio: decoding %s: %w", path, err)
+		return nil, 0, fmt.Errorf("audio: decoding %s: %w", path, err)
 	}
 
 	channels := buf.Format.NumChannels
@@ -55,7 +65,7 @@ func loadWAV(path string) ([]float32, error) {
 	}
 	sampleRate := buf.Format.SampleRate
 	if sampleRate <= 0 {
-		return nil, fmt.Errorf("audio: %s has an invalid sample rate", path)
+		return nil, 0, fmt.Errorf("audio: %s has an invalid sample rate", path)
 	}
 
 	maxVal := float64(int64(1) << (uint(dec.SampleBitDepth()) - 1))
@@ -73,7 +83,7 @@ func loadWAV(path string) ([]float32, error) {
 		mono[i] = float32((sum / float64(channels)) / maxVal)
 	}
 
-	return Resample(mono, sampleRate, TargetSampleRate), nil
+	return mono, sampleRate, nil
 }
 
 // SaveWAV writes mono float32 PCM samples ([-1, 1]) to path as a 16-bit PCM

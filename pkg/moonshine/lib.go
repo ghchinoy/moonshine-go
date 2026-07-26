@@ -148,8 +148,9 @@ var (
 	fnAddAudioToStream           func(transcriberHandle, streamHandle int32, newAudioData *float32, audioLength uint64, sampleRate int32, flags uint32) int32
 	fnTranscribeStream           func(transcriberHandle, streamHandle int32, flags uint32, outTranscript *unsafe.Pointer) int32
 
-	fnCreateTTSSynthesizerFromFiles func(language string, filenames unsafe.Pointer, filenamesCount uint64, options *cOption, optionsCount uint64, version int32) int32
-	fnFreeTTSSynthesizer            func(handle int32)
+	fnCreateTTSSynthesizerFromFiles  func(language string, filenames unsafe.Pointer, filenamesCount uint64, options *cOption, optionsCount uint64, version int32) int32
+	fnCreateTTSSynthesizerFromMemory func(language string, filenames unsafe.Pointer, filenamesCount uint64, memory unsafe.Pointer, memorySizes unsafe.Pointer, options *cOption, optionsCount uint64, version int32) int32
+	fnFreeTTSSynthesizer             func(handle int32)
 	fnTextToSpeech                  func(handle int32, text string, options *cOption, optionsCount uint64, outAudioData *unsafe.Pointer, outAudioDataSize *uint64, outSampleRate *int32) int32
 	fnPhonemesToSpeech              func(handle int32, phonemes string, options *cOption, optionsCount uint64, outAudioData *unsafe.Pointer, outAudioDataSize *uint64, outSampleRate *int32) int32
 	fnGetTTSVoices                  func(languages string, options *cOption, optionsCount uint64, outVoicesJSON *unsafe.Pointer) int32
@@ -181,6 +182,7 @@ func registerSymbols(h uintptr) {
 	reg(&fnTranscribeStream, "moonshine_transcribe_stream")
 
 	reg(&fnCreateTTSSynthesizerFromFiles, "moonshine_create_tts_synthesizer_from_files")
+	reg(&fnCreateTTSSynthesizerFromMemory, "moonshine_create_tts_synthesizer_from_memory")
 	reg(&fnFreeTTSSynthesizer, "moonshine_free_tts_synthesizer")
 	reg(&fnTextToSpeech, "moonshine_text_to_speech")
 	reg(&fnPhonemesToSpeech, "moonshine_phonemes_to_speech")
