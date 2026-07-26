@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/hajimehoshi/go-mp3"
 )
 
 // resolveModelDir resolves the STT model directory under $MOONSHINE_VOICE_CACHE
@@ -34,6 +36,89 @@ func resolveModelDir(lang, arch string) string {
 		}
 	}
 	return ""
+}
+
+func resolveFilePath(path string) string {
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	if !filepath.IsAbs(path) {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			candidates := []string{
+				filepath.Join(home, "Downloads", path),
+				filepath.Join(home, "Desktop", path),
+				filepath.Join(home, path),
+			}
+			for _, c := range candidates {
+				if _, err := os.Stat(c); err == nil {
+					return c
+				}
+			}
+		}
+	}
+	return path
+}
+
+func loadMP3Samples(path string) ([]float32, int, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer file.Close()
+
+	decoder, err := mp3.NewDecoder(file)
+	if err != nil {
+		return nil, 0, fmt.Errorf("decoding MP3 header: %w", err)
+	}
+
+	sampleRate := decoder.SampleRate()
+	buf := make([]byte, 4096)
+	var rawPCM []byte
+	for {
+		n, err := decoder.Read(buf)
+		if n > 0 {
+			rawPCM = append(rawPCM, buf[:n]...)
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	numChannels := 2
+	totalFrames := len(rawPCM) / (2 * numChannels)
+	samples := make([]float32, totalFrames)
+
+	for i := 0; i < totalFrames; i++ {
+		offset := i * 2 * numChannels
+		leftRaw := int16(int(rawPCM[offset]) | (int(rawPCM[offset+1]) << 8))
+		rightRaw := int16(int(rawPCM[offset+2]) | (int(rawPCM[offset+3]) << 8))
+		mono := (float32(leftRaw) + float32(rightRaw)) / 2.0 / 32768.0
+		samples[i] = mono
+	}
+
+	return samples, sampleRate, nil
+}
+
+func loadAudioSamples(path string) ([]float32, int, error) {
+	resolvedPath := resolveFilePath(path)
+
+	ext := filepath.Ext(resolvedPath)
+	if ext == ".mp3" || ext == ".MP3" {
+		return loadMP3Samples(resolvedPath)
+	}
+
+	samples, rate, err := loadWAVSamples(resolvedPath)
+	if err == nil {
+		return samples, rate, nil
+	}
+
+	mp3Samples, mp3Rate, mp3Err := loadMP3Samples(resolvedPath)
+	if mp3Err == nil {
+		return mp3Samples, mp3Rate, nil
+	}
+
+	return nil, 0, fmt.Errorf("reading audio %s: %w", resolvedPath, err)
 }
 
 // loadWAVSamples reads mono 16kHz float32 or int16 WAV audio samples into []float32.
