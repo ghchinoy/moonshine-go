@@ -43,7 +43,7 @@ cd ../.. # repo root
 export MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib"
 
 # Download STT model (if not already downloaded):
-./bin/moonshine setup --language en_us --arch tiny
+./bin/moonshine setup --language en --arch tiny
 ```
 
 ### 2. Build the sample
@@ -106,7 +106,7 @@ Transcribes a local `.wav` audio file in-process and returns structured lines wi
 | Parameter | Type | Required | Description |
 |---|---|:---:|---|
 | `path` | `string` | **Yes** | Absolute or relative path to local `.wav` audio file |
-| `language` | `string` | No | STT model language tag (default: `en_us`) |
+| `language` | `string` | No | STT model language tag (default: `en`) |
 | `arch` | `string` | No | STT model architecture (`tiny`, `base`, `tiny-streaming`; default: `tiny`) |
 | `word_timestamps` | `boolean` | No | Include per-word timing summaries |
 | `identify_speakers` | `boolean` | No | Enable speaker diarization (`S0`, `S1`) |
@@ -115,7 +115,7 @@ Transcribes a local `.wav` audio file in-process and returns structured lines wi
 
 ```json
 {
-  "language": "en_us",
+  "language": "en",
   "arch": "tiny",
   "lines": [
     {

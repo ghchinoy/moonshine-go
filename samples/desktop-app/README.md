@@ -51,7 +51,7 @@ navigator.mediaDevices.getUserMedia          wails.Run() / App struct
    ```
 4. **STT Model**:
    ```sh
-   ./bin/moonshine setup --language en_us --arch tiny-streaming
+   ./bin/moonshine setup --language en --arch tiny-streaming
    ```
 
 ---

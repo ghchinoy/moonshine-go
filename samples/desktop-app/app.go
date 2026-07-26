@@ -54,10 +54,18 @@ func (a *App) startup(ctx context.Context) {
 	}
 }
 
-func (a *App) getTranscriber(lang, arch string) (*moonshine.Transcriber, error) {
-	if lang == "" {
-		lang = "en_us"
+func normalizeSTTLanguage(lang string) string {
+	if lang == "en_us" || lang == "en_gb" || lang == "en-US" || lang == "en-GB" {
+		return "en"
 	}
+	if lang == "" {
+		return "en"
+	}
+	return lang
+}
+
+func (a *App) getTranscriber(rawLang, arch string) (*moonshine.Transcriber, error) {
+	lang := normalizeSTTLanguage(rawLang)
 	if arch == "" {
 		arch = "tiny"
 	}
@@ -74,7 +82,11 @@ func (a *App) getTranscriber(lang, arch string) (*moonshine.Transcriber, error) 
 
 	modelDir := resolveModelDir(lang, arch)
 	if modelDir == "" {
-		return nil, fmt.Errorf("model for %s/%s not found (run 'moonshine setup --language %s --arch %s')", lang, arch, lang, arch)
+		hint := ""
+		if rawLang == "en_us" || rawLang == "en_gb" {
+			hint = fmt.Sprintf(" (Note: STT uses short language codes like 'en', whereas TTS uses tags like 'en_us').")
+		}
+		return nil, fmt.Errorf("STT model for language %q / arch %q not found%s. Run 'moonshine setup --language %s --arch %s' first.", lang, arch, hint, lang, arch)
 	}
 
 	archID := moonshine.ModelArchTiny
