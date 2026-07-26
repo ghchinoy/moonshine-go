@@ -15,12 +15,12 @@ var (
 	// Flag targets. Effective values are always read via viper.GetString in
 	// runTTS (flag > env > config.yaml > default), not these vars directly
 	// -- see the viper.BindPFlag calls in init() below.
-	ttsLanguage     string
-	ttsVoice        string
-	ttsSpeed        string
-	ttsG2PRoot      string
-	ttsOutput       string
-	ttsListVoices   bool
+	ttsLanguage        string
+	ttsVoice           string
+	ttsSpeed           string
+	ttsG2PRoot         string
+	ttsOutput          string
+	ttsListVoices      bool
 	ttsPlay            bool
 	ttsIPA             string
 	ttsShowPhonemes    bool
