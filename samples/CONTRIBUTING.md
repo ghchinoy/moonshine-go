@@ -83,7 +83,7 @@ Every sample must include a **Sample Rating** table near the top of its own `REA
 Before calling a sample done:
 
 1. It builds/runs cleanly on its own (`go build`, `go vet`, `gofmt -l .` for
-   Go; `python3 -m py_compile` at minimum for Python).
+   Go; `python3 -m py_compile` at minimum for Python). Run `make verify-samples` (or `./scripts/verify-samples.sh`) from the repo root to run automated static checks across all sample directories at once.
 2. It has been run **live**:
    - For daemon IPC samples (Tiers 0–2): run against a real `./bin/moonshine serve` process — actually connect, receive transcript events, trigger actions, and observe effects.
    - For native-embedding samples (`pkg/moonshine`): run against a real `libmoonshine` shared library and downloaded model — load transcriber, process audio, and verify output lines and stats.

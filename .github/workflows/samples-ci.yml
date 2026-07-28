@@ -1,0 +1,59 @@
+name: Samples CI
+
+# Automated verification for all samples under samples/ whenever core API
+# packages (pkg/**, internal/serve/**), sample files (samples/**), or build
+# scripts change. Runs static build/vet/fmt checks, CGO_ENABLED=0 checks for
+# embedding samples, and Python compilation checks across OS runners.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pkg/**'
+      - 'internal/serve/**'
+      - 'samples/**'
+      - 'go.mod'
+      - 'Makefile'
+      - 'scripts/verify-samples.sh'
+      - '.github/workflows/samples-ci.yml'
+  pull_request:
+    paths:
+      - 'pkg/**'
+      - 'internal/serve/**'
+      - 'samples/**'
+      - 'go.mod'
+      - 'Makefile'
+      - 'scripts/verify-samples.sh'
+      - '.github/workflows/samples-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-samples:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # CGO toolchain setup on Windows for cgo-dependent samples (e.g. desktop-app)
+      - name: Add MinGW to PATH (Windows only)
+        if: runner.os == 'Windows'
+        run: echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Verify All Samples
+        shell: bash
+        run: ./scripts/verify-samples.sh
