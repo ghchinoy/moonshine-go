@@ -14,12 +14,61 @@ import (
 	"unsafe"
 )
 
+// DependencyFile represents a single downloadable model file in a dependency
+// group, as returned by moonshine_get_stt_dependencies /
+// moonshine_get_intent_dependencies in upstream v0.1.0+.
+type DependencyFile struct {
+	Name         string `json:"name"`
+	URL          string `json:"url,omitempty"`
+	Size         int64  `json:"size,omitempty"`
+	Checksum     string `json:"checksum,omitempty"`
+	ChecksumType string `json:"checksum_type,omitempty"`
+}
+
 // DependencyGroup is one downloadable group of model files sharing a base
 // URL, as returned by moonshine_get_stt_dependencies /
 // moonshine_get_intent_dependencies.
 type DependencyGroup struct {
-	BaseURL string   `json:"base_url"`
-	Files   []string `json:"files"`
+	BaseURL string           `json:"base_url"`
+	Files   []DependencyFile `json:"files"`
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for DependencyGroup to
+// support both the legacy string-array shape (["encoder_model.ort"]) from
+// v0.0.73 and earlier, and the object-array shape ([{"name": "..."}]) from
+// v0.1.0+.
+func (g *DependencyGroup) UnmarshalJSON(data []byte) error {
+	type rawGroup struct {
+		BaseURL string          `json:"base_url"`
+		Files   json.RawMessage `json:"files"`
+	}
+	var raw rawGroup
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	g.BaseURL = raw.BaseURL
+	if len(raw.Files) == 0 {
+		return nil
+	}
+
+	// Try parsing files as []DependencyFile (v0.1.0+ object shape)
+	var fileObjs []DependencyFile
+	if err := json.Unmarshal(raw.Files, &fileObjs); err == nil && (len(fileObjs) == 0 || fileObjs[0].Name != "") {
+		g.Files = fileObjs
+		return nil
+	}
+
+	// Fall back to parsing files as []string (legacy string shape)
+	var fileStrs []string
+	if err := json.Unmarshal(raw.Files, &fileStrs); err == nil {
+		g.Files = make([]DependencyFile, len(fileStrs))
+		for i, s := range fileStrs {
+			g.Files[i] = DependencyFile{Name: s}
+		}
+		return nil
+	}
+
+	return fmt.Errorf("moonshine: files field in dependency group must be an array of objects or strings")
 }
 
 // DependencyManifest is the download manifest for a model.
@@ -122,13 +171,16 @@ func Download(ctx context.Context, manifest DependencyManifest, root string, for
 			return fmt.Errorf("moonshine: creating %s: %w", destDir, err)
 		}
 		for _, file := range group.Files {
-			dest := filepath.Join(destDir, file)
+			dest := filepath.Join(destDir, file.Name)
 			if !force {
 				if fi, err := os.Stat(dest); err == nil && !fi.IsDir() && fi.Size() > 0 {
 					continue
 				}
 			}
-			fileURL := group.BaseURL + "/" + file
+			fileURL := file.URL
+			if fileURL == "" {
+				fileURL = group.BaseURL + "/" + file.Name
+			}
 			if err := downloadFile(ctx, fileURL, dest); err != nil {
 				return fmt.Errorf("moonshine: downloading %s: %w", fileURL, err)
 			}

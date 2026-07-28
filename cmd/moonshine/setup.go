@@ -82,7 +82,11 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	for _, g := range manifest.Groups {
 		fmt.Printf("%s %s\n", muted("into:"), moonshine.GroupDir(root, g))
 		for _, f := range g.Files {
-			fmt.Printf("  %s %s/%s\n", muted("-"), g.BaseURL, f)
+			fileURL := f.URL
+			if fileURL == "" {
+				fileURL = g.BaseURL + "/" + f.Name
+			}
+			fmt.Printf("  %s %s\n", muted("-"), fileURL)
 		}
 	}
 
