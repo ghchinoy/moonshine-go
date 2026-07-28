@@ -9,7 +9,7 @@ This document describes how `moonshine-go` is versioned, packaged, and released.
 `moonshine-go` combines two version concepts:
 
 1. **CLI / Repo Version (`vX.Y.Z`)**: The semver tag of `moonshine-go` itself (e.g. `v0.3.0`), set in `cmd/moonshine/version.go` at build time via `-ldflags`.
-2. **Upstream Library Pin (`MOONSHINE_RELEASE_TAG`)**: The version of `libmoonshine` (e.g. `v0.0.73`) that prebuilt binary assets are fetched from.
+2. **Upstream Library Pin (`MOONSHINE_RELEASE_TAG`)**: The version of `libmoonshine` (e.g. `v0.1.0`) that prebuilt binary assets are fetched from.
 
 ---
 
@@ -17,7 +17,7 @@ This document describes how `moonshine-go` is versioned, packaged, and released.
 
 | Platform | Prebuilt Assets | Release Mechanism |
 | :--- | :--- | :--- |
-| **Linux (x86_64)** | ✅ Supported (fixed upstream in `v0.0.73`) | Automated via GitHub Actions (`make fetchlib`) |
+| **Linux (x86_64)** | ✅ Supported (fixed upstream in `v0.0.73+`) | Automated via GitHub Actions (`make fetchlib`) |
 | **Linux (arm64)** | ✅ Supported | Automated via GitHub Actions (`make fetchlib`) |
 | **macOS (arm64)** | ⏳ Pending upstream `hbq` | Built from source via `make buildlib` |
 | **Windows (x86_64)**| ⏳ Pending upstream `hbq` | Built from source via `make buildlib` |
@@ -27,7 +27,7 @@ This document describes how `moonshine-go` is versioned, packaged, and released.
 **Note (`moonshine-go-dh7` resolved):** the `linux-x86_64` release asset for
 `v0.0.71` required GLIBC 2.43, which failed to `dlopen()` on standard Linux distros.
 This was reported upstream ([moonshine-ai/moonshine#206](https://github.com/moonshine-ai/moonshine/issues/206))
-and fixed in `v0.0.73`. Both `linux-x86_64` and `linux-arm64` assets are now fully supported.
+and fixed in `v0.0.73+` (currently pinned to `v0.1.0`). Both `linux-x86_64` and `linux-arm64` assets are now fully supported.
 
 ---
 
@@ -43,7 +43,7 @@ make vet
 make test
 ```
 
-Verify that `MOONSHINE_RELEASE_TAG` contains the desired upstream version pin (e.g. `v0.0.73`) and passes asset validation:
+Verify that `MOONSHINE_RELEASE_TAG` contains the desired upstream version pin (e.g. `v0.1.0`) and passes asset validation:
 
 ```sh
 scripts/check-release-asset.sh linux-x86_64 $(cat MOONSHINE_RELEASE_TAG)
