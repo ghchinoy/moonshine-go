@@ -154,10 +154,14 @@ func PrimaryModelDir(root string, manifest DependencyManifest) (string, error) {
 }
 
 func stripScheme(rawURL string) string {
+	var s string
 	if u, err := url.Parse(rawURL); err == nil && u.Host != "" {
-		return strings.TrimPrefix(u.Host+u.Path, "/")
+		s = u.Hostname() + u.Path
+	} else {
+		s = strings.TrimPrefix(strings.TrimPrefix(rawURL, "https://"), "http://")
 	}
-	return strings.TrimPrefix(strings.TrimPrefix(rawURL, "https://"), "http://")
+	s = strings.ReplaceAll(s, ":", "_")
+	return strings.TrimPrefix(s, "/")
 }
 
 // Download fetches every file in the manifest into root, namespacing each
