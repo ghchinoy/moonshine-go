@@ -162,7 +162,7 @@ var (
 	fnGetSTTDependencies func(language string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
 	fnGetTTSDependencies func(languages string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
 
-	fnFree func(ptr unsafe.Pointer)
+	fnFreeBuffer func(ptr unsafe.Pointer)
 )
 
 func registerSymbols(h uintptr) {
@@ -195,16 +195,7 @@ func registerSymbols(h uintptr) {
 	reg(&fnGetSTTDependencies, "moonshine_get_stt_dependencies")
 	reg(&fnGetTTSDependencies, "moonshine_get_tts_dependencies")
 
-	// libc's free(), used to release buffers the moonshine API documents as
-	// "allocated with malloc; release with free" (dependency/voice JSON,
-	// synthesized audio). Resolved from the process's already-loaded C
-	// runtime rather than libmoonshine itself (see crtHandle in
-	// openlib_unix.go/openlib_windows.go for the per-platform mechanism).
-	// If this fails, fnFree stays nil and freeC becomes a no-op (a memory
-	// leak, not a crash -- see freeC's own nil-check).
-	if crt, err := crtHandle(); err == nil {
-		purego.RegisterLibFunc(&fnFree, crt, "free")
-	}
+	reg(&fnFreeBuffer, "moonshine_free_buffer")
 }
 
 func errorToString(code int32) string {
@@ -223,9 +214,10 @@ func Version() (int32, error) {
 	return fnGetVersion(), nil
 }
 
-// freeC releases a buffer the moonshine C API allocated with malloc.
+// freeC releases a buffer the moonshine C API allocated with malloc using
+// moonshine_free_buffer to avoid cross-CRT heap mismatches.
 func freeC(p unsafe.Pointer) {
-	if p != nil && fnFree != nil {
-		fnFree(p)
+	if p != nil && fnFreeBuffer != nil {
+		fnFreeBuffer(p)
 	}
 }
