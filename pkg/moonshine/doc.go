@@ -13,5 +13,7 @@
 //
 // Build libmoonshine from a local moonshine checkout using scripts/build-libmoonshine.sh,
 // or fetch prebuilt release binaries using scripts/fetch-libmoonshine.sh, then call
-// [Load] before using any STT or TTS functions.
+// [Load] before using any STT or TTS functions. For production application bundling
+// guidance (macOS .app, Windows, Linux, and MCP servers), see docs/bundling-libmoonshine.md
+// in the repository root.
 package moonshine
