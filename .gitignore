@@ -4,6 +4,7 @@
 *.db
 .beads-credential-key
 .beads/proxieddb/
+.beads/interactions.jsonl
 
 # Native libmoonshine build output (see scripts/build-libmoonshine.sh);
 # built locally from a moonshine checkout, not vendored/committed.
