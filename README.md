@@ -1,6 +1,6 @@
 # moonshine-go
 
-A Go client + CLI for the [Moonshine voice library](https://github.com/moonshine-ai/moonshine)
+This repository provides a Go client, command-line tool, and pure-Go bindings for the [Moonshine voice library](https://github.com/moonshine-ai/moonshine)
 (STT + TTS), built directly on `libmoonshine`'s C API rather than
 reimplementing its model pipeline.
 

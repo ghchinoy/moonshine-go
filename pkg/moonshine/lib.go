@@ -26,7 +26,7 @@ import (
 // HeaderVersion mirrors MOONSHINE_HEADER_VERSION in moonshine-c-api.h. It is
 // passed to every transcriber/synthesizer creation call so that a newer
 // shared library can emulate the behavior this package was written against.
-const HeaderVersion int32 = 20000
+const HeaderVersion int32 = 30000
 
 var (
 	loadOnce  sync.Once
