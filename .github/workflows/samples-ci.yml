@@ -51,6 +51,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
+          cache-dependency-path: samples/desktop-app/frontend/package-lock.json
 
       # CGO toolchain setup on Windows for cgo-dependent samples (e.g. desktop-app)
       - name: Add MinGW to PATH (Windows only)
