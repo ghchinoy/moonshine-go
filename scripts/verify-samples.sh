@@ -55,6 +55,17 @@ check_go_sample() {
 
   log_info "Verifying Go sample: ${name}"
 
+  # Pre-build step for samples with gitignored embedded frontend assets (e.g. desktop-app)
+  if [[ "${name}" == "desktop-app" && -d "${dir}/frontend" ]]; then
+    if (cd "${dir}/frontend" && npm ci >/dev/null 2>&1 && npm run build >/dev/null 2>&1); then
+      log_pass "npm ci && npm run build (frontend)"
+    else
+      log_fail "building frontend assets failed (npm ci && npm run build)"
+      (cd "${dir}/frontend" && npm ci && npm run build) || true
+      failed=1
+    fi
+  fi
+
   # 1. Standard go build
   if (cd "${dir}" && go build ./... >/dev/null 2>&1); then
     log_pass "go build ./..."

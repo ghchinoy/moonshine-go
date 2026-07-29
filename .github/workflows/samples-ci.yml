@@ -48,6 +48,10 @@ jobs:
         with:
           python-version: '3.x'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       # CGO toolchain setup on Windows for cgo-dependent samples (e.g. desktop-app)
       - name: Add MinGW to PATH (Windows only)
         if: runner.os == 'Windows'
