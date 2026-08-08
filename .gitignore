@@ -46,6 +46,7 @@ credentials.json
 # Internal vision/landscape touchstone docs -- not part of the public repo
 /docs/vision/
 /docs/proposals/
+/docs/blog/
 
 # Stray tts default output if run from the repo root without -o
 /out.wav
