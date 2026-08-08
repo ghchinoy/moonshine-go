@@ -132,6 +132,7 @@ Users can extract the archive and run `./run.sh` or set `MOONSHINE_LIB_DIR=./lib
 
 Below is a concise summary of major additions per release. Detailed commit logs live in [`CHANGELOG.md`](../CHANGELOG.md).
 
+- **`v0.9.1`**: Fixed speaker diarization C-API binding (`GetDiarizationDependencies`), `diarization_model_dir` option auto-wiring, and `v0.1.1` object-shaped TTS dependency manifest unmarshaling (`GetTTSDependencies`).
 - **`v0.9.0`**: ZipVoice zero-shot voice cloning (`pkg/moonshine.NewSynthesizerFromClone`, `moonshine tts --clone`), clone-ready audio recording flags (`moonshine live --record-audio`), new runnable samples (`go-embedded`, `mcp-transcribe`, `desktop-app`), `verify-samples` CI workflow, pure-Go `check-nocgo` gate, and upstream library pin bump (`v0.1.1`).
 - **`v0.8.0`**: Public `pkg/moonshine` pure-Go reference binding (`CGO_ENABLED=0` buildable), sample rating schema (`samples/CONTRIBUTING.md`), and `samples/go-bulk-analysis` native batch engine alignment.
 - **`v0.7.0`**: Multi-file/batch transcribe engine with worker pool concurrency (`--concurrency`), GCS prefix listing, structured batch manifest JSON, live TUI latency/confidence display, and gRPC `Line` proto parity.

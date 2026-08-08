@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.1] - 2026-08-08
+
+### Fixed
+- **Speaker Diarization Binding & Option Auto-Wiring**: Bound `moonshine_get_diarization_dependencies` (`GetDiarizationDependencies`), added `DiarizationModelDir()`, auto-wired `diarization_model_dir` option when `--identify-speakers` is enabled, and added diarization model downloading to `moonshine setup --identify-speakers` (`#yp96`).
+- **TTS Dependency Manifest Unmarshaling**: Updated `GetTTSDependencyKeys` in `pkg/moonshine/download.go` to parse `v0.1.1` object manifest shape while preserving fallback for legacy flat string array shape, and added `GetTTSDependencies()` manifest getter (`#wllc`).
+
+---
+
 ## [v0.9.0] - 2026-08-08
 
 ### Added
