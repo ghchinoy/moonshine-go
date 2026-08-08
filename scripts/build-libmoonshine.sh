@@ -93,6 +93,9 @@ case "${UNAME_S}-${UNAME_M}" in
 esac
 if [[ -n "${ORT_SRC}" ]]; then
   cp "${ORT_SRC}" "${OUT_DIR}/"
+  if [[ "${UNAME_S}" == "Darwin" ]]; then
+    codesign -s - -f "${OUT_DIR}/$(basename "${ORT_SRC}")" 2>/dev/null || true
+  fi
   echo "==> Staged onnxruntime: ${ORT_SRC}"
 else
   echo "warning: could not locate a vendored onnxruntime library to stage" >&2
