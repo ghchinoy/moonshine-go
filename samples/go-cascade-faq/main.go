@@ -1,27 +1,25 @@
 // Command cascade-faq is a Tier 1 external agent for `moonshine serve`,
-// built entirely on the public github.com/ghchinoy/moonshine-go/pkg/serveapi
-// package: it dials the sidecar's WebSocket endpoint, runs a
-// serveapi.AgentRunner + serveapi.CompositeHandler against live finalized
-// transcript lines, and answers voice questions about moonshine-go's own
-// mission by speaking back through the sidecar's TTS -- all offline, no LLM
-// API key, no network call beyond the local WebSocket connection.
+// built on the public github.com/ghchinoy/moonshine-go/pkg/serveapi and
+// github.com/ghchinoy/moonshine-go/pkg/agentflow packages: it dials the
+// sidecar's WebSocket endpoint, runs an AgentFlow DSL voice agent against
+// live finalized transcript lines, and answers voice questions about
+// moonshine-go's own mission by speaking back through the sidecar's TTS --
+// all offline, no LLM API key, no network call beyond the local WebSocket.
 //
 // It demonstrates all four pillars from docs/MISSION.md in one small,
 // runnable program:
 //   - Composability: this whole agent lives in its own Go module (see
-//     go.mod's replace directive) and talks to the sidecar only through
-//     pkg/serveapi + a WebSocket connection -- the shape any real external
-//     Go consumer would use.
-//   - Control: a small regex fast-path intercepts "stop/resume listening"
-//     before it ever reaches the FAQ retriever, using an
-//     event.ActionRequest{Verb: "session.pause"/"session.resume"} sent back
-//     over the same connection.
+//     go.mod's replace directive) and talks to the sidecar through
+//     pkg/serveapi + pkg/agentflow over WebSocket -- the shape any real
+//     external Go consumer would use.
+//   - Control: AgentFlow global handlers (flow.Always) intercept
+//     "stop/resume listening" before triggering FAQ flows, dispatching
+//     event.ActionRequest{Verb: "session.pause"/"session.resume"} over WS.
 //   - Observability: every finalized line and every action this agent takes
 //     is printed to stdout as it happens.
 //   - Privacy: the FAQ answers come from a fixed local dataset
 //     (serveapi.StaticRetriever) -- nothing about what you say leaves this
-//     process except the ActionRequests it chooses to send back to the
-//     sidecar it's already connected to.
+//     process except the ActionRequests it chooses to send back.
 //
 // Every finalized line is logged with a wall-clock timestamp and the STT
 // engine's own reported per-line latency (Line.LastLatencyMs off the wire --
@@ -29,8 +27,8 @@
 // time-to-first-token (TranscriptEvent.TTFTms) is logged once, the moment
 // it's known. A successful action logs its real round-trip time
 // (ActionRequest sent -> matching ActionResult received). Nothing is
-// silent: a line that matches nothing says so. Pass -debug for the
-// underlying per-rule/per-keyword matching trace plus per-poll latency
+// silent: an utterance that matches no flow or global triggers flow.Otherwise.
+// Pass -debug for the underlying matching trace plus per-poll latency
 // (TranscriptEvent.PollLatencyMs).
 //
 // Usage:
@@ -50,15 +48,14 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 
+	"github.com/ghchinoy/moonshine-go/pkg/agentflow"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
@@ -113,10 +110,8 @@ func main() {
 	// session once set -- see pkg/serveapi/event.go).
 	var ttftLogged bool
 
-	faq := newFAQHandler()
-	control := newControlHandler(sink)
-	agent := &loggingHandler{inner: serveapi.NewCompositeHandler(control, faq)}
-	runner := serveapi.NewAgentRunner(agent, sink)
+	agentHandler := newAgentFlow(sink)
+	runner := serveapi.NewAgentRunner(agentHandler, sink)
 
 	events := make(chan serveapi.TranscriptEvent, 16)
 
@@ -187,49 +182,63 @@ func main() {
 	fmt.Println("\nstopped.")
 }
 
-// --- loggingHandler: wraps the real agent chain to report "no match" -----
-
-// loggingHandler wraps another AgentHandler (here, the CompositeHandler
-// chain) and logs when a finalized line triggers nothing. Without this,
-// silence and "the agent isn't working" look identical from the outside --
-// the same gap that made a real STT mis-transcription (or a phrasing that
-// just didn't match any rule) indistinguishable from a bug during this
-// sample's own development.
-type loggingHandler struct {
-	inner serveapi.AgentHandler
-}
-
-// OnFinalizedLine implements serveapi.AgentHandler.
-func (h *loggingHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
-	actions := h.inner.OnFinalizedLine(ctx, line)
-	if len(actions) == 0 {
-		fmt.Printf("[%s] [agent] no match -- try: mission, cascade, privacy, control, "+
-			"observability, composability, or \"stop/resume listening\"\n", ts())
-	}
-	return actions
-}
-
-// --- FAQ handler: the "cascade brings back RAG" demo ---------------------
-
 // faqEntry is one keyword-triggered answer, sourced from docs/MISSION.md.
 type faqEntry struct {
-	keyword string // spotted as a substring of the spoken line (case-insensitive)
+	keyword string // spotted as a trigger phrase by AgentFlow
 	result  serveapi.Result
 }
 
-// faqHandler is a serveapi.AgentHandler that spots a small set of keywords
-// in finalized lines and, on a hit, asks a serveapi.StaticRetriever for the
-// matching entry and speaks its snippet back. The keyword-spotting step
-// exists because StaticRetriever.Retrieve matches a query substring against
-// Title/Snippet/Source and returns nothing for an empty query -- it's
-// designed to be called with an extracted term, not a whole spoken
-// sentence.
-type faqHandler struct {
-	entries   []faqEntry
-	retriever *serveapi.StaticRetriever
-}
+// newAgentFlow constructs a Go-native AgentFlow voice agent and adapts it to
+// satisfy serveapi.AgentHandler via agentflow.NewHandlerAdapter.
+func newAgentFlow(sink serveapi.ActionSink) serveapi.AgentHandler {
+	flow := agentflow.New()
 
-func newFAQHandler() *faqHandler {
+	// Direct speech output through the WebSocket action sink so d.Say(...) in
+	// conversation flows sends a "speak" action back to the sidecar.
+	flow.SpeakWith(func(text string) error {
+		args, _ := json.Marshal(serveapi.SpeakArgs{Text: text})
+		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "speak", Args: args})
+		return err
+	})
+
+	// Global control commands: intercepted ahead of FAQ flows.
+	flow.Always("stop listening", func(d *agentflow.Dialog) error {
+		if debug {
+			fmt.Printf("[%s] [debug] control: matched \"stop listening\"\n", ts())
+		}
+		fmt.Printf("[%s] [agent] heard \"stop listening\" -- pausing session\n", ts())
+		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.pause"})
+		return err
+	})
+
+	flow.Always("pause listening", func(d *agentflow.Dialog) error {
+		if debug {
+			fmt.Printf("[%s] [debug] control: matched \"pause listening\"\n", ts())
+		}
+		fmt.Printf("[%s] [agent] heard \"pause listening\" -- pausing session\n", ts())
+		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.pause"})
+		return err
+	})
+
+	flow.Always("resume listening", func(d *agentflow.Dialog) error {
+		if debug {
+			fmt.Printf("[%s] [debug] control: matched \"resume listening\"\n", ts())
+		}
+		fmt.Printf("[%s] [agent] heard \"resume listening\" -- resuming session\n", ts())
+		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.resume"})
+		return err
+	})
+
+	flow.Always("start listening", func(d *agentflow.Dialog) error {
+		if debug {
+			fmt.Printf("[%s] [debug] control: matched \"start listening\"\n", ts())
+		}
+		fmt.Printf("[%s] [agent] heard \"start listening\" -- resuming session\n", ts())
+		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.resume"})
+		return err
+	})
+
+	// FAQ dataset sourced from docs/MISSION.md.
 	entries := []faqEntry{
 		{"mission", serveapi.Result{
 			Title:   "Mission",
@@ -267,89 +276,34 @@ func newFAQHandler() *faqHandler {
 	for i, e := range entries {
 		items[i] = e.result
 	}
-	return &faqHandler{entries: entries, retriever: serveapi.NewStaticRetriever(items...)}
-}
+	retriever := serveapi.NewStaticRetriever(items...)
 
-// OnFinalizedLine implements serveapi.AgentHandler.
-func (f *faqHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
-	text := strings.ToLower(line.Text)
-	for _, e := range f.entries {
-		if !strings.Contains(text, e.keyword) {
+	for _, e := range entries {
+		e := e
+		flow.ListenFor(e.keyword, func(d *agentflow.Dialog) error {
 			if debug {
-				fmt.Printf("[%s] [debug] faq: checked %q -> miss\n", ts(), e.keyword)
+				fmt.Printf("[%s] [debug] faq: matched trigger %q\n", ts(), e.keyword)
 			}
-			continue
-		}
-		if debug {
-			fmt.Printf("[%s] [debug] faq: checked %q -> HIT\n", ts(), e.keyword)
-		}
-		// Genuinely calls through the public Retriever interface with the
-		// spotted keyword, rather than just reading f.entries directly --
-		// this is the actual retrieval path a real RAG-backed handler
-		// would use, just with a trivial in-memory backend.
-		retrieveStart := time.Now()
-		results, err := f.retriever.Retrieve(ctx, e.keyword)
-		if debug {
-			fmt.Printf("[%s] [debug] faq: retriever.Retrieve(%q) -> %d result(s) (%s)\n",
-				ts(), e.keyword, len(results), time.Since(retrieveStart))
-		}
-		if err != nil || len(results) == 0 {
-			continue
-		}
-		fmt.Printf("[%s] [agent] matched %q -- speaking answer\n", ts(), e.keyword)
-		args, _ := json.Marshal(serveapi.SpeakArgs{Text: results[0].Snippet})
-		return []serveapi.ActionRequest{{Verb: "speak", Args: args}}
+			retrieveStart := time.Now()
+			results, err := retriever.Retrieve(context.Background(), e.keyword)
+			if debug {
+				fmt.Printf("[%s] [debug] faq: retriever.Retrieve(%q) -> %d result(s) (%s)\n",
+					ts(), e.keyword, len(results), time.Since(retrieveStart))
+			}
+			if err != nil || len(results) == 0 {
+				return nil
+			}
+			fmt.Printf("[%s] [agent] matched %q -- speaking answer\n", ts(), e.keyword)
+			return d.Say(results[0].Snippet)
+		})
 	}
-	return nil
-}
 
-// --- Control handler: fast-path session commands, no LLM required --------
+	flow.Otherwise(func(utterance string) {
+		fmt.Printf("[%s] [agent] no match -- try: mission, cascade, privacy, control, "+
+			"observability, composability, or \"stop/resume listening\"\n", ts())
+	})
 
-var (
-	stopListeningRe   = regexp.MustCompile(`(?i)^\s*(stop|pause)\s+listening\s*\.?$`)
-	resumeListeningRe = regexp.MustCompile(`(?i)^\s*(resume|start)\s+listening\s*\.?$`)
-)
-
-// controlHandler is a serveapi.AgentHandler demonstrating the "control"
-// pillar from a Tier 1 (external) agent: it recognizes a couple of
-// deterministic voice commands and sends session-control ActionRequests
-// back to the sidecar, ahead of the FAQ handler in the CompositeHandler
-// chain. This mirrors internal/serve's own IntentMatcher pattern, just
-// implemented independently against the public interfaces -- proof that
-// "fast-path regex before falling through to something smarter" isn't an
-// internal-only trick.
-type controlHandler struct {
-	sink serveapi.ActionSink
-}
-
-func newControlHandler(sink serveapi.ActionSink) *controlHandler {
-	return &controlHandler{sink: sink}
-}
-
-// OnFinalizedLine implements serveapi.AgentHandler.
-func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
-	if debug {
-		fmt.Printf("[%s] [debug] control: checked stop_listening -> %s\n", ts(), hitOrMiss(stopListeningRe.MatchString(line.Text)))
-		fmt.Printf("[%s] [debug] control: checked resume_listening -> %s\n", ts(), hitOrMiss(resumeListeningRe.MatchString(line.Text)))
-	}
-	switch {
-	case stopListeningRe.MatchString(line.Text):
-		fmt.Printf("[%s] [agent] heard \"stop listening\" -- pausing session\n", ts())
-		return []serveapi.ActionRequest{{Verb: "session.pause"}}
-	case resumeListeningRe.MatchString(line.Text):
-		fmt.Printf("[%s] [agent] heard \"resume listening\" -- resuming session\n", ts())
-		return []serveapi.ActionRequest{{Verb: "session.resume"}}
-	default:
-		return nil
-	}
-}
-
-// hitOrMiss renders a bool as "HIT"/"miss" for debug trace lines.
-func hitOrMiss(matched bool) string {
-	if matched {
-		return "HIT"
-	}
-	return "miss"
+	return agentflow.NewHandlerAdapter(flow)
 }
 
 // --- wsActionSink: serveapi.ActionSink over the shared WS connection -----

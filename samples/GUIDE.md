@@ -19,12 +19,12 @@ For several years, speech-to-speech (S2S) model architectures argued that the cl
 | **Audio Ingress / Network Transport** | 150ms – 350ms (cloud WebSocket upload) | **0ms – 5ms** (local IPC / loopback WS) |
 | **STT Time-to-First-Token (TTFT)** | 300ms – 600ms | **25ms – 75ms** (`tiny-streaming` ONNX) |
 | **STT Per-Line Finalization** | 400ms – 800ms | **30ms – 90ms** (`LastLatencyMs`) |
-| **Fast-Path Intent Execution** | *Not available* (requires full LLM turn) | **< 1ms** (`IntentMatcher` regex rule) |
+| **Fast-Path Intent Execution** | *Not available* (requires full LLM turn) | **< 1ms** (`AgentFlow` / `IntentMatcher` rule) |
 | **RAG / Tool Call Round-Trip** | 400ms – 1000ms | **10ms – 50ms** (`StaticRetriever` / local RPC) |
 | **TTS First Audio Chunk** | 200ms – 500ms | **15ms – 40ms** (`audio.PlayFloat32` / local Piper) |
 | **Total End-to-End Latency** | **1,050ms – 2,500ms** | **40ms – 120ms** (fast-path) / **180ms – 450ms** (full LLM) |
 
-By eliminating cloud network round-trips and using fast-path regex intent matching before invoking LLMs, the local cascade achieves sub-100ms response times for deterministic control actions.
+By eliminating cloud network round-trips and using fast-path intent matching (`pkg/agentflow` / `IntentMatcher`) before invoking LLMs, the local cascade achieves sub-100ms response times for deterministic control actions.
 
 ---
 
@@ -67,4 +67,4 @@ When deciding how to integrate `moonshine serve` into your application:
 
 - **Choose Tier 0** if you only need to display, log, or store live transcripts without speaking back or taking control actions.
 - **Choose Tier 1** if you are building an external agent in non-Go languages (Python, Node.js, Rust) that sends `speak` or `session.*` action JSON back over WebSocket.
-- **Choose Tier 2** if you are building a Go application using `pkg/serveapi` (`AgentRunner`, `CompositeHandler`, `Retriever`) for type-safe, sub-millisecond fast-path intent routing.
+- **Choose Tier 2** if you are building a Go application using `pkg/serveapi` (`AgentRunner`, `Retriever`) and `pkg/agentflow` (`AgentFlow`, `PhraseMatcher`, `Dialog`) for type-safe, sub-millisecond fast-path intent routing and multi-turn voice flows.
