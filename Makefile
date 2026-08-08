@@ -43,9 +43,9 @@ release-package: build
 test:
 	go test ./...
 
-## check-nocgo: Verify public packages (pkg/moonshine, pkg/serveapi, pkg/servepb) build with CGO_ENABLED=0.
+## check-nocgo: Verify public packages (pkg/moonshine, pkg/serveapi, pkg/servepb, pkg/agentflow) build with CGO_ENABLED=0.
 check-nocgo:
-	CGO_ENABLED=0 go build ./pkg/moonshine/... ./pkg/serveapi/... ./pkg/servepb/...
+	CGO_ENABLED=0 go build ./pkg/moonshine/... ./pkg/serveapi/... ./pkg/servepb/... ./pkg/agentflow/...
 
 ## verify-samples: Run static build/vet/fmt checks across all sample directories in samples/.
 verify-samples:
