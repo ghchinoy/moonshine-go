@@ -78,6 +78,24 @@ func TestSmokeSTTRoundTrip(t *testing.T) {
 	}
 	t.Logf("manifest: %+v", manifest)
 
+	diarManifest, err := GetDiarizationDependencies()
+	if err != nil {
+		t.Fatalf("GetDiarizationDependencies: %v", err)
+	}
+	if len(diarManifest.Groups) == 0 {
+		t.Fatal("expected at least one diarization dependency group")
+	}
+	t.Logf("diarization manifest: %+v", diarManifest)
+
+	ttsKeys, err := GetTTSDependencyKeys("en")
+	if err != nil {
+		t.Fatalf("GetTTSDependencyKeys: %v", err)
+	}
+	if len(ttsKeys) == 0 {
+		t.Fatal("expected at least one tts dependency key")
+	}
+	t.Logf("tts keys count: %d", len(ttsKeys))
+
 	cacheRoot := t.TempDir()
 	if err := Download(context.Background(), manifest, cacheRoot, false); err != nil {
 		t.Fatalf("Download: %v", err)

@@ -122,6 +122,10 @@ func diarizationOptions(cmd *cobra.Command, identifySpeakers, wordTimestamps boo
 	var opts []moonshine.Option
 	if identifySpeakers {
 		opts = append(opts, moonshine.Option{Name: "identify_speakers", Value: "true"})
+		// Upstream v0.1.1+ requires diarization_model_dir when identify_speakers=true.
+		if diarDir, err := moonshine.DiarizationModelDir(viper.GetString("model.dir")); err == nil {
+			opts = append(opts, moonshine.Option{Name: "diarization_model_dir", Value: diarDir})
+		}
 	}
 	if wordTimestamps {
 		opts = append(opts, moonshine.Option{Name: "word_timestamps", Value: "true"})

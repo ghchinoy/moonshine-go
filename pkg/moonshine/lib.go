@@ -159,8 +159,9 @@ var (
 	fnFreeGraphemeToPhonemizer            func(handle int32)
 	fnTextToPhonemes                      func(handle int32, text string, options *cOption, optionsCount uint64, outPhonemes *unsafe.Pointer, outPhonemesCount *uint64) int32
 
-	fnGetSTTDependencies func(language string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
-	fnGetTTSDependencies func(languages string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
+	fnGetSTTDependencies         func(language string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
+	fnGetTTSDependencies         func(languages string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
+	fnGetDiarizationDependencies func(outJSON *unsafe.Pointer) int32
 
 	fnFreeBuffer func(ptr unsafe.Pointer)
 )
@@ -194,6 +195,7 @@ func registerSymbols(h uintptr) {
 
 	reg(&fnGetSTTDependencies, "moonshine_get_stt_dependencies")
 	reg(&fnGetTTSDependencies, "moonshine_get_tts_dependencies")
+	reg(&fnGetDiarizationDependencies, "moonshine_get_diarization_dependencies")
 
 	reg(&fnFreeBuffer, "moonshine_free_buffer")
 }

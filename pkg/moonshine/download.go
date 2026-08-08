@@ -100,15 +100,56 @@ func GetSTTDependencies(language string, opts ...Option) (DependencyManifest, er
 	return manifest, nil
 }
 
+// GetDiarizationDependencies returns the download manifest for speaker
+// diarization models (moonshine_get_diarization_dependencies). The manifest
+// contains segmentation.ort and embedding.ort under the diarization CDN directory.
+func GetDiarizationDependencies() (DependencyManifest, error) {
+	if !Loaded() {
+		return DependencyManifest{}, errNotLoaded
+	}
+	if fnGetDiarizationDependencies == nil {
+		return DependencyManifest{}, fmt.Errorf("moonshine: moonshine_get_diarization_dependencies symbol not found in loaded library")
+	}
+	var outPtr unsafe.Pointer
+	code := fnGetDiarizationDependencies(&outPtr)
+	if err := checkCode("get_diarization_dependencies", code); err != nil {
+		return DependencyManifest{}, err
+	}
+	defer freeC(outPtr)
+	raw := goString((*byte)(outPtr))
+	var manifest DependencyManifest
+	if err := json.Unmarshal([]byte(raw), &manifest); err != nil {
+		return DependencyManifest{}, fmt.Errorf("moonshine: parsing diarization dependency manifest: %w", err)
+	}
+	return manifest, nil
+}
+
+// GetTTSDependencies returns the download manifest for TTS + G2P assets
+// (moonshine_get_tts_dependencies).
+func GetTTSDependencies(languages string, opts ...Option) (DependencyManifest, error) {
+	if !Loaded() {
+		return DependencyManifest{}, errNotLoaded
+	}
+	cOpts, optCount, keep := toCOptions(opts)
+	var outPtr unsafe.Pointer
+	code := fnGetTTSDependencies(languages, cOpts, optCount, &outPtr)
+	runtime.KeepAlive(keep)
+	if err := checkCode("get_tts_dependencies", code); err != nil {
+		return DependencyManifest{}, err
+	}
+	defer freeC(outPtr)
+	raw := goString((*byte)(outPtr))
+	var manifest DependencyManifest
+	if err := json.Unmarshal([]byte(raw), &manifest); err != nil {
+		return DependencyManifest{}, fmt.Errorf("moonshine: parsing tts dependency manifest: %w", err)
+	}
+	return manifest, nil
+}
+
 // GetTTSDependencyKeys returns the canonical asset key names (relative
 // paths under g2p_root, e.g. "kokoro/model.onnx") needed for TTS + G2P for
-// the given language(s) (moonshine_get_tts_dependencies). Unlike STT's
-// manifest, these keys are not paired with a base_url in the C API -- TTS
-// voice assets (Kokoro/Piper/ZipVoice) are published through moonshine's own
-// asset pipeline rather than a single flat CDN layout, so turning this list
-// into direct downloads is left to the caller/CLI. This is primarily useful
-// for validating that a model_root directory has everything a given
-// language/voice combination needs.
+// the given language(s) (moonshine_get_tts_dependencies). Supports both
+// v0.1.1+ DependencyManifest JSON object shape and legacy flat string array shape.
 func GetTTSDependencyKeys(languages string, opts ...Option) ([]string, error) {
 	if !Loaded() {
 		return nil, errNotLoaded
@@ -122,11 +163,37 @@ func GetTTSDependencyKeys(languages string, opts ...Option) ([]string, error) {
 	}
 	defer freeC(outPtr)
 	raw := goString((*byte)(outPtr))
+
+	// Try object shape first (v0.1.1+)
+	var manifest DependencyManifest
+	if err := json.Unmarshal([]byte(raw), &manifest); err == nil && len(manifest.Groups) > 0 {
+		var keys []string
+		for _, group := range manifest.Groups {
+			for _, file := range group.Files {
+				if file.Name != "" {
+					keys = append(keys, file.Name)
+				}
+			}
+		}
+		return keys, nil
+	}
+
+	// Fallback to legacy flat string array shape
 	var keys []string
 	if err := json.Unmarshal([]byte(raw), &keys); err != nil {
 		return nil, fmt.Errorf("moonshine: parsing tts dependency keys: %w", err)
 	}
 	return keys, nil
+}
+
+// DiarizationModelDir returns the cache directory path where diarization models
+// (segmentation.ort and embedding.ort) are downloaded under root.
+func DiarizationModelDir(root string) (string, error) {
+	manifest, err := GetDiarizationDependencies()
+	if err != nil {
+		return "", err
+	}
+	return PrimaryModelDir(root, manifest)
 }
 
 // GroupDir returns the directory a group's files are downloaded into under

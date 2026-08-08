@@ -10,9 +10,10 @@ import (
 )
 
 var (
-	setupLanguage string
-	setupArch     string
-	setupForce    bool
+	setupLanguage         string
+	setupArch             string
+	setupForce            bool
+	setupIdentifySpeakers bool
 )
 
 var setupCmd = &cobra.Command{
@@ -38,6 +39,8 @@ func init() {
 	setupCmd.Flags().StringVar(&setupLanguage, "language", "en", "STT model language (code or English name; config key: stt.language, shared with 'transcribe')")
 	setupCmd.Flags().StringVar(&setupArch, "arch", "tiny", "Model architecture: tiny, base, tiny-streaming, base-streaming, small-streaming, medium-streaming (config key: stt.arch, shared with 'transcribe')")
 	setupCmd.Flags().BoolVar(&setupForce, "force", false, "Re-download files even if they already exist")
+	setupCmd.Flags().BoolVar(&setupIdentifySpeakers, "identify-speakers", false, "Also download speaker diarization models (segmentation.ort and embedding.ort)")
+	setupCmd.Flags().BoolVar(&setupIdentifySpeakers, "diarize", false, "Alias for --identify-speakers")
 }
 
 func modelArchFromFlag(s string) (uint32, error) {
@@ -93,6 +96,18 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	if err := moonshine.Download(context.Background(), manifest, root, setupForce); err != nil {
 		return err
 	}
+
+	if setupIdentifySpeakers {
+		fmt.Printf("%s speaker diarization models\n", header("Downloading:"))
+		diarManifest, err := moonshine.GetDiarizationDependencies()
+		if err != nil {
+			return fmt.Errorf("looking up diarization dependencies: %w", err)
+		}
+		if err := moonshine.Download(context.Background(), diarManifest, root, setupForce); err != nil {
+			return fmt.Errorf("downloading diarization models: %w", err)
+		}
+	}
+
 	fmt.Println(stylePass.Render("Done."))
 	return nil
 }
