@@ -79,8 +79,9 @@ unless you happen to set them to the same arch.
 If you use both commands, run `setup` once per arch you actually use:
 
 ```sh
-moonshine setup --arch tiny             # for transcribe
-moonshine setup --arch tiny-streaming   # for live
+moonshine setup --arch tiny                # for transcribe
+moonshine setup --arch tiny-streaming      # for live
+moonshine setup --identify-speakers        # for speaker diarization (segmentation & embedding models)
 ```
 
 `moonshine doctor` checks both model directories as separate rows (`STT

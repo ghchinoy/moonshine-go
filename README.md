@@ -114,7 +114,8 @@ make build   # -> bin/moonshine ; equivalently: go build -o bin/moonshine ./cmd/
 ./bin/moonshine transcribe gs://my-bucket/audio.wav
 
 # Speaker diarization and/or per-word timing (both opt-in; diarization adds
-# significant compute). See docs/user-guide.md for details.
+# significant compute and requires downloading diarization models via setup).
+./bin/moonshine setup --identify-speakers
 ./bin/moonshine transcribe --identify-speakers path/to/audio.wav
 ./bin/moonshine transcribe --word-timestamps path/to/audio.wav
 

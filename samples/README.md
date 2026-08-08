@@ -116,6 +116,11 @@ sidecar-side effects.
 - [python-agent](python-agent/) — a Python agent that recognizes a couple
   of deterministic voice commands and speaks a real answer back, with no
   moonshine-go dependency at all (just `websockets` + `json`).
+- [browser-cascade-faq](browser-cascade-faq/) — a zero-install, in-browser
+  voice FAQ agent in pure JavaScript: captures mic audio via `AudioWorklet`,
+  matches spoken questions against `MISSION.md` content in the browser tab,
+  sends `speak` action requests to `moonshine serve`, and plays synthesized
+  `TTSAudioEvent` speech back via Web Audio API.
 
 ---
 

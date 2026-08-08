@@ -336,7 +336,8 @@ moonshine transcribe --word-timestamps recording.wav
 # Speaker diarization: each --json line gets a "speaker_spans" array, and
 # text output is prefixed with a speaker label like [S0]. Automatically
 # turns on --word-timestamps too (speaker spans are anchored to word
-# boundaries).
+# boundaries). Note: requires downloading diarization models via setup first.
+moonshine setup --identify-speakers
 moonshine transcribe --identify-speakers recording.wav
 ```
 
