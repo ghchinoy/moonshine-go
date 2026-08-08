@@ -13,6 +13,7 @@
 # Go build artifacts
 /bin/
 /dist/
+bench/loadtest/loadtest
 *.test
 *.out
 coverage.txt
@@ -42,6 +43,9 @@ credentials.json
 
 # Local editor/agent-tool state, not project config
 .serena/
+
+# Benchmark test audio assets (fetched on demand via scripts/fetch-bench-assets.sh)
+bench/testdata/
 
 # Internal vision/landscape touchstone docs -- not part of the public repo
 /docs/vision/

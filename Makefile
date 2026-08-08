@@ -13,7 +13,7 @@ export CGO_ENABLED ?= 1
 # checkout (e.g. building from a source tarball with no .git directory).
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: all build buildlib fetchlib release-package clean test check-nocgo verify-samples smoke fmt fmt-fix vet lint proto
+.PHONY: all build buildlib fetchlib release-package clean test check-nocgo verify-samples smoke bench fmt fmt-fix vet lint proto
 
 all: build
 
@@ -54,6 +54,11 @@ verify-samples:
 ## smoke: Run the tests that exercise a real built libmoonshine (see pkg/moonshine/smoke_test.go).
 smoke:
 	MOONSHINE_LIB_DIR=$(CURDIR)/$(LIB_DIR) go test -tags moonshinesmoke ./pkg/moonshine/... -v
+
+## bench: Run native in-process benchmarks for pkg/moonshine (requires .moonshine/lib).
+bench:
+	./scripts/fetch-bench-assets.sh
+	MOONSHINE_LIB_DIR=$(CURDIR)/$(LIB_DIR) go test -tags native_bench ./pkg/moonshine/... -bench . -benchmem -v
 
 ## proto: Regenerate pkg/servepb from pkg/servepb/serve.proto.
 ##        Requires protoc, protoc-gen-go, and protoc-gen-go-grpc on PATH

@@ -32,6 +32,7 @@ See [docs/MISSION.md](docs/MISSION.md).
 - [Configuration](#configuration)
 - [Verifying the bindings](#verifying-the-bindings)
 - [Project layout](#project-layout)
+- [BENCHMARKS.md](BENCHMARKS.md) -- empirical concurrency scaling, load capacity, and in-process inference benchmarks for `moonshine serve` and `pkg/moonshine`.
 - [Docs](#docs)
 - [Contributing](#contributing)
 
