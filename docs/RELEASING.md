@@ -27,7 +27,7 @@ This document describes how `moonshine-go` is versioned, packaged, and released.
 **Note (`moonshine-go-dh7` resolved):** the `linux-x86_64` release asset for
 `v0.0.71` required GLIBC 2.43, which failed to `dlopen()` on standard Linux distros.
 This was reported upstream ([moonshine-ai/moonshine#206](https://github.com/moonshine-ai/moonshine/issues/206))
-and fixed in `v0.0.73+` (currently pinned to `v0.1.0`). Both `linux-x86_64` and `linux-arm64` assets are now fully supported.
+and fixed in `v0.0.73+` (currently pinned to `v0.1.1`). Both `linux-x86_64` and `linux-arm64` assets are now fully supported.
 
 ---
 
@@ -43,7 +43,7 @@ make vet
 make test
 ```
 
-Verify that `MOONSHINE_RELEASE_TAG` contains the desired upstream version pin (e.g. `v0.1.0`) and passes asset validation:
+Verify that `MOONSHINE_RELEASE_TAG` contains the desired upstream version pin (e.g. `v0.1.1`) and passes asset validation:
 
 ```sh
 scripts/check-release-asset.sh linux-x86_64 $(cat MOONSHINE_RELEASE_TAG)
@@ -132,7 +132,7 @@ Users can extract the archive and run `./run.sh` or set `MOONSHINE_LIB_DIR=./lib
 
 Below is a concise summary of major additions per release. Detailed commit logs live in [`CHANGELOG.md`](../CHANGELOG.md).
 
-- **`v0.9.0`**: ZipVoice zero-shot voice cloning (`pkg/moonshine.NewSynthesizerFromClone`, `moonshine tts --clone`), clone-ready audio recording flags (`moonshine live --record-audio`, `--save-line-audio`), and native sample-rate WAV decoding.
+- **`v0.9.0`**: ZipVoice zero-shot voice cloning (`pkg/moonshine.NewSynthesizerFromClone`, `moonshine tts --clone`), clone-ready audio recording flags (`moonshine live --record-audio`), new runnable samples (`go-embedded`, `mcp-transcribe`, `desktop-app`), `verify-samples` CI workflow, pure-Go `check-nocgo` gate, and upstream library pin bump (`v0.1.1`).
 - **`v0.8.0`**: Public `pkg/moonshine` pure-Go reference binding (`CGO_ENABLED=0` buildable), sample rating schema (`samples/CONTRIBUTING.md`), and `samples/go-bulk-analysis` native batch engine alignment.
 - **`v0.7.0`**: Multi-file/batch transcribe engine with worker pool concurrency (`--concurrency`), GCS prefix listing, structured batch manifest JSON, live TUI latency/confidence display, and gRPC `Line` proto parity.
 - **`v0.6.0`**: Remote TTS speak-back wiring (`--tts-play-local` flag), per-session TTS publisher isolation in `SessionManager`, and tunable endpointing policy flags (`--endpoint-*`).

@@ -7,12 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v0.9.0] - 2026-07-26
+## [v0.9.0] - 2026-08-08
 
 ### Added
 - **ZipVoice Zero-Shot Voice Cloning**: Added `NewSynthesizerFromClone` in `pkg/moonshine` (binding `moonshine_create_tts_synthesizer_from_memory`) and `--clone <wav_path>` / `--clone-transcript <text>` flags to `moonshine tts` for zero-shot voice cloning using reference WAV audio clips (`#21v`).
 - **Clone-Ready Audio Recording**: Added `--record-audio [path_or_dir]` to `moonshine live` (saving microphone capture to a WAV file upon session end with timestamped naming `moonshine_clip_YYYYMMDD-HHMMSS_16k_mono.wav`) and `--save-line-audio <dir>` to `moonshine live` and `moonshine transcribe` (exporting each finalized line's audio + transcript as individual `.wav` and `.txt` files) (`#4ai`).
 - **Native WAV Sample-Rate Decoding**: Added `LoadFileWithSampleRate` in `internal/audio` to decode WAV files to mono float32 PCM while preserving native sample rate for ZipVoice cloning inputs (`#21v`).
+- **New Runnable Samples**: Added `samples/go-embedded` (in-process STT via `pkg/moonshine`), `samples/mcp-transcribe` (MCP server embedding with MP3 support), and `samples/desktop-app` (Wails v2 desktop application with native file picker and audio decoding) (`#yqp`, `#z1p`, `#2n8`, `#39b`).
+- **Sample Verification CI Workflow**: Added `scripts/verify-samples.sh`, `make verify-samples`, and GitHub Actions workflow `.github/workflows/samples-ci.yml` for automated sample compilation & linting (`#9ov`, `#ye4p`, `#76xw`).
+- **Pure-Go Build CI Gate**: Added `make check-nocgo` verifying `pkg/moonshine`, `pkg/serveapi`, and `pkg/servepb` build cleanly under `CGO_ENABLED=0` (`#f8k`).
+- **Libmoonshine Bundling & Distribution Guide**: Added `docs/bundling-libmoonshine.md` detailing shared library staging, RPATH resolution, and production distribution patterns (`#d9k`).
+
+### Changed
+- **Upstream Library Pin & Header Version**: Bumped `MOONSHINE_RELEASE_TAG` pin to `v0.1.1` and `pkg/moonshine.HeaderVersion` to `30000` (`#7sx`).
+- **C API Buffer Cleanup**: Switched C-memory buffer deallocation to `moonshine_free_buffer` across bindings to guarantee cross-CRT heap safety (`#2xf`).
+
+### Fixed
+- **Dual-Shape JSON Manifest Parsing**: Supported both object-keyed and list-keyed `DependencyGroup` file entries in model manifests returned by `download.moonshine.ai` (`#pn7`).
+- **Windows Path Sanitization**: Sanitized scheme colons in `stripScheme` for Windows-compatible `GroupDir` path creation (`#pn7`).
+- **macOS Ad-hoc Codesigning**: Added ad-hoc `codesign -s - -f` step for staged `libonnxruntime` shared libraries in `scripts/build-libmoonshine.sh` to prevent AMFI signature kills during dynamic loading.
+- **STT Language Code Defaults**: Corrected default STT language code from `en_us` to `en` across samples and CLI error hints (`#3b6`).
 
 ---
 
@@ -58,67 +72,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [v0.5.1] - 2026-07-24
-
-### Added
-- **Confidence Scores**: Surfaced per-line and per-word recognition confidence scores (`Confidence` float32 field) on `Line` and `Word` in `pkg/serveapi`.
-
-### Fixed
-- **`AgentRunner` Deadlock**: Decoupled `ActionSink.Dispatch` execution in `AgentRunner` to prevent deadlocks when an agent emits synchronous actions during event handling (`#jwh`).
-
----
-
-## [v0.5.0] - 2026-07-24
-
-### Added
-- **Multi-Tenant `SessionManager`**: Added `SessionManager` and `--max-sessions` concurrency limit to `moonshine serve`, enabling isolated per-connection transcription, event fan-out, agent state, and action dispatching.
-- **Transport Session Decoupling**: Updated `WSTransport` and `GRPCTransport` to support per-connection remote sessions and audio ingestion.
-
----
-
-## [v0.4.1] - 2026-07-24
-
-### Added
-- **`--audio-source remote` CLI Flag**: Added `--audio-source` flag to `moonshine serve` for streaming remote PCM audio over WebSocket.
-- **`samples/browser-listen`**: Added a zero-install browser sample demonstrating live client-side microphone audio streaming and transcript rendering over WebSocket.
-
----
-
-## [v0.4.0] - 2026-07-23
-
-### Added
-- **`TTSAudioEvent` Wire Events**: Added streaming synthesized audio event frames (`start`, `chunk`, `end`) over transport connections.
-- **In-Protocol Barge-In**: Added `session.barge_in` action verb for client-triggered speech interruption.
-- **`RemoteAudioSource`**: Introduced `RemoteAudioSource` in `internal/serve` for network-delivered PCM audio ingestion.
-- **Runnable Samples**: Added Tier 0/1/2 runnable code examples (`go-listen`, `python-listen`, `python-agent`, `go-cascade-faq`).
-
----
-
-## [v0.3.0] - 2026-07-23
-
-### Added
-- **Importable Daemon Runner**: Extracted `internal/serve.Server` and `ServerConfig` from `cmd/moonshine/serve.go` for in-process sidecar embedding.
-- **`--g2p-root` Flag**: Added `--g2p-root` configuration flag for specifying custom Piper/G2P voice model asset directories.
-
-### Changed
-- **Upstream Asset Pin**: Updated `MOONSHINE_RELEASE_TAG` to `v0.0.73` (`libmoonshine` with portable Linux glibc support).
-
----
-
-## [v0.2.1] - 2026-07-23
-
-### Fixed
-- **JSON Serialization**: Added `omitempty` struct tags to `TranscriptEvent.Lines` to clean up JSON wire payloads.
-
----
-
-## [v0.2.0] - 2026-07-23
-
-### Added
-- **`pkg/serveapi` Public Extension Surface**: Published zero-cgo leaf package (`pkg/serveapi`) defining Go interfaces (`AgentHandler`, `Retriever`, `LLMClient`, `AudioSource`) and data types (`Line`, `TranscriptEvent`, `ActionRequest`, `ActionResult`, `DisplayCard`).
-
----
-
-## [v0.1.0] - 2026-07-15
-
-### Added
-- **Initial Release**: `moonshine` CLI with model setup, STT transcription, live mic streaming, TTS synthesis, and build versioning.
