@@ -10,6 +10,8 @@ sitting undiscovered in a doc.
 live transcripts over WebSocket or gRPC and executes inbound actions
 (`speak`, `display`, `session.pause/resume/stop`, `run_command`).
 
+Looking for a step-by-step guided walkthrough? See **[TUTORIAL.md](TUTORIAL.md)** — *Build an Offline Voice Agent in 60 Minutes*.
+
 Want to add a sample? See [CONTRIBUTING.md](CONTRIBUTING.md) for
 conventions and the verification bar.
 
@@ -149,40 +151,38 @@ wrapper that would let external modules embed too is tracked as
 The shape looks like this:
 
 ```go
-type MyFAQHandler struct {
-    retriever serveapi.Retriever
-}
+flow := agentflow.New()
+flow.SpeakWith(func(text string) error {
+    args, _ := json.Marshal(serveapi.SpeakArgs{Text: text})
+    _, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "speak", Args: args})
+    return err
+})
 
-func (h *MyFAQHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
-    results, err := h.retriever.Retrieve(ctx, extractKeyword(line.Text))
+flow.Always("stop listening", func(d *agentflow.Dialog) error {
+    _, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.pause"})
+    return err
+})
+
+flow.ListenFor("mission", func(d *agentflow.Dialog) error {
+    results, err := retriever.Retrieve(context.Background(), "mission")
     if err != nil || len(results) == 0 {
         return nil
     }
-    args, _ := json.Marshal(serveapi.SpeakArgs{Text: results[0].Snippet})
-    return []serveapi.ActionRequest{{Verb: "speak", Args: args}}
-}
-```
+    return d.Say(results[0].Snippet)
+})
 
-Combine a fast-path deterministic matcher with a fallback handler using
-`CompositeHandler`, then drive both from an `AgentRunner` fed by frames read
-off your own WebSocket connection:
-
-```go
-control := &sessionControlHandler{sink: sink}       // regex-based, e.g. "stop listening"
-faq := &MyFAQHandler{retriever: serveapi.NewStaticRetriever(myItems...)}
-agent := serveapi.NewCompositeHandler(control, faq) // control's fast path runs first
-runner := serveapi.NewAgentRunner(agent, sink)      // sink implements serveapi.ActionSink
-runner.Run(ctx, events)                             // events: <-chan serveapi.TranscriptEvent, decoded from your WS reads
+runner := serveapi.NewAgentRunner(agentflow.NewHandlerAdapter(flow), sink)
+runner.Run(ctx, events)
 ```
 
 ### Examples
 
 - [go-cascade-faq](go-cascade-faq/) — the flagship sample. A complete,
-  runnable external agent: `CompositeHandler` with a regex fast-path
-  (`session.pause`/`resume`) plus a `StaticRetriever`-backed FAQ over
+  runnable external agent: built on `pkg/agentflow` (AgentFlow DSL,
+  `Always` globals, and `Dialog` phrase matching) with a `StaticRetriever`-backed FAQ over
   `docs/MISSION.md` content, speaking answers back via real TTS. Its own Go
   module (with a `replace` directive to this checkout) so it builds exactly
-  the way a real third-party consumer of `pkg/serveapi` would — verified to
+  the way a real third-party consumer of `pkg/serveapi` and `pkg/agentflow` would — verified to
   build with `CGO_ENABLED=0`, zero `internal/*` imports.
 - [browser-listen](browser-listen/) — a static HTML+JS page:
   `getUserMedia` + `AudioWorklet` captures mic audio in the browser and

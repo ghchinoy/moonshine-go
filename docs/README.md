@@ -7,6 +7,7 @@ building and using moonshine-go, beyond what's in the top-level
 - [user-guide.md](user-guide.md) -- full command/flag reference and worked
   examples for every command, plus troubleshooting.
 - [bundling-libmoonshine.md](bundling-libmoonshine.md) -- bundling `libmoonshine` in production apps (macOS `.app` code-signing, Windows DLLs, Linux containers, MCP servers).
+- [../samples/TUTORIAL.md](../samples/TUTORIAL.md) -- *Build an Offline Voice Agent in 60 Minutes*: 4-part sequential narrative tutorial (Tier 0 subscribe to Tier 2 Go AgentFlow).
 - [../samples/](../samples/) -- build your first voice agent against
   `moonshine serve`: runnable Tier 0/1/2 examples in Go and Python.
 - [serve-sidecar.md](serve-sidecar.md) -- `moonshine serve` architecture contract,

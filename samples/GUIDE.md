@@ -19,12 +19,12 @@ For several years, speech-to-speech (S2S) model architectures argued that the cl
 | **Audio Ingress / Network Transport** | 150ms – 350ms (cloud WebSocket upload) | **0ms – 5ms** (local IPC / loopback WS) |
 | **STT Time-to-First-Token (TTFT)** | 300ms – 600ms | **25ms – 75ms** (`tiny-streaming` ONNX) |
 | **STT Per-Line Finalization** | 400ms – 800ms | **30ms – 90ms** (`LastLatencyMs`) |
-| **Fast-Path Intent Execution** | *Not available* (requires full LLM turn) | **< 1ms** (`IntentMatcher` regex rule) |
+| **Fast-Path Intent Execution** | *Not available* (requires full LLM turn) | **< 1ms** (`AgentFlow` / `IntentMatcher` rule) |
 | **RAG / Tool Call Round-Trip** | 400ms – 1000ms | **10ms – 50ms** (`StaticRetriever` / local RPC) |
 | **TTS First Audio Chunk** | 200ms – 500ms | **15ms – 40ms** (`audio.PlayFloat32` / local Piper) |
 | **Total End-to-End Latency** | **1,050ms – 2,500ms** | **40ms – 120ms** (fast-path) / **180ms – 450ms** (full LLM) |
 
-By eliminating cloud network round-trips and using fast-path regex intent matching before invoking LLMs, the local cascade achieves sub-100ms response times for deterministic control actions.
+By eliminating cloud network round-trips and using fast-path intent matching (`pkg/agentflow` / `IntentMatcher`) before invoking LLMs, the local cascade achieves sub-100ms response times for deterministic control actions.
 
 ---
 
@@ -67,4 +67,23 @@ When deciding how to integrate `moonshine serve` into your application:
 
 - **Choose Tier 0** if you only need to display, log, or store live transcripts without speaking back or taking control actions.
 - **Choose Tier 1** if you are building an external agent in non-Go languages (Python, Node.js, Rust) that sends `speak` or `session.*` action JSON back over WebSocket.
-- **Choose Tier 2** if you are building a Go application using `pkg/serveapi` (`AgentRunner`, `CompositeHandler`, `Retriever`) for type-safe, sub-millisecond fast-path intent routing.
+- **Choose Tier 2** if you are building a Go application using `pkg/serveapi` (`AgentRunner`, `Retriever`) and `pkg/agentflow` (`AgentFlow`, `PhraseMatcher`, `Dialog`) for type-safe, sub-millisecond fast-path intent routing and multi-turn voice flows.
+
+---
+
+## 5. Pattern Selection Guide: Fast-Path IntentMatcher vs. AgentFlow DSL vs. LLM Agent
+
+When building an agent on top of `moonshine serve`, developers choose from three primary control & decision patterns depending on latency, complexity, and non-determinism requirements:
+
+| Pattern | How it works | Best used for | Reference implementation |
+|---|---|---|---|
+| **Fast-Path Regex (`IntentMatcher`)** | Zero-dependency regex rules compiled ahead of time; returns synchronous `ActionRequest`s (`session.pause`, `session.resume`, `session.stop`). | Sub-millisecond, 100% deterministic single-shot control actions with no model downloads or prompt turns. | `internal/serve/intent.go` |
+| **Voice Agent DSL (`pkg/agentflow`)** | Go-native voice agent framework (`AgentFlow`, `PhraseMatcher`, `Dialog`) supporting `Say`, `Ask`, `Confirm`, and `Choose` flows with fuzzy embedding matching. | Structured, multi-turn voice dialogs, prompt retries, confirmation flows, and interactive voice surveys. | `pkg/agentflow` & `samples/go-cascade-faq` |
+| **Spoken LLM Agent (`GeminiAgent`)** | Streaming transcript line passed to a large language model (e.g. Gemini 2.5 Flash / Lite) with function calling / MCP tools. | Open-ended reasoning, unstructured Q&A, multi-step tool calls, and complex dialogs requiring general intelligence. | `internal/serve/gemini.go` & `samples/python-agent` |
+
+### Selection Decision Matrix
+
+- Use **`IntentMatcher` (Regex)** if you need guaranteed <1ms interception of fixed system verbs (`"stop listening"`, `"interrupt"`, `"clear"`) without any ML model overhead or memory allocation.
+- Use **`pkg/agentflow` (AgentFlow DSL)** if you need structured multi-turn conversation flows (`d.Ask`, `d.Confirm`, `d.Choose`), phrase-group trigger matching, or flow-scoped cancellation and restart logic.
+- Use **LLM Function Calling** if the user's request is ambiguous, unconstrained, or requires reasoning over external databases or MCP tools before taking action.
+- Use **`CompositeHandler`** to chain them: run a fast-path regex or AgentFlow trigger first, and fall through to an LLM agent on a miss.
