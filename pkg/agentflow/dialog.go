@@ -1,9 +1,12 @@
 package agentflow
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 // DialogCancelled is thrown into a flow when the user (or a global handler) cancels it.
@@ -148,6 +151,38 @@ func (d *Dialog) Choose(prompt string, choices map[string][]string, opts ...AskO
 		return "", err
 	}
 	return res.(string), nil
+}
+
+// EmitAction dispatches a serveapi.ActionRequest to the configured ActionSink.
+func (d *Dialog) EmitAction(req serveapi.ActionRequest) (serveapi.ActionResult, error) {
+	return d.runner.EmitAction(req)
+}
+
+// PauseListening emits a session.pause control action to pause speech recognition.
+func (d *Dialog) PauseListening() (serveapi.ActionResult, error) {
+	return d.EmitAction(serveapi.ActionRequest{Verb: "session.pause"})
+}
+
+// ResumeListening emits a session.resume control action to resume speech recognition.
+func (d *Dialog) ResumeListening() (serveapi.ActionResult, error) {
+	return d.EmitAction(serveapi.ActionRequest{Verb: "session.resume"})
+}
+
+// StopSession emits a session.stop control action to terminate the session.
+func (d *Dialog) StopSession() (serveapi.ActionResult, error) {
+	return d.EmitAction(serveapi.ActionRequest{Verb: "session.stop"})
+}
+
+// Display emits a display ActionRequest with card as JSON args.
+func (d *Dialog) Display(card serveapi.DisplayCard) (serveapi.ActionResult, error) {
+	args, err := json.Marshal(card)
+	if err != nil {
+		return serveapi.ActionResult{}, err
+	}
+	return d.EmitAction(serveapi.ActionRequest{
+		Verb: "display",
+		Args: args,
+	})
 }
 
 // Cancel abandons the flow.

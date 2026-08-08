@@ -2,9 +2,12 @@ package agentflow
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
 const (
@@ -48,6 +51,8 @@ type AgentFlow struct {
 
 	embedding EmbeddingBackend
 	matcher   *PhraseMatcher
+
+	actionSink serveapi.ActionSink
 
 	activeDialog        *Dialog
 	activeTriggerPhrase string
@@ -177,6 +182,26 @@ func (af *AgentFlow) OnError(fn func(err error)) *AgentFlow {
 	defer af.mu.Unlock()
 	af.errorCallbacks = append(af.errorCallbacks, fn)
 	return af
+}
+
+// ActionSink binds a serveapi.ActionSink for dispatching control-plane ActionRequests.
+func (af *AgentFlow) ActionSink(sink serveapi.ActionSink) *AgentFlow {
+	af.mu.Lock()
+	defer af.mu.Unlock()
+	af.actionSink = sink
+	return af
+}
+
+// EmitAction dispatches an ActionRequest to the configured ActionSink.
+func (af *AgentFlow) EmitAction(req serveapi.ActionRequest) (serveapi.ActionResult, error) {
+	af.mu.Lock()
+	sink := af.actionSink
+	af.mu.Unlock()
+
+	if sink == nil {
+		return serveapi.ActionResult{}, fmt.Errorf("agentflow: no ActionSink configured")
+	}
+	return sink.Dispatch(context.Background(), req)
 }
 
 // SpeakWith overrides the default speech synthesizer with a custom speak function.

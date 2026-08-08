@@ -250,3 +250,33 @@ func TestAgentFlow_LanguageAndVoiceBuilders(t *testing.T) {
 		t.Errorf("unexpected trigger")
 	}
 }
+
+func TestAgentFlow_ActionSink(t *testing.T) {
+	var dispatched []serveapi.ActionRequest
+	var mu sync.Mutex
+
+	sink := serveapi.ActionSinkFunc(func(ctx context.Context, req serveapi.ActionRequest) (serveapi.ActionResult, error) {
+		mu.Lock()
+		dispatched = append(dispatched, req)
+		mu.Unlock()
+		return serveapi.ActionResult{ID: req.ID, OK: true}, nil
+	})
+
+	af := agentflow.New().ActionSink(sink)
+	af.SpeakWith(func(text string) error { return nil })
+
+	af.ListenFor("pause session", func(d *agentflow.Dialog) error {
+		_, err := d.PauseListening()
+		return err
+	})
+
+	s1 := af.RegisterSettle()
+	af.HandleUtterance("pause session")
+	_ = s1.Wait(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(dispatched) != 1 || dispatched[0].Verb != "session.pause" {
+		t.Errorf("expected 1 session.pause action, got %v", dispatched)
+	}
+}
