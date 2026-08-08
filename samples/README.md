@@ -10,6 +10,8 @@ sitting undiscovered in a doc.
 live transcripts over WebSocket or gRPC and executes inbound actions
 (`speak`, `display`, `session.pause/resume/stop`, `run_command`).
 
+Looking for a step-by-step guided walkthrough? See **[TUTORIAL.md](TUTORIAL.md)** — *Build an Offline Voice Agent in 60 Minutes*.
+
 Want to add a sample? See [CONTRIBUTING.md](CONTRIBUTING.md) for
 conventions and the verification bar.
 

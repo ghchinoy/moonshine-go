@@ -108,3 +108,39 @@ go run . -addr ws://localhost:8765/ws -debug
 The FAQ answers are six short entries pulled straight from `docs/MISSION.md`, wired up via `flow.ListenFor` in `newAgentFlow()` in `main.go`.
 
 `pkg/agentflow` uses `PhraseMatcher` to evaluate utterances against trigger phrases. Without a native embedding model loaded (see open task `moonshine-go-tpg`), `PhraseMatcher` operates on case-insensitive substring matching. Once native `EmbeddingModel` C API bindings land, `pkg/agentflow` automatically gains cosine-similarity vector matching without any code changes in this sample.
+
+## Alternative pattern: deterministic regex fast-paths (`IntentMatcher`)
+
+For simple, single-turn voice control commands without multi-turn conversation flows (`Say`/`Ask`/`Confirm`), `moonshine serve`'s built-in fast path uses `internal/serve.IntentMatcher` (a 95-line deterministic regex rule engine returning synchronous control-plane action requests).
+
+Here is how the session pause/resume controls in this sample compare when written as a regex rule matcher versus `pkg/agentflow`:
+
+```go
+// Deterministic regex fast-path (internal/serve.IntentMatcher style)
+type controlHandler struct{}
+
+func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
+    switch {
+    case stopListeningRe.MatchString(line.Text):
+        return []serveapi.ActionRequest{{Verb: "session.pause"}}
+    case resumeListeningRe.MatchString(line.Text):
+        return []serveapi.ActionRequest{{Verb: "session.resume"}}
+    default:
+        return nil
+    }
+}
+
+// AgentFlow DSL (pkg/agentflow style -- used in this sample)
+flow := agentflow.New()
+flow.ActionSink(sink)
+flow.Always("stop listening", func(d *agentflow.Dialog) error {
+    _, err := d.PauseListening()
+    return err
+})
+flow.Always("resume listening", func(d *agentflow.Dialog) error {
+    _, err := d.ResumeListening()
+    return err
+})
+```
+
+Both patterns are valid: use `IntentMatcher`-style regex for zero-dependency, single-shot control rules; use `pkg/agentflow` when building structured, multi-turn voice agents (`Say`, `Ask`, `Confirm`, `Choose`).

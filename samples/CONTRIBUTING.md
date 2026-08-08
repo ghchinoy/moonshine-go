@@ -17,7 +17,8 @@ A sample earns a place in `samples/` if it:
 - **Demonstrates something specific**, ideally traceable to a pillar in
   [`../docs/MISSION.md`](../docs/MISSION.md) (control, observability,
   privacy, composability) or a specific integration tier (Tier 0 subscribe,
-  Tier 1 external agent, Tier 2 Go extension via `pkg/serveapi`).
+  Tier 1 external agent, Tier 2 Go extension via `pkg/serveapi` & `pkg/agentflow`).
+- **Chooses the appropriate agent pattern**: Choose **deterministic regex (`IntentMatcher`)** for sub-millisecond single-shot control commands, **`pkg/agentflow` (AgentFlow DSL)** for multi-turn voice dialogs (`Say`, `Ask`, `Confirm`, `Choose`), or an **LLM Agent** for unconstrained reasoning. See [GUIDE.md](GUIDE.md#5-pattern-selection-guide-fast-path-intentmatcher-vs-agentflow-dsl-vs-llm-agent) for the complete decision matrix.
 - **Is small.** If a sample needs an explanation longer than its own code,
   something is probably wrong with the sample, not the explanation.
 

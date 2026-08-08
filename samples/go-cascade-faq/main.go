@@ -192,22 +192,23 @@ type faqEntry struct {
 // satisfy serveapi.AgentHandler via agentflow.NewHandlerAdapter.
 func newAgentFlow(sink serveapi.ActionSink) serveapi.AgentHandler {
 	flow := agentflow.New()
+	flow.ActionSink(sink)
 
 	// Direct speech output through the WebSocket action sink so d.Say(...) in
 	// conversation flows sends a "speak" action back to the sidecar.
 	flow.SpeakWith(func(text string) error {
 		args, _ := json.Marshal(serveapi.SpeakArgs{Text: text})
-		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "speak", Args: args})
+		_, err := flow.EmitAction(serveapi.ActionRequest{Verb: "speak", Args: args})
 		return err
 	})
 
-	// Global control commands: intercepted ahead of FAQ flows.
+	// Global control commands: intercepted ahead of FAQ flows using Dialog action helpers.
 	flow.Always("stop listening", func(d *agentflow.Dialog) error {
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"stop listening\"\n", ts())
 		}
 		fmt.Printf("[%s] [agent] heard \"stop listening\" -- pausing session\n", ts())
-		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.pause"})
+		_, err := d.PauseListening()
 		return err
 	})
 
@@ -216,7 +217,7 @@ func newAgentFlow(sink serveapi.ActionSink) serveapi.AgentHandler {
 			fmt.Printf("[%s] [debug] control: matched \"pause listening\"\n", ts())
 		}
 		fmt.Printf("[%s] [agent] heard \"pause listening\" -- pausing session\n", ts())
-		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.pause"})
+		_, err := d.PauseListening()
 		return err
 	})
 
@@ -225,7 +226,7 @@ func newAgentFlow(sink serveapi.ActionSink) serveapi.AgentHandler {
 			fmt.Printf("[%s] [debug] control: matched \"resume listening\"\n", ts())
 		}
 		fmt.Printf("[%s] [agent] heard \"resume listening\" -- resuming session\n", ts())
-		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.resume"})
+		_, err := d.ResumeListening()
 		return err
 	})
 
@@ -234,7 +235,7 @@ func newAgentFlow(sink serveapi.ActionSink) serveapi.AgentHandler {
 			fmt.Printf("[%s] [debug] control: matched \"start listening\"\n", ts())
 		}
 		fmt.Printf("[%s] [agent] heard \"start listening\" -- resuming session\n", ts())
-		_, err := sink.Dispatch(context.Background(), serveapi.ActionRequest{Verb: "session.resume"})
+		_, err := d.ResumeListening()
 		return err
 	})
 
