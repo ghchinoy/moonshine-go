@@ -184,6 +184,9 @@ Ask *"tell me about the mission"* or say *"stop listening"*.
 > **Callout: `pkg/agentflow` vs. `IntentMatcher` Regex**  
 > For simple, single-shot control commands with zero model dependencies, `internal/serve.IntentMatcher` provides a 95-line regex rule engine. For structured, multi-turn conversation flows (`Say`, `Ask`, `Confirm`, `Choose`) and trigger phrase matching, use `pkg/agentflow`. See [`samples/GUIDE.md`](GUIDE.md#5-pattern-selection-guide-fast-path-intentmatcher-vs-agentflow-dsl-vs-llm-agent) for the complete decision matrix.
 
+> **In-Process AgentFlow Alternative: `moonshine serve --agent agentflow`**  
+> If you want to run AgentFlow logic directly inside the sidecar daemon without building a separate Go client process, `moonshine serve --agent agentflow --allow-actions` instantiates a built-in `pkg/agentflow` instance in-process (composed with `IntentMatcher` fast-paths), with built-in `"ping"` (responds "pong") and `"time"` flows — no external client program required.
+
 ---
 
 ## Part 4: Native In-Process Embedding & Cloud Hosting
