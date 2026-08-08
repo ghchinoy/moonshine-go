@@ -13,8 +13,15 @@ type HandlerAdapter struct {
 }
 
 // NewHandlerAdapter wraps flow in a serveapi.AgentHandler adapter.
-func NewHandlerAdapter(flow *AgentFlow) serveapi.AgentHandler {
+func NewHandlerAdapter(flow *AgentFlow) *HandlerAdapter {
 	return &HandlerAdapter{flow: flow}
+}
+
+// SetActionSink binds an ActionSink to the underlying AgentFlow.
+func (a *HandlerAdapter) SetActionSink(sink serveapi.ActionSink) {
+	if a.flow != nil {
+		a.flow.ActionSink(sink)
+	}
 }
 
 // OnFinalizedLine satisfies serveapi.AgentHandler by forwarding line.Text to HandleUtterance.

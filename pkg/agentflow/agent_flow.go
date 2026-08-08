@@ -2,6 +2,7 @@ package agentflow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -60,7 +61,6 @@ type AgentFlow struct {
 	isSpeaking          bool
 
 	settleWaiters []*SettleSignal
-	queueTask     chan struct{}
 }
 
 type pendingAnswer struct {
@@ -324,6 +324,8 @@ func (af *AgentFlow) speak(text string) error {
 	saids := append([]func(string){}, af.saidCallbacks...)
 	override := af.speakOverride
 	wantsSpeech := af.wantsSpeech
+	sink := af.actionSink
+	voice := af.voiceID
 	af.isSpeaking = true
 	af.mu.Unlock()
 
@@ -345,7 +347,19 @@ func (af *AgentFlow) speak(text string) error {
 		return override(text)
 	}
 
-	// Default fallback when no TTS engine or override is bound: silent / log
+	if sink != nil {
+		args, err := json.Marshal(serveapi.SpeakArgs{Text: text, Voice: voice})
+		if err != nil {
+			return err
+		}
+		_, err = sink.Dispatch(context.Background(), serveapi.ActionRequest{
+			Verb: "speak",
+			Args: args,
+		})
+		return err
+	}
+
+	// Default fallback when no TTS engine, override, or ActionSink is bound: silent / log
 	return nil
 }
 
