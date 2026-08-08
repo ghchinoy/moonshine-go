@@ -162,10 +162,16 @@ func (s *Server) Run(ctx context.Context) error {
 		}()
 	}
 
-	agentRunner := NewAgentRunner(s.cfg.Agent, ActionSinkFunc(func(ctx context.Context, req event.ActionRequest) (event.ActionResult, error) {
+	sink := ActionSinkFunc(func(ctx context.Context, req event.ActionRequest) (event.ActionResult, error) {
 		res := s.dispatcher.Handle(ctx, req)
 		return res, nil
-	}))
+	})
+
+	if setter, ok := s.cfg.Agent.(interface{ SetActionSink(serveapi.ActionSink) }); ok {
+		setter.SetActionSink(sink)
+	}
+
+	agentRunner := NewAgentRunner(s.cfg.Agent, sink)
 
 	subID, eventsCh := s.hub.Subscribe()
 	defer s.hub.Unsubscribe(subID)

@@ -12,6 +12,7 @@ import (
 	"github.com/ghchinoy/moonshine-go/internal/audio"
 	"github.com/ghchinoy/moonshine-go/internal/serve"
 	"github.com/ghchinoy/moonshine-go/internal/session"
+	"github.com/ghchinoy/moonshine-go/pkg/agentflow"
 	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 	"github.com/spf13/cobra"
@@ -71,7 +72,7 @@ func init() {
 	serveCmd.Flags().StringVar(&serveRemoteAudioEncoding, "remote-audio-encoding", "float32", "Remote audio sample encoding: float32 or int16 (for --audio-source remote)")
 	serveCmd.Flags().IntVar(&serveRemoteAudioChannels, "remote-audio-channels", 1, "Remote audio channel count: 1 (mono) or 2 (stereo) (for --audio-source remote)")
 	serveCmd.Flags().IntVar(&serveMaxSessions, "max-sessions", 10, "Maximum concurrent sessions in remote audio mode")
-	serveCmd.Flags().StringVar(&serveAgent, "agent", "external", "Agent mode: external (subscribers handle logic via IPC) or gemini (built-in Gemini LLM agent)")
+	serveCmd.Flags().StringVar(&serveAgent, "agent", "external", "Agent mode: external (subscribers handle logic via IPC), gemini (built-in Gemini LLM agent), or agentflow (built-in AgentFlow DSL agent)")
 	serveCmd.Flags().StringVar(&serveGeminiModel, "gemini-model", "gemini-2.5-flash", "Google Gemini model ID (for --agent gemini)")
 	serveCmd.Flags().BoolVar(&serveAllowActions, "allow-actions", false, "Gate enabling mutating actions (speak, session control, run_command)")
 	serveCmd.Flags().StringVar(&serveTTSVoice, "tts-voice", "", "Default voice override for TTS speaker")
@@ -173,7 +174,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// Agent Setup
 	var agentHandler serve.AgentHandler
-	if strings.ToLower(serveAgent) == "gemini" {
+	agentMode := strings.ToLower(strings.TrimSpace(serveAgent))
+	switch agentMode {
+	case "gemini":
 		realClient, err := serve.NewRealGeminiClient(ctx, serveGeminiModel)
 		if err != nil && !jsonOutput() {
 			fmt.Fprintf(os.Stderr, "%s %v\n", styleWarn.Render("warning: could not initialize Gemini client:"), err)
@@ -186,7 +189,28 @@ func runServe(cmd *cobra.Command, args []string) error {
 		})
 		intentMatcher := serve.NewIntentMatcher()
 		agentHandler = serve.NewCompositeHandler(intentMatcher, geminiAgent)
-	} else {
+	case "agentflow":
+		flow := agentflow.New().
+			Language(serveLanguage).
+			ModelArch(serveArch).
+			Speech(true).
+			Microphone(false)
+
+		if serveTTSVoice != "" {
+			flow.Voice(serveTTSVoice)
+		}
+
+		flow.ListenFor("ping", func(d *agentflow.Dialog) error {
+			return d.Say("pong")
+		})
+		flow.ListenFor("time", func(d *agentflow.Dialog) error {
+			return d.Say("The time is " + time.Now().Format("3:04 PM"))
+		})
+
+		flowAdapter := agentflow.NewHandlerAdapter(flow)
+		intentMatcher := serve.NewIntentMatcher()
+		agentHandler = serve.NewCompositeHandler(intentMatcher, flowAdapter)
+	default:
 		agentHandler = serve.ExternalAgent{}
 	}
 
