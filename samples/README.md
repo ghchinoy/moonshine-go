@@ -184,6 +184,11 @@ runner.Run(ctx, events)
   module (with a `replace` directive to this checkout) so it builds exactly
   the way a real third-party consumer of `pkg/serveapi` and `pkg/agentflow` would — verified to
   build with `CGO_ENABLED=0`, zero `internal/*` imports.
+- [go-domain-customization](go-domain-customization/) — runtime vocabulary and
+  domain biasing. Demonstrates Moonshine v0.1.2's `session.set_keyterms` and
+  `session.set_context` ActionRequests, dynamically switching keyterm sets
+  (Cloud, Clinical, Financial) and extracting terms from free-form context
+  passages mid-stream with zero model reloads.
 - [browser-listen](browser-listen/) — a static HTML+JS page:
   `getUserMedia` + `AudioWorklet` captures mic audio in the browser and
   streams it to a remote `moonshine serve` via `--audio-source remote`,
