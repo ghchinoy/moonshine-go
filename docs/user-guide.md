@@ -155,6 +155,8 @@ model.dir: /Users/username/Library/Caches/moonshine_voice
 
 ## transcribe
 
+Transcribe one audio file, start to finish. (Try live in-browser transcription with per-phrase latency metrics at [moonshine.ai/stt](https://moonshine.ai/stt/).)
+
 ```sh
 # Local file, default arch (tiny) and language (en).
 moonshine transcribe recording.wav
@@ -360,7 +362,9 @@ Speaker labels (`S0`, `S1`, ...) are assigned in order of first appearance
 and are only stable within a single `transcribe` run -- there's no identity
 tracking across separate files/invocations. A single-speaker clip (like
 `test-assets/two_cities_16k.wav` above) will just show `[S0]` on every line;
-diarization is only interesting on audio with more than one speaker.
+diarization is only interesting on audio with more than one speaker. (For a
+live demonstration of streaming STT + speaker diarization, see
+[moonshine.ai/meeting-notes](https://moonshine.ai/meeting-notes/).)
 
 `live` has the same two flags, plus tuning knobs for how often streaming
 diarization re-clusters -- see [live](#live) below.
@@ -506,7 +510,8 @@ When `--allow-actions` is enabled, connected WebSocket and gRPC subscribers can 
 
 Moonshine's TTS isn't one proprietary model -- it's a G2P (text
 normalization/phonemization) layer moonshine built itself, sitting in front
-of **three separate third-party engines** you pick between with `--voice`:
+of **three separate third-party engines** you pick between with `--voice`.
+Hear samples of all voices and test in-browser voice cloning at [moonshine.ai/tts](https://moonshine.ai/tts/).
 
 | Engine | What it actually is | Voice prefix / flags |
 |---|---|---|
@@ -767,7 +772,7 @@ In daemon mode (`moonshine serve`), external agents can update keyterm biasing o
 - Dispatch `{"verb": "session.set_context", "args": {"context": "...", "max_terms": 200}}` to submit new context text.
 - Pass `{"keyterms": []}` or `{"context": ""}` to clear biasing.
 
-For a full working example of live voice-triggered domain switching, see **[samples/go-domain-customization](../samples/go-domain-customization/)**.
+For a full working example of live voice-triggered domain switching, see **[samples/go-domain-customization](../samples/go-domain-customization/)**. For upstream accuracy trade-off tables and prefix-tree boost details, see the [Upstream Domain Customization Guide](https://github.com/moonshine-ai/moonshine/blob/main/docs/models/domain-customization.md).
 
 ## Choosing a model architecture
 

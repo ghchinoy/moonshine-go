@@ -107,7 +107,7 @@ go run . -addr ws://localhost:8765/ws -debug
 
 The FAQ answers are six short entries pulled straight from `docs/MISSION.md`, wired up via `flow.ListenFor` in `newAgentFlow()` in `main.go`.
 
-`pkg/agentflow` uses `PhraseMatcher` to evaluate utterances against trigger phrases. Without a native embedding model loaded (see open task `moonshine-go-tpg`), `PhraseMatcher` operates on case-insensitive substring matching. Once native `EmbeddingModel` C API bindings land, `pkg/agentflow` automatically gains cosine-similarity vector matching without any code changes in this sample.
+`pkg/agentflow` uses `PhraseMatcher` to evaluate utterances against trigger phrases (see the official interactive [AgentFlow explainer](https://moonshine.ai/agent-flow/)). Without a native embedding model loaded (see open task `moonshine-go-tpg`), `PhraseMatcher` operates on case-insensitive substring matching. Once native `EmbeddingModel` C API bindings land, `pkg/agentflow` automatically gains cosine-similarity vector matching without any code changes in this sample.
 
 ## Alternative pattern: deterministic regex fast-paths (`IntentMatcher`)
 

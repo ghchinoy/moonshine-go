@@ -79,7 +79,7 @@ When building an agent on top of `moonshine serve`, developers choose from three
 | Pattern | How it works | Best used for | Reference implementation |
 |---|---|---|---|
 | **Fast-Path Regex (`IntentMatcher`)** | Zero-dependency regex rules compiled ahead of time; returns synchronous `ActionRequest`s (`session.pause`, `session.resume`, `session.stop`). | Sub-millisecond, 100% deterministic single-shot control actions with no model downloads or prompt turns. | `internal/serve/intent.go` |
-| **Voice Agent DSL (`pkg/agentflow`)** | Go-native voice agent framework (`AgentFlow`, `PhraseMatcher`, `Dialog`) supporting `Say`, `Ask`, `Confirm`, and `Choose` flows with fuzzy embedding matching. | Structured, multi-turn voice dialogs, prompt retries, confirmation flows, and interactive voice surveys. | `pkg/agentflow`, `samples/go-cascade-faq` (external IPC) & `moonshine serve --agent agentflow` (in-process) |
+| **Voice Agent DSL (`pkg/agentflow`)** | Go-native voice agent framework ([AgentFlow](https://moonshine.ai/agent-flow/), `PhraseMatcher`, `Dialog`) supporting `Say`, `Ask`, `Confirm`, and `Choose` flows with fuzzy embedding matching. | Structured, multi-turn voice dialogs, prompt retries, confirmation flows, and interactive voice surveys. | `pkg/agentflow`, `samples/go-cascade-faq` (external IPC) & `moonshine serve --agent agentflow` (in-process) |
 | **Spoken LLM Agent (`GeminiAgent`)** | Streaming transcript line passed to a large language model (e.g. Gemini 2.5 Flash / Lite) with function calling / MCP tools. | Open-ended reasoning, unstructured Q&A, multi-step tool calls, and complex dialogs requiring general intelligence. | `internal/serve/gemini.go` & `samples/python-agent` |
 
 ### Selection Decision Matrix

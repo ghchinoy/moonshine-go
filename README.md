@@ -2,7 +2,7 @@
 
 This repository provides a Go client, command-line tool, and pure-Go bindings for the [Moonshine voice library](https://github.com/moonshine-ai/moonshine)
 (STT + TTS), built directly on `libmoonshine`'s C API rather than
-reimplementing its model pipeline.
+reimplementing its model pipeline. Try live on-device WebAssembly demos in your browser at [moonshine.ai](https://moonshine.ai).
 
 <img width="1152" height="784" alt="Image" src="https://github.com/user-attachments/assets/46d0d6bf-eeb5-4c2b-9ac8-3c3b0bfa3643" />
 
