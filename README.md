@@ -126,6 +126,10 @@ make build   # -> bin/moonshine ; equivalently: go build -o bin/moonshine ./cmd/
 ./bin/moonshine live --arch tiny-streaming
 ./bin/moonshine live --no-tui   # plain text, for scripting/logging
 
+# Vocabulary biasing for specialized jargon / proper nouns (streaming models only).
+./bin/moonshine live --arch tiny-streaming --keyterms "Kubernetes,Ceph,etcd"
+./bin/moonshine transcribe --arch tiny-streaming --context-file release-notes.md recording.wav
+
 # Agentic voice sidecar daemon (streams live transcripts over WS/gRPC IPC).
 ./bin/moonshine serve --transport ws,grpc --allow-actions --agent gemini
 

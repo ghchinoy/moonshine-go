@@ -11,10 +11,14 @@ details -- this guide assumes you already have `bin/moonshine` built and
 - [Commands at a glance](#commands-at-a-glance)
 - [doctor](#doctor)
 - [setup](#setup)
+- [models](#models)
 - [transcribe](#transcribe)
 - [live](#live)
+- [serve](#serve)
 - [tts](#tts)
 - [config](#config)
+- [Runtime Domain Customization (Keyterms & Context Biasing)](#runtime-domain-customization-keyterms--context-biasing)
+- [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps)
 - [Choosing a model architecture](#choosing-a-model-architecture)
 - [Troubleshooting](#troubleshooting)
 
@@ -177,6 +181,10 @@ moonshine --json transcribe --with-audio recording.wav > result-with-audio.json
 | `--arch` | `tiny` | See [Choosing a model architecture](#choosing-a-model-architecture) |
 | `--providers` | `""` (CPU-only) | See [docs/hardware-acceleration.md](hardware-acceleration.md) before changing |
 | `-o, --output` | (none) | Also write the transcript to this file |
+| `--keyterms` | `""` | Comma-separated key terms to bias speech recognition towards (e.g. `Kubernetes,Ceph,etcd`; streaming models only) |
+| `--keyterm-boost` | `2.0` | Keyterm biasing boost strength (default: 2.0; streaming models only) |
+| `--context` | `""` | Passage of free-form text from which key terms are automatically extracted (streaming models only) |
+| `--context-file` | `""` | Path to text file containing free-form context for keyterm extraction (streaming models only) |
 | `--with-audio` | `false` | Include each line's raw per-line audio samples in `--json` output |
 | `--identify-speakers` | `false` | Enable speaker diarization -- see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) below |
 | `--word-timestamps` | `false` | Enable per-word timing -- see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) below |
@@ -379,6 +387,10 @@ moonshine live --arch tiny-streaming --poll-interval 500ms
 | `--no-tui` | `false` | Plain text output instead of the bubbletea TUI |
 | `--poll-interval` | `250ms` | How often to ask the library for an updated transcript |
 | `-o, --output` | (none) | Append completed lines to this file as they finalize (works in either display mode) |
+| `--keyterms` | `""` | Comma-separated key terms to bias speech recognition towards (e.g. `Kubernetes,Ceph,etcd`; streaming models only) |
+| `--keyterm-boost` | `2.0` | Keyterm biasing boost strength (default: 2.0; streaming models only) |
+| `--context` | `""` | Passage of free-form text from which key terms are automatically extracted (streaming models only) |
+| `--context-file` | `""` | Path to text file containing free-form context for keyterm extraction (streaming models only) |
 | `--record-audio` | (none) | Save captured microphone audio to a WAV file (default filename if empty/directory: `moonshine_clip_YYYYMMDD-HHMMSS_16k_mono.wav`) |
 | `--save-line-audio` | (none) | Save each finalized line's raw audio and transcript as individual `.wav` and `.txt` files under this directory |
 | `--identify-speakers` | `false` | Enable speaker diarization -- lines/TUI get a `[S0]`-style label; see [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps) |
@@ -466,6 +478,24 @@ moonshine serve --transport ws --agent external
 | `--tts-language` | `en_us` | TTS speaker language |
 | `--arch` | `tiny-streaming` | STT model architecture (`tiny-streaming`, `small-streaming`, `medium-streaming`) |
 | `--language` | `en` | STT model language |
+| `--keyterms` | `""` | Initial comma-separated key terms to bias speech recognition towards (streaming models only) |
+| `--keyterm-boost` | `2.0` | Keyterm biasing boost strength (default: 2.0; streaming models only) |
+| `--context` | `""` | Initial free-form text passage for automatic keyterm extraction (streaming models only) |
+| `--context-file` | `""` | Path to text file containing initial context for keyterm extraction (streaming models only) |
+
+### Supported Action Verbs
+
+When `--allow-actions` is enabled, connected WebSocket and gRPC subscribers can dispatch action requests to the sidecar:
+
+| Verb | Payload (`args`) | Description |
+|---|---|---|
+| `speak` | `{"text": "...", "voice": "...", "speed": 1.0}` | Synthesizes speech and plays it locally via TTS |
+| `display` | `{"title": "...", "body": "...", "kind": "..."}` | Fans out a DisplayCard event to connected UI subscribers |
+| `session.pause` | `null` | Mutes microphone input and pauses transcription |
+| `session.resume` | `null` | Unmutes microphone input and resumes transcription |
+| `session.stop` | `null` | Stops the running sidecar session |
+| `session.set_keyterms` | `{"keyterms": ["Kubernetes", "Ceph"]}` | Replaces contextual biasing key terms dynamically mid-session |
+| `session.set_context` | `{"context": "...", "max_terms": 200}` | Submits free-form text for automatic tokenizer term extraction |
 
 ### Key Invariants
 - **Backpressure & Idempotency:** Interim frames drop under backpressure, but every finalized line (`Line.ID`) is delivered to subscribers/agents exactly once.
@@ -697,6 +727,47 @@ A few of these are worth calling out specifically:
   purely to derive `tts.g2p_root`'s default (see [tts](#tts) above) and to
   document where your moonshine checkout lives, matching `MOONSHINE_SRC`,
   the env var `make buildlib` already reads.
+
+## Runtime Domain Customization (Keyterms & Context Biasing)
+
+Moonshine v0.1.2 supports runtime vocabulary biasing to improve accuracy on domain-specific terminology (proper names, medical jargon, cloud infrastructure terms, financial tickers) with zero model retraining and zero latency cost during inference.
+
+Biasing works on all **streaming architectures** (`tiny-streaming`, `small-streaming`, `medium-streaming`).
+
+### 1. Exact Keyterm Biasing (`--keyterms`)
+
+When you know the specific vocabulary terms or phrases in advance, supply them as a comma-separated list:
+
+```sh
+moonshine live --arch tiny-streaming --keyterms "Kubernetes,Ceph,etcd,Istio,Kustomize"
+moonshine transcribe --arch tiny-streaming --keyterms "Atorvastatin,Lisinopril,Echocardiogram" recording.wav
+```
+
+- **Prefix-tree boosting:** Each term is tokenized and rewarded progressively during decoding (`boost * (1 + ln(depth))`). Multi-word phrases (e.g. `"Anushka Sharma"`, `"S&P 500"`) are supported.
+- **Tuning boost strength (`--keyterm-boost`):**
+  - `0.0`: Biasing disabled.
+  - `1.0`: Gentle boost, zero accuracy penalty on general words.
+  - `2.0` *(default)*: Recommended balance, cuts ~25% of errors on listed terms with minimal impact on other words.
+  - `3.0` – `4.0`: Aggressive boost for curated short lists where domain terms matter most. Avoid values > 4.0.
+
+### 2. Automatic Context Extraction (`--context-file` or `--context`)
+
+When you have reference text (e.g. release notes, meeting agendas, clinical records, or ticket descriptions) but have not enumerated individual terms, pass the document directly. The model's tokenizer extracts and ranks the rarest subwords automatically (capped at 200 terms by default):
+
+```sh
+moonshine live --arch tiny-streaming --context-file migration-plan.md
+moonshine transcribe --arch tiny-streaming --context-file patient-history.txt clinical-audio.wav
+```
+
+### 3. Dynamic Mid-Session Switching in `moonshine serve`
+
+In daemon mode (`moonshine serve`), external agents can update keyterm biasing on the fly as the user navigates across different screens or workflows:
+
+- Dispatch `{"verb": "session.set_keyterms", "args": {"keyterms": ["..."]}}` to replace the active keyterm set.
+- Dispatch `{"verb": "session.set_context", "args": {"context": "...", "max_terms": 200}}` to submit new context text.
+- Pass `{"keyterms": []}` or `{"context": ""}` to clear biasing.
+
+For a full working example of live voice-triggered domain switching, see **[samples/go-domain-customization](../samples/go-domain-customization/)**.
 
 ## Choosing a model architecture
 
