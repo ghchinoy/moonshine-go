@@ -28,6 +28,10 @@ var (
 	transcribeConcurrency      int
 	transcribeRecursive        bool
 	transcribeSaveLineAudio    string
+	transcribeKeyterms         string
+	transcribeKeytermBoost     float64
+	transcribeContext          string
+	transcribeContextFile      string
 )
 
 var transcribeCmd = &cobra.Command{
@@ -58,6 +62,10 @@ func init() {
 	transcribeCmd.Flags().IntVarP(&transcribeConcurrency, "concurrency", "c", 1, "Number of concurrent transcription workers for batch mode (default 1)")
 	transcribeCmd.Flags().BoolVarP(&transcribeRecursive, "recursive", "r", true, "Recursively scan directories for audio files in batch mode")
 	transcribeCmd.Flags().StringVar(&transcribeSaveLineAudio, "save-line-audio", "", "Save each transcribed line's raw audio and transcript text as individual .wav and .txt files under this directory")
+	transcribeCmd.Flags().StringVar(&transcribeKeyterms, "keyterms", "", "Comma-separated key terms to bias speech recognition towards (e.g. 'Kubernetes,Ceph,etcd'; streaming models only)")
+	transcribeCmd.Flags().Float64Var(&transcribeKeytermBoost, "keyterm-boost", 2.0, "Keyterm biasing boost strength (default: 2.0; streaming models only)")
+	transcribeCmd.Flags().StringVar(&transcribeContext, "context", "", "Passage of free-form text from which key terms are automatically extracted (streaming models only)")
+	transcribeCmd.Flags().StringVar(&transcribeContextFile, "context-file", "", "Path to file containing free-form context text for keyterm extraction (streaming models only)")
 }
 
 type transcribeStats struct {
@@ -247,8 +255,13 @@ func runSingleTranscribe(cmd *cobra.Command, input string) error {
 	stats.DecodeMs = msSince(t0)
 	stats.AudioDurationSec = float64(len(samples)) / float64(audio.TargetSampleRate)
 
+	customOpts, err := domainCustomizationOptions(cmd, transcribeKeyterms, transcribeKeytermBoost, transcribeContext, transcribeContextFile)
+	if err != nil {
+		return err
+	}
 	loadOpts := append(ortProviderOptions(transcribeProviders),
 		diarizationOptions(cmd, transcribeIdentifySpeakers, transcribeWordTimestamps, 0, 0, 0)...)
+	loadOpts = append(loadOpts, customOpts...)
 
 	var tr *moonshine.Transcriber
 	t0 = time.Now()
@@ -337,8 +350,13 @@ func runBatchTranscribe(cmd *cobra.Command, inputs []string) error {
 		return err
 	}
 
+	customOpts, err := domainCustomizationOptions(cmd, transcribeKeyterms, transcribeKeytermBoost, transcribeContext, transcribeContextFile)
+	if err != nil {
+		return err
+	}
 	loadOpts := append(ortProviderOptions(transcribeProviders),
 		diarizationOptions(cmd, transcribeIdentifySpeakers, transcribeWordTimestamps, 0, 0, 0)...)
+	loadOpts = append(loadOpts, customOpts...)
 
 	var tr *moonshine.Transcriber
 	t0 := time.Now()

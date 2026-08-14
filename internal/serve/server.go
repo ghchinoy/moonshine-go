@@ -137,6 +137,9 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	s.dispatcher = NewDispatcher(speaker, s.hub, s.sessCtrl, s.cfg.AllowActions)
+	if s.cfg.Transcriber != nil {
+		s.dispatcher.SetContextSetter(s.cfg.Transcriber)
+	}
 
 	if len(s.cfg.Transports) > 0 {
 		s.mgr = NewManager(s.cfg.Transports...)

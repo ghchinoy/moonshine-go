@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.2] - 2026-08-14
+
+### Added
+- **Runtime Domain Customization (Keyterms & Context Biasing)**: Bound `moonshine_transcriber_set_keyterms` and `moonshine_transcriber_set_context` in `pkg/moonshine` (`Transcriber.SetKeyterms` / `Transcriber.SetContext`), enabling dynamic vocabulary biasing towards jargon, product names, and free-form context text on streaming STT architectures (`#s7du.1`).
+- **Domain Customization Action Verbs**: Added `session.set_keyterms` and `session.set_context` action verbs to `moonshine serve` sidecar, allowing external WebSocket/gRPC agents and subscribers to dynamically update vocabulary biasing and context passages mid-session (`#s7du.2`).
+- **CLI Flags for Vocabulary Biasing**: Added `--keyterms`, `--keyterm-boost`, `--context`, and `--context-file` flags to `moonshine live`, `moonshine transcribe`, and `moonshine serve` (`#s7du.3`).
+
+### Changed
+- **Upstream Library Pin**: Bumped `MOONSHINE_RELEASE_TAG` to `v0.1.2` (`#s7du.5`).
+
+---
+
 ## [v0.9.1] - 2026-08-08
 
 ### Fixed

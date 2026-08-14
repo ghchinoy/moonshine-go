@@ -29,6 +29,10 @@ func TestServeCmd_Flags(t *testing.T) {
 		{"endpoint-post-final-delay", "endpoint-post-final-delay", "0s"},
 		{"endpoint-min-utterance-chars", "endpoint-min-utterance-chars", "0"},
 		{"endpoint-max-utterance-duration", "endpoint-max-utterance-duration", "0s"},
+		{"keyterms", "keyterms", ""},
+		{"keyterm-boost", "keyterm-boost", "2"},
+		{"context", "context", ""},
+		{"context-file", "context-file", ""},
 	}
 
 	for _, tt := range tests {
@@ -42,4 +46,32 @@ func TestServeCmd_Flags(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDomainCustomizationOptions(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		opts, err := domainCustomizationOptions(nil, "", 2.0, "", "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(opts) != 0 {
+			t.Errorf("expected 0 options, got %v", opts)
+		}
+	})
+
+	t.Run("keyterms and context text", func(t *testing.T) {
+		opts, err := domainCustomizationOptions(nil, "Kubernetes,Ceph", 2.0, "Platform migration context", "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(opts) != 2 {
+			t.Fatalf("expected 2 options, got %d: %v", len(opts), opts)
+		}
+		if opts[0].Name != "keyterms" || opts[0].Value != "Kubernetes,Ceph" {
+			t.Errorf("unexpected opt[0]: %v", opts[0])
+		}
+		if opts[1].Name != "context" || opts[1].Value != "Platform migration context" {
+			t.Errorf("unexpected opt[1]: %v", opts[1])
+		}
+	})
 }

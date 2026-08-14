@@ -119,8 +119,9 @@ type DisplayCard struct {
 // ActionResult (empty if the caller doesn't need correlation).
 //
 // Known verbs: "speak", "display", "session.pause", "session.resume",
-// "session.stop", "agent.result". Unknown verbs must produce an
-// ActionResult{OK:false} rather than being silently dropped.
+// "session.stop", "session.set_keyterms", "session.set_context", "agent.result".
+// Unknown verbs must produce an ActionResult{OK:false} rather than being
+// silently dropped.
 type ActionRequest struct {
 	ID   string          `json:"id,omitempty"`
 	Verb string          `json:"verb"`
@@ -139,6 +140,19 @@ type SpeakArgs struct {
 	Text  string  `json:"text"`
 	Voice string  `json:"voice,omitempty"`
 	Speed float64 `json:"speed,omitempty"`
+}
+
+// SetKeytermsArgs is the Args payload for the "session.set_keyterms" verb:
+// replacing the contextual biasing key terms on the running transcriber.
+type SetKeytermsArgs struct {
+	Keyterms []string `json:"keyterms"`
+}
+
+// SetContextArgs is the Args payload for the "session.set_context" verb:
+// extracting key terms from a passage of free-form text.
+type SetContextArgs struct {
+	Context  string `json:"context"`
+	MaxTerms int32  `json:"max_terms,omitempty"`
 }
 
 // DisplayArgs is the Args payload for the "display" verb: a DisplayCard to fan

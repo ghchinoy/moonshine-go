@@ -50,6 +50,11 @@ var (
 	serveEndpointPostFinalDelay       time.Duration
 	serveEndpointMinUtteranceChars    int
 	serveEndpointMaxUtteranceDuration time.Duration
+
+	serveKeyterms     string
+	serveKeytermBoost float64
+	serveContext      string
+	serveContextFile  string
 )
 
 var serveCmd = &cobra.Command{
@@ -93,6 +98,11 @@ func init() {
 	serveCmd.Flags().DurationVar(&serveEndpointPostFinalDelay, "endpoint-post-final-delay", 0, "Minimum time a line must hold complete status before finalization (debounce)")
 	serveCmd.Flags().IntVar(&serveEndpointMinUtteranceChars, "endpoint-min-utterance-chars", 0, "Minimum line character length required for finalization")
 	serveCmd.Flags().DurationVar(&serveEndpointMaxUtteranceDuration, "endpoint-max-utterance-duration", 0, "Maximum duration a line can remain incomplete before force-finalizing")
+
+	serveCmd.Flags().StringVar(&serveKeyterms, "keyterms", "", "Comma-separated key terms to bias speech recognition towards (e.g. 'Kubernetes,Ceph,etcd'; streaming models only)")
+	serveCmd.Flags().Float64Var(&serveKeytermBoost, "keyterm-boost", 2.0, "Keyterm biasing boost strength (default: 2.0; streaming models only)")
+	serveCmd.Flags().StringVar(&serveContext, "context", "", "Passage of free-form text from which key terms are automatically extracted (streaming models only)")
+	serveCmd.Flags().StringVar(&serveContextFile, "context-file", "", "Path to file containing free-form context text for keyterm extraction (streaming models only)")
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
@@ -110,9 +120,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, muted("loading STT model..."))
 	}
+	customOpts, err := domainCustomizationOptions(cmd, serveKeyterms, serveKeytermBoost, serveContext, serveContextFile)
+	if err != nil {
+		return err
+	}
 	loadOpts := append(ortProviderOptions(serveProviders),
 		diarizationOptions(cmd, serveIdentifySpeakers, serveWordTimestamps,
 			serveDiarizationClusterCadence, serveDiarizationAnalyzeCadence, serveDiarizationClusterWindowSec)...)
+	loadOpts = append(loadOpts, customOpts...)
 	tr, err := loadTranscriberFor(language, arch, loadOpts...)
 	if err != nil {
 		return err

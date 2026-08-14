@@ -36,6 +36,15 @@ type SessionControl interface {
 	Stop(ctx context.Context) error
 }
 
+// ContextSetter is the narrow interface Dispatcher needs to fulfill the
+// "session.set_keyterms" and "session.set_context" verbs for runtime domain
+// customization. The concrete implementation (*moonshine.Transcriber) wraps
+// the native libmoonshine C API; tests use a fake.
+type ContextSetter interface {
+	SetKeyterms(terms []string) error
+	SetContext(contextText string, maxTerms int32) error
+}
+
 // Handler is a verb handler function, as registered via
 // Dispatcher.RegisterVerb. It receives the raw ActionRequest so it can
 // decode its own Args shape.
@@ -50,10 +59,11 @@ type Handler func(ctx context.Context, req event.ActionRequest) event.ActionResu
 //
 // Dispatcher is safe for concurrent use.
 type Dispatcher struct {
-	speaker      Speaker
-	publisher    Publisher
-	session      SessionControl
-	allowActions bool
+	speaker       Speaker
+	publisher     Publisher
+	session       SessionControl
+	contextSetter ContextSetter
+	allowActions  bool
 
 	mu     sync.RWMutex
 	custom map[string]Handler
@@ -82,6 +92,14 @@ func NewDispatcher(speaker Speaker, publisher Publisher, session SessionControl,
 // mutating actions enabled, for custom handlers that need to enforce the
 // same gate.
 func (d *Dispatcher) AllowActions() bool { return d.allowActions }
+
+// SetContextSetter configures the ContextSetter used to fulfill
+// "session.set_keyterms" and "session.set_context" verbs.
+func (d *Dispatcher) SetContextSetter(cs ContextSetter) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.contextSetter = cs
+}
 
 // RegisterVerb adds (or replaces) a handler for verb. Intended for other
 // packages (e.g. the Gemini agent's tool-calling loop) to extend the set of
@@ -112,6 +130,10 @@ func (d *Dispatcher) Handle(ctx context.Context, req event.ActionRequest) event.
 		return d.handleDisplay(req)
 	case "session.pause", "session.resume", "session.stop", "session.barge_in":
 		return d.handleSessionControl(ctx, req)
+	case "session.set_keyterms":
+		return d.handleSetKeyterms(ctx, req)
+	case "session.set_context":
+		return d.handleSetContext(ctx, req)
 	case "agent.result":
 		return d.handleAgentResult(ctx, req)
 	default:
@@ -179,6 +201,50 @@ func (d *Dispatcher) handleSessionControl(ctx context.Context, req event.ActionR
 		}
 	}
 	if err != nil {
+		return fail(req.ID, err.Error())
+	}
+	return ok(req.ID)
+}
+
+func (d *Dispatcher) handleSetKeyterms(ctx context.Context, req event.ActionRequest) event.ActionResult {
+	if !d.allowActions {
+		return fail(req.ID, "actions are disabled (--allow-actions not set)")
+	}
+	d.mu.RLock()
+	cs := d.contextSetter
+	d.mu.RUnlock()
+	if cs == nil {
+		return fail(req.ID, "no context setter configured (transcriber not available)")
+	}
+	var args event.SetKeytermsArgs
+	if len(req.Args) > 0 {
+		if err := json.Unmarshal(req.Args, &args); err != nil {
+			return fail(req.ID, "invalid session.set_keyterms args: "+err.Error())
+		}
+	}
+	if err := cs.SetKeyterms(args.Keyterms); err != nil {
+		return fail(req.ID, err.Error())
+	}
+	return ok(req.ID)
+}
+
+func (d *Dispatcher) handleSetContext(ctx context.Context, req event.ActionRequest) event.ActionResult {
+	if !d.allowActions {
+		return fail(req.ID, "actions are disabled (--allow-actions not set)")
+	}
+	d.mu.RLock()
+	cs := d.contextSetter
+	d.mu.RUnlock()
+	if cs == nil {
+		return fail(req.ID, "no context setter configured (transcriber not available)")
+	}
+	var args event.SetContextArgs
+	if len(req.Args) > 0 {
+		if err := json.Unmarshal(req.Args, &args); err != nil {
+			return fail(req.ID, "invalid session.set_context args: "+err.Error())
+		}
+	}
+	if err := cs.SetContext(args.Context, args.MaxTerms); err != nil {
 		return fail(req.ID, err.Error())
 	}
 	return ok(req.ID)

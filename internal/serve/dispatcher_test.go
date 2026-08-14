@@ -294,6 +294,128 @@ func TestDispatcher_AllowActions_Accessor(t *testing.T) {
 	}
 }
 
+func TestDispatcher_Handle_SetKeyterms(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		cs := &fakeContextSetter{}
+		d := NewDispatcher(nil, &fakePublisher{}, nil, true)
+		d.SetContextSetter(cs)
+
+		args, _ := json.Marshal(event.SetKeytermsArgs{Keyterms: []string{"Kubernetes", "Ceph"}})
+		res := d.Handle(context.Background(), event.ActionRequest{ID: "k1", Verb: "session.set_keyterms", Args: args})
+		if !res.OK {
+			t.Fatalf("expected OK, got Err=%q", res.Err)
+		}
+		if len(cs.keyterms) != 2 || cs.keyterms[0] != "Kubernetes" || cs.keyterms[1] != "Ceph" {
+			t.Errorf("got keyterms=%v, want [Kubernetes Ceph]", cs.keyterms)
+		}
+	})
+
+	t.Run("actions disabled", func(t *testing.T) {
+		cs := &fakeContextSetter{}
+		d := NewDispatcher(nil, &fakePublisher{}, nil, false)
+		d.SetContextSetter(cs)
+
+		args, _ := json.Marshal(event.SetKeytermsArgs{Keyterms: []string{"Kubernetes"}})
+		res := d.Handle(context.Background(), event.ActionRequest{ID: "k2", Verb: "session.set_keyterms", Args: args})
+		if res.OK {
+			t.Fatal("expected failure with actions disabled")
+		}
+		if len(cs.keyterms) != 0 {
+			t.Errorf("keyterms should not be set when actions disabled")
+		}
+	})
+
+	t.Run("no context setter configured", func(t *testing.T) {
+		d := NewDispatcher(nil, &fakePublisher{}, nil, true)
+		args, _ := json.Marshal(event.SetKeytermsArgs{Keyterms: []string{"Kubernetes"}})
+		res := d.Handle(context.Background(), event.ActionRequest{ID: "k3", Verb: "session.set_keyterms", Args: args})
+		if res.OK {
+			t.Fatal("expected failure when context setter is nil")
+		}
+	})
+
+	t.Run("setter error", func(t *testing.T) {
+		cs := &fakeContextSetter{err: errors.New("model not streaming")}
+		d := NewDispatcher(nil, &fakePublisher{}, nil, true)
+		d.SetContextSetter(cs)
+
+		args, _ := json.Marshal(event.SetKeytermsArgs{Keyterms: []string{"Kubernetes"}})
+		res := d.Handle(context.Background(), event.ActionRequest{ID: "k4", Verb: "session.set_keyterms", Args: args})
+		if res.OK || res.Err != "model not streaming" {
+			t.Fatalf("expected 'model not streaming', got ok=%v err=%q", res.OK, res.Err)
+		}
+	})
+}
+
+func TestDispatcher_Handle_SetContext(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		cs := &fakeContextSetter{}
+		d := NewDispatcher(nil, &fakePublisher{}, nil, true)
+		d.SetContextSetter(cs)
+
+		args, _ := json.Marshal(event.SetContextArgs{Context: "Migration notes for Kubernetes", MaxTerms: 100})
+		res := d.Handle(context.Background(), event.ActionRequest{ID: "c1", Verb: "session.set_context", Args: args})
+		if !res.OK {
+			t.Fatalf("expected OK, got Err=%q", res.Err)
+		}
+		if cs.contextText != "Migration notes for Kubernetes" || cs.maxTerms != 100 {
+			t.Errorf("got text=%q maxTerms=%d, want text='Migration notes for Kubernetes' maxTerms=100", cs.contextText, cs.maxTerms)
+		}
+	})
+
+	t.Run("actions disabled", func(t *testing.T) {
+		cs := &fakeContextSetter{}
+		d := NewDispatcher(nil, &fakePublisher{}, nil, false)
+		d.SetContextSetter(cs)
+
+		args, _ := json.Marshal(event.SetContextArgs{Context: "some text"})
+		res := d.Handle(context.Background(), event.ActionRequest{ID: "c2", Verb: "session.set_context", Args: args})
+		if res.OK {
+			t.Fatal("expected failure with actions disabled")
+		}
+	})
+
+	t.Run("no context setter configured", func(t *testing.T) {
+		d := NewDispatcher(nil, &fakePublisher{}, nil, true)
+		args, _ := json.Marshal(event.SetContextArgs{Context: "some text"})
+		res := d.Handle(context.Background(), event.ActionRequest{ID: "c3", Verb: "session.set_context", Args: args})
+		if res.OK {
+			t.Fatal("expected failure when context setter is nil")
+		}
+	})
+
+	t.Run("setter error", func(t *testing.T) {
+		cs := &fakeContextSetter{err: errors.New("context too large")}
+		d := NewDispatcher(nil, &fakePublisher{}, nil, true)
+		d.SetContextSetter(cs)
+
+		args, _ := json.Marshal(event.SetContextArgs{Context: "some text"})
+		res := d.Handle(context.Background(), event.ActionRequest{ID: "c4", Verb: "session.set_context", Args: args})
+		if res.OK || res.Err != "context too large" {
+			t.Fatalf("expected 'context too large', got ok=%v err=%q", res.OK, res.Err)
+		}
+	})
+}
+
+type fakeContextSetter struct {
+	keyterms    []string
+	contextText string
+	maxTerms    int32
+	err         error
+}
+
+func (f *fakeContextSetter) SetKeyterms(terms []string) error {
+	f.keyterms = terms
+	return f.err
+}
+
+func (f *fakeContextSetter) SetContext(contextText string, maxTerms int32) error {
+	f.contextText = contextText
+	f.maxTerms = maxTerms
+	return f.err
+}
+
 var _ Speaker = (*fakeSpeaker)(nil)
 var _ Publisher = (*fakePublisher)(nil)
 var _ SessionControl = (*fakeSession)(nil)
+var _ ContextSetter = (*fakeContextSetter)(nil)

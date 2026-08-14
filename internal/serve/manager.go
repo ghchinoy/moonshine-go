@@ -185,6 +185,9 @@ func (m *SessionManager) CreateSession(ctx context.Context, source serveapi.Audi
 	}
 
 	dispatcher := NewDispatcher(scopedSpk, hub, sessCtrl, m.cfg.AllowActions)
+	if m.cfg.Transcriber != nil {
+		dispatcher.SetContextSetter(m.cfg.Transcriber)
+	}
 
 	var liveSess LiveSession
 	if m.cfg.Transcriber != nil {

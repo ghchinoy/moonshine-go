@@ -142,6 +142,37 @@ func diarizationOptions(cmd *cobra.Command, identifySpeakers, wordTimestamps boo
 	return opts
 }
 
+// domainCustomizationOptions builds the moonshine.Option list for --keyterms,
+// --keyterm-boost, --context, and --context-file.
+func domainCustomizationOptions(cmd *cobra.Command, keyterms string, keytermBoost float64, contextText, contextFile string) ([]moonshine.Option, error) {
+	var opts []moonshine.Option
+	if keyterms != "" {
+		opts = append(opts, moonshine.Option{Name: "keyterms", Value: keyterms})
+	}
+	if cmd != nil && cmd.Flags().Changed("keyterm-boost") {
+		opts = append(opts, moonshine.Option{Name: "keyterm_boost", Value: fmt.Sprintf("%g", keytermBoost)})
+	}
+	var ctxContent string
+	if contextFile != "" {
+		b, err := os.ReadFile(contextFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading context file: %w", err)
+		}
+		ctxContent = string(b)
+	}
+	if contextText != "" {
+		if ctxContent != "" {
+			ctxContent = ctxContent + "\n" + contextText
+		} else {
+			ctxContent = contextText
+		}
+	}
+	if ctxContent != "" {
+		opts = append(opts, moonshine.Option{Name: "context", Value: ctxContent})
+	}
+	return opts, nil
+}
+
 func archFlagName(arch uint32) string {
 	switch arch {
 	case moonshine.ModelArchTiny:

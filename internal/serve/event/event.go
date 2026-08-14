@@ -13,9 +13,9 @@ import (
 )
 
 // Kind, TranscriptEvent, SessionSummary, DisplayCard, ActionRequest,
-// ActionResult, and SpeakArgs are aliases of the identically-named
-// pkg/serveapi types: the public package is the source of truth, this
-// package is just where the session/moonshine-dependent conversion lives.
+// ActionResult, SpeakArgs, SetKeytermsArgs, and SetContextArgs are aliases of
+// the identically-named pkg/serveapi types: the public package is the source of
+// truth, this package is just where the session/moonshine-dependent conversion lives.
 type (
 	Kind            = serveapi.Kind
 	TranscriptEvent = serveapi.TranscriptEvent
@@ -24,6 +24,8 @@ type (
 	ActionRequest   = serveapi.ActionRequest
 	ActionResult    = serveapi.ActionResult
 	SpeakArgs       = serveapi.SpeakArgs
+	SetKeytermsArgs = serveapi.SetKeytermsArgs
+	SetContextArgs  = serveapi.SetContextArgs
 	TTSAudioEvent   = serveapi.TTSAudioEvent
 )
 

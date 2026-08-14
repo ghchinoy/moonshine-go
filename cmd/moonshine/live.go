@@ -33,6 +33,10 @@ var (
 	liveLineStats                   bool
 	liveRecordAudio                 string
 	liveSaveLineAudio               string
+	liveKeyterms                    string
+	liveKeytermBoost                float64
+	liveContext                     string
+	liveContextFile                 string
 )
 
 var liveCmd = &cobra.Command{
@@ -63,6 +67,10 @@ func init() {
 	liveCmd.Flags().BoolVar(&liveLineStats, "line-stats", false, "In --no-tui mode, print a stderr note per finalized line with its time-to-final and revision count (the bubbletea TUI always shows this in its footer; the end-of-session summary is always printed either way)")
 	liveCmd.Flags().StringVar(&liveRecordAudio, "record-audio", "", "Record captured microphone audio to a WAV file (pass filename or directory; default filename: moonshine_clip_YYYYMMDD-HHMMSS_16k_mono.wav)")
 	liveCmd.Flags().StringVar(&liveSaveLineAudio, "save-line-audio", "", "Save each finalized line's raw audio and transcript text as individual .wav and .txt files under this directory")
+	liveCmd.Flags().StringVar(&liveKeyterms, "keyterms", "", "Comma-separated key terms to bias speech recognition towards (e.g. 'Kubernetes,Ceph,etcd'; streaming models only)")
+	liveCmd.Flags().Float64Var(&liveKeytermBoost, "keyterm-boost", 2.0, "Keyterm biasing boost strength (default: 2.0; streaming models only)")
+	liveCmd.Flags().StringVar(&liveContext, "context", "", "Passage of free-form text from which key terms are automatically extracted (streaming models only)")
+	liveCmd.Flags().StringVar(&liveContextFile, "context-file", "", "Path to file containing free-form context text for keyterm extraction (streaming models only)")
 }
 
 func runLive(cmd *cobra.Command, args []string) error {
@@ -79,9 +87,14 @@ func runLive(cmd *cobra.Command, args []string) error {
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, muted("loading model..."))
 	}
+	customOpts, err := domainCustomizationOptions(cmd, liveKeyterms, liveKeytermBoost, liveContext, liveContextFile)
+	if err != nil {
+		return err
+	}
 	loadOpts := append(ortProviderOptions(liveProviders),
 		diarizationOptions(cmd, liveIdentifySpeakers, liveWordTimestamps,
 			liveDiarizationClusterCadence, liveDiarizationAnalyzeCadence, liveDiarizationClusterWindowSec)...)
+	loadOpts = append(loadOpts, customOpts...)
 	tr, err := loadTranscriberFor(language, arch, loadOpts...)
 	if err != nil {
 		return err

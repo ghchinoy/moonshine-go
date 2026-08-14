@@ -247,3 +247,75 @@ func TestSmokeTTS(t *testing.T) {
 	}
 	t.Logf("voices: %+v", voices)
 }
+
+func TestSmokeDomainCustomization(t *testing.T) {
+	libDir := os.Getenv("MOONSHINE_LIB_DIR")
+	if libDir == "" {
+		t.Skip("set MOONSHINE_LIB_DIR to run this smoke test")
+	}
+	if err := Load(libDir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	manifest, err := GetSTTDependencies("en", Option{Name: "model_arch", Value: "2"})
+	if err != nil {
+		t.Fatalf("GetSTTDependencies: %v", err)
+	}
+	cacheRoot := t.TempDir()
+	if err := Download(context.Background(), manifest, cacheRoot, false); err != nil {
+		t.Fatalf("Download: %v", err)
+	}
+	modelDir, err := PrimaryModelDir(cacheRoot, manifest)
+	if err != nil {
+		t.Fatalf("PrimaryModelDir: %v", err)
+	}
+
+	// 1. Load streaming transcriber with load-time keyterms option
+	tr, err := LoadTranscriber(modelDir, ModelArchTinyStreaming,
+		Option{Name: "keyterms", Value: "Kubernetes,Ceph,etcd"},
+		Option{Name: "keyterm_boost", Value: "2.5"},
+	)
+	if err != nil {
+		t.Fatalf("LoadTranscriber with keyterms: %v", err)
+	}
+	defer tr.Close()
+
+	// 2. Set/replace keyterms mid-stream
+	if err := tr.SetKeyterms([]string{"Anushka Sharma", "Jurgen Klopp"}); err != nil {
+		t.Fatalf("SetKeyterms: %v", err)
+	}
+
+	// 3. Set/replace context passage mid-stream
+	contextPassage := "Migration notes for the platform team. We will move remaining services onto Kubernetes."
+	if err := tr.SetContext(contextPassage, 100); err != nil {
+		t.Fatalf("SetContext: %v", err)
+	}
+
+	// 4. Disable biasing
+	if err := tr.SetKeyterms(nil); err != nil {
+		t.Fatalf("SetKeyterms(nil): %v", err)
+	}
+	if err := tr.SetContext("", 0); err != nil {
+		t.Fatalf("SetContext(''): %v", err)
+	}
+
+	// 5. Transcribe silence on stream
+	stream, err := tr.NewStream(0)
+	if err != nil {
+		t.Fatalf("NewStream: %v", err)
+	}
+	defer stream.Close()
+	if err := stream.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	silence := make([]float32, SampleRate/2)
+	if err := stream.AddAudio(silence, SampleRate); err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	if _, err := stream.Transcribe(FlagForceUpdate); err != nil {
+		t.Fatalf("Transcribe: %v", err)
+	}
+	if err := stream.Stop(); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+}

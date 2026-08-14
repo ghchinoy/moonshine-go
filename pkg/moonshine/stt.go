@@ -215,7 +215,9 @@ type Transcriber struct {
 // decoder_model_merged.ort, tokenizer.bin -- see moonshine setup / T1.5's
 // download manifest helpers). arch selects the model architecture (one of
 // the ModelArch* constants). See moonshine-c-api.h for recognized options
-// (e.g. "ort_providers", "identify_speakers", "spelling_model_path").
+// (e.g. "ort_providers", "identify_speakers", "spelling_model_path",
+// "use_speculative_decoding", "keyterms", "keyterm_boost", "context",
+// "context_max_terms").
 func LoadTranscriber(modelDir string, arch uint32, opts ...Option) (*Transcriber, error) {
 	if !Loaded() {
 		return nil, errNotLoaded
@@ -266,6 +268,56 @@ func (t *Transcriber) Transcribe(audio []float32, sampleRate int32, flags uint32
 	// out is owned by the transcriber (valid until the next call or Close);
 	// we copy it into Go memory immediately and never free it ourselves.
 	return copyTranscript(out), nil
+}
+
+// SetKeyterms replaces the contextual-biasing key terms on an existing
+// transcriber so decoding favors domain vocabulary (jargon, names, product
+// codes) without reloading the model. terms is a slice of words or phrases;
+// pass nil or an empty slice to disable keyterm biasing.
+//
+// Safe to call between transcribe calls on a live stream. Takes effect on the
+// next transcribe call. Returns an error if the model architecture is not a
+// streaming model (e.g. ModelArchTiny or ModelArchBase).
+func (t *Transcriber) SetKeyterms(terms []string) error {
+	if !Loaded() {
+		return errNotLoaded
+	}
+	if t.closed {
+		return errClosed
+	}
+	var ptr *byte
+	var buf []byte
+	if len(terms) > 0 {
+		ptr, buf = cString(strings.Join(terms, ","))
+	}
+	code := fnTranscriberSetKeyterms(t.handle, ptr)
+	runtime.KeepAlive(buf)
+	return checkCode("transcriber_set_keyterms", code)
+}
+
+// SetContext extracts unusual words from a passage of free-form text using the
+// model's own tokenizer and biases recognition towards them, replacing any
+// previous bias list. maxTerms caps how many terms are extracted (pass 0 for the
+// default cap of 200). Pass "" to disable context biasing.
+//
+// Safe to call between transcribe calls on a live stream. Takes effect on the
+// next transcribe call. Returns an error if the model architecture is not a
+// streaming model (e.g. ModelArchTiny or ModelArchBase).
+func (t *Transcriber) SetContext(contextText string, maxTerms int32) error {
+	if !Loaded() {
+		return errNotLoaded
+	}
+	if t.closed {
+		return errClosed
+	}
+	var ptr *byte
+	var buf []byte
+	if contextText != "" {
+		ptr, buf = cString(contextText)
+	}
+	code := fnTranscriberSetContext(t.handle, ptr, maxTerms)
+	runtime.KeepAlive(buf)
+	return checkCode("transcriber_set_context", code)
 }
 
 // Stream wraps a moonshine streaming handle for low-latency, incremental
