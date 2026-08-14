@@ -13,9 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Runtime Domain Customization (Keyterms & Context Biasing)**: Bound `moonshine_transcriber_set_keyterms` and `moonshine_transcriber_set_context` in `pkg/moonshine` (`Transcriber.SetKeyterms` / `Transcriber.SetContext`), enabling dynamic vocabulary biasing towards jargon, product names, and free-form context text on streaming STT architectures (`#s7du.1`).
 - **Domain Customization Action Verbs**: Added `session.set_keyterms` and `session.set_context` action verbs to `moonshine serve` sidecar, allowing external WebSocket/gRPC agents and subscribers to dynamically update vocabulary biasing and context passages mid-session (`#s7du.2`).
 - **CLI Flags for Vocabulary Biasing**: Added `--keyterms`, `--keyterm-boost`, `--context`, and `--context-file` flags to `moonshine live`, `moonshine transcribe`, and `moonshine serve` (`#s7du.3`).
+- **`pkg/agentflow` Go-Native Voice Agent DSL**: Added `pkg/agentflow` providing a fluent dialog construction API (`Say`, `Ask`, `Confirm`, `Choose`, `Always`, `Otherwise`), rule-based phrase matching, and `--agent agentflow` CLI mode in `moonshine serve` (`#wqhn`, `#cvdw`, `#rex4`).
+- **New Runnable Sample (`samples/go-domain-customization`)**: Added standalone Go sample demonstrating runtime vocabulary switching (Cloud/DevOps, Clinical/Pharma, Financial) and free-form context passage extraction over WebSocket (`#arnl`).
+- **Concurrency & Load Benchmark Suite**: Added `bench/loadtest/` multi-client load generator and `BENCHMARKS.md` reporting TTFT, latency waterfalls, and throughput under backpressure (`#f10w`).
 
 ### Changed
 - **Upstream Library Pin**: Bumped `MOONSHINE_RELEASE_TAG` to `v0.1.2` (`#s7du.5`).
+- **`samples/go-cascade-faq` Refactor**: Adopted `pkg/agentflow` DSL for cleaner multi-turn dialog flow and added `TUTORIAL.md` (`#wkkw`).
 
 ---
 
