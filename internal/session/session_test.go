@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -208,6 +209,47 @@ func TestSourceClosedUpdate_AbnormalTermination(t *testing.T) {
 	}
 	if u.Elapsed != 5*time.Second {
 		t.Errorf("Update.Elapsed = %v, want 5s", u.Elapsed)
+	}
+}
+
+func TestLiveRun_SourceClosureFlushesAndEmitsDoneUpdate(t *testing.T) {
+	src := newFakeAudioSource()
+	l := &Live{
+		source:    src,
+		updates:   make(chan Update, 16),
+		tracked:   make(map[uint64]*lineProgress),
+		finalized: []LineTiming{{ID: 1, PollCount: 1, Revisions: 0, StabilityRatio: 1.0}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		l.Run(ctx)
+		close(done)
+	}()
+
+	// Close the source chunks channel (simulating remote client EOF / socket close)
+	close(src.ch)
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("l.Run did not return after source.Chunks() was closed")
+	}
+
+	// Verify terminal update received with Done: true and Summary
+	select {
+	case u := <-l.updates:
+		if !u.Done {
+			t.Errorf("expected u.Done = true, got false")
+		}
+		if u.Summary.LinesFinalized != 1 {
+			t.Errorf("expected Summary.LinesFinalized = 1, got %d", u.Summary.LinesFinalized)
+		}
+	default:
+		t.Fatal("expected terminal Update on source closure, got none")
 	}
 }
 

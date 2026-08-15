@@ -190,15 +190,24 @@ func (l *Live) Updates() <-chan Update { return l.updates }
 // blocks; call it from a goroutine.
 func (l *Live) Run(ctx context.Context) {
 	defer close(l.updates)
-	defer l.stream.Close()
+	if l.stream != nil {
+		defer l.stream.Close() //nolint:errcheck
+	}
 
 	start := time.Now()
 	var ttft time.Duration
 
-	ticker := time.NewTicker(l.pollInterval)
+	interval := l.pollInterval
+	if interval <= 0 {
+		interval = 250 * time.Millisecond
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	poll := func(flags uint32) {
+		if l.stream == nil {
+			return
+		}
 		t0 := time.Now()
 		transcript, err := l.stream.Transcribe(flags)
 		latency := time.Since(t0)
@@ -218,20 +227,31 @@ func (l *Live) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			_ = l.stream.Stop()
+			if l.stream != nil {
+				_ = l.stream.Stop()
+			}
 			poll(moonshine.FlagForceUpdate)
 			summary := summarize(l.finalized)
 			l.send(Update{Elapsed: time.Since(start), TTFT: ttft, Done: true, Summary: summary})
 			return
 		case chunk, ok := <-l.source.Chunks():
 			if !ok {
-				if u, send := sourceClosedUpdate(l.source, time.Since(start)); send {
-					l.send(u)
+				if l.stream != nil {
+					_ = l.stream.Stop()
 				}
+				poll(moonshine.FlagForceUpdate)
+				summary := summarize(l.finalized)
+				u := Update{Elapsed: time.Since(start), TTFT: ttft, Done: true, Summary: summary}
+				if err := l.source.Err(); err != nil {
+					u.Err = err
+				}
+				l.send(u)
 				return
 			}
-			if err := l.stream.AddAudio(chunk, moonshine.SampleRate); err != nil {
-				l.send(Update{Err: err, Elapsed: time.Since(start)})
+			if l.stream != nil {
+				if err := l.stream.AddAudio(chunk, moonshine.SampleRate); err != nil {
+					l.send(Update{Err: err, Elapsed: time.Since(start)})
+				}
 			}
 		case <-ticker.C:
 			poll(0)
