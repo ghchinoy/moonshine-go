@@ -189,6 +189,32 @@ Each of these is tracked as real work — see the `Hostable cascade` epic in bd
 
 ---
 
+## Remote Audio Client Guidelines (Chunking, Pacing & Endpointing)
+
+When connecting external clients (Go, Python, browser JS, Swift, or IoT hardware) to `moonshine serve --audio-source remote`, observe the following operational expectations:
+
+### 1. Chunk Sizing and Ingestion Pacing
+`moonshine serve` uses an asynchronous streaming pipeline with an internal polling interval (default 250ms).
+- **Recommended Chunk Size:** Transmit audio in **50ms to 100ms frames** (1,600 to 3,200 bytes for 16kHz 16-bit mono PCM, or 3,200 to 6,400 bytes for 16kHz Float32). Chunks larger than 500ms increase latency; micro-chunks (<10ms) create unnecessary network framing overhead.
+- **Pacing:** Pace transmission at **1x real-time speed** (e.g. transmit one 100ms chunk every 75–100ms). Blasting an entire pre-recorded audio file over TCP faster than real-time can outrun the internal poll loop and VAD lookahead buffers.
+
+### 2. VAD Endpointing & Trailing Silence
+Streaming Speech-to-Text models emit interim (in-progress) text while speech is active and only mark a line finalized (`is_complete: true`) when an acoustic silence boundary is detected.
+- When streaming pre-recorded audio files or finite voice clips, append **1.0 to 1.5 seconds of trailing zero-PCM silence** after the speech payload.
+- This silence allows the VAD to detect the end of speech and finalize the last sentence before the client closes the socket.
+
+### 3. WAV Header Stripping
+Strip the 44-byte RIFF header from `.wav` files before transmitting; WebSocket binary frames must contain only raw linear PCM samples.
+
+### 4. Wire Types (`uint64` Line IDs)
+`Line.ID` and `finalized_line_ids` in `TranscriptEvent` are **64-bit unsigned integers (`uint64`)**. In client languages (Go, Java, Rust, Swift), always decode these fields as unsigned 64-bit integers to avoid signed integer overflow on long-running sessions.
+
+### 5. Reference Implementations
+- **Go:** See **[samples/go-stream-audio](../samples/go-stream-audio/)** for a complete Go client implementing paced streaming, trailing silence, and bidirectional WebSocket receiving.
+- **Browser (JS):** See **[samples/browser-listen](../samples/browser-listen/)** for in-browser microphone capture and streaming via `AudioWorklet`.
+
+---
+
 ## Deployment shapes
 
 There is **one** "hostable cascade" architecture. What differs between the

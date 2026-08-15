@@ -37,6 +37,7 @@ Every sample in `samples/` self-reports its rating schema in its own `README.md`
 | **[go-listen](go-listen/)** | Tier 0 | 1/5 | Low | Composability | Real-time transcript feed (Go) | 2/5 |
 | **[python-listen](python-listen/)** | Tier 0 | 1/5 | Low | Composability | Real-time transcript feed (Python) | 2/5 |
 | **[grpc-listen](grpc-listen/)** | Tier 0 | 1/5 | Low | Composability, Observability | High-throughput gRPC transcript pipeline | 3/5 |
+| **[go-stream-audio](go-stream-audio/)** | Tier 0 / Tier 1 | 2/5 | Low | Composability, Privacy, Observability | Bidirectional 16kHz PCM audio streaming & live transcription | 5/5 |
 | **[browser-listen](browser-listen/)** | Tier 1 | 2/5 | Medium | Composability, Privacy | Zero-install browser microphone capture | 4/5 |
 | **[browser-cascade-faq](browser-cascade-faq/)** | Tier 1 | 3/5 | Medium | Control, Privacy, Composability | Zero-install browser voice FAQ with Web Audio TTS | 5/5 |
 | **[go-cascade-faq](go-cascade-faq/)** | Tier 1 | 3/5 | Medium | Control, Observability, Privacy, Composability | Flagship Go offline RAG voice agent | 4/5 |
