@@ -297,6 +297,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	if !jsonOutput() {
 		fmt.Fprintln(os.Stderr, stylePass.Render("moonshine serve is running"))
+		fmt.Fprintf(os.Stderr, "  arch:          %s (%s)\n", serveArch, serveLanguage)
 		fmt.Fprintf(os.Stderr, "  audio-source:  %s\n", serveAudioSource)
 		if serveAudioSource == "remote" {
 			fmt.Fprintf(os.Stderr, "  max-sessions:  %d\n", serveMaxSessions)
