@@ -248,6 +248,111 @@ func TestSmokeTTS(t *testing.T) {
 	t.Logf("voices: %+v", voices)
 }
 
+func TestSmokeTTSStreamingRoundTrip(t *testing.T) {
+	libDir := os.Getenv("MOONSHINE_LIB_DIR")
+	g2pRoot := os.Getenv("MOONSHINE_SMOKE_TTS_ROOT")
+	if libDir == "" || g2pRoot == "" {
+		t.Skip("set MOONSHINE_LIB_DIR and MOONSHINE_SMOKE_TTS_ROOT to run this smoke test")
+	}
+	if err := Load(libDir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	// 1. Test SplitUtterances
+	units, err := SplitUtterances("en_us", "Warning: low battery. Please connect your charger immediately.")
+	if err != nil {
+		t.Fatalf("SplitUtterances: %v", err)
+	}
+	if len(units) == 0 {
+		t.Fatal("expected non-empty split utterances")
+	}
+	t.Logf("split utterances: %v", units)
+
+	// 2. Test Streaming TTS
+	synth, err := NewSynthesizer("en_us",
+		Option{Name: "g2p_root", Value: g2pRoot},
+		Option{Name: "voice", Value: "piper_en_US-amy-low"},
+	)
+	if err != nil {
+		t.Fatalf("NewSynthesizer: %v", err)
+	}
+	defer synth.Close()
+
+	stream := synth.NewStream()
+
+	// Push first sentence
+	if err := stream.PushText("First sentence in stream. "); err != nil {
+		t.Fatalf("PushText: %v", err)
+	}
+	if !stream.IsStreaming() {
+		t.Fatal("expected IsStreaming to be true after PushText")
+	}
+
+	// Pull chunks
+	var totalSamples int
+	var chunkCount int
+	for {
+		chunk, err := stream.NextChunk()
+		if err == ErrNeedText {
+			break
+		}
+		if err != nil {
+			t.Fatalf("NextChunk: %v", err)
+		}
+		if chunk != nil {
+			chunkCount++
+			totalSamples += len(chunk.Samples)
+			t.Logf("chunk %d: %d samples (utterance %d, final=%v, text=%q)",
+				chunkCount, len(chunk.Samples), chunk.UtteranceID, chunk.IsFinal, chunk.Text)
+		}
+	}
+
+	// Push second sentence and EndInput
+	if err := stream.PushText("Second trailing sentence without period"); err != nil {
+		t.Fatalf("PushText: %v", err)
+	}
+	if err := stream.EndInput(); err != nil {
+		t.Fatalf("EndInput: %v", err)
+	}
+
+	for {
+		chunk, err := stream.NextChunk()
+		if err == ErrEndOfStream {
+			break
+		}
+		if err != nil {
+			t.Fatalf("NextChunk draining: %v", err)
+		}
+		if chunk != nil {
+			chunkCount++
+			totalSamples += len(chunk.Samples)
+			t.Logf("chunk %d: %d samples (utterance %d, final=%v, text=%q)",
+				chunkCount, len(chunk.Samples), chunk.UtteranceID, chunk.IsFinal, chunk.Text)
+		}
+	}
+
+	if totalSamples == 0 {
+		t.Fatal("expected non-zero total synthesized samples")
+	}
+	t.Logf("streaming synthesis complete: %d chunks, %d total samples", chunkCount, totalSamples)
+
+	// 3. Test Cancel / Barge-in
+	if err := stream.PushText("This sentence will be cancelled mid-way. And this one too. "); err != nil {
+		t.Fatalf("PushText before cancel: %v", err)
+	}
+	if err := stream.Cancel(); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+	if stream.IsStreaming() {
+		t.Fatal("expected IsStreaming to be false after Cancel")
+	}
+	// Pull once to consume the cancellation notice
+	_, err = stream.NextChunk()
+	if err != ErrCancelled && err != ErrNeedText {
+		t.Fatalf("NextChunk after cancel: expected ErrCancelled or ErrNeedText, got %v", err)
+	}
+}
+
 func TestSmokeDomainCustomization(t *testing.T) {
 	libDir := os.Getenv("MOONSHINE_LIB_DIR")
 	if libDir == "" {

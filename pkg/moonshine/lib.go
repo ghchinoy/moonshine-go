@@ -156,6 +156,13 @@ var (
 	fnTextToSpeech                   func(handle int32, text string, options *cOption, optionsCount uint64, outAudioData *unsafe.Pointer, outAudioDataSize *uint64, outSampleRate *int32) int32
 	fnPhonemesToSpeech               func(handle int32, phonemes string, options *cOption, optionsCount uint64, outAudioData *unsafe.Pointer, outAudioDataSize *uint64, outSampleRate *int32) int32
 	fnGetTTSVoices                   func(languages string, options *cOption, optionsCount uint64, outVoicesJSON *unsafe.Pointer) int32
+	fnTTSSplitUtterances             func(language string, text string, options *cOption, optionsCount uint64, outUnitsJSON *unsafe.Pointer) int32
+	fnTTSPushText                    func(handle int32, text string) int32
+	fnTTSFlush                       func(handle int32) int32
+	fnTTSEndInput                    func(handle int32) int32
+	fnTTSCancel                      func(handle int32) int32
+	fnTTSIsStreaming                 func(handle int32) int32
+	fnTTSNextChunk                   func(handle int32, flags uint32, outChunk *unsafe.Pointer) int32
 
 	fnCreateGraphemeToPhonemizerFromFiles func(language string, filenames unsafe.Pointer, filenamesCount uint64, options *cOption, optionsCount uint64, version int32) int32
 	fnFreeGraphemeToPhonemizer            func(handle int32)
@@ -192,6 +199,13 @@ func registerSymbols(h uintptr) {
 	reg(&fnTextToSpeech, "moonshine_text_to_speech")
 	reg(&fnPhonemesToSpeech, "moonshine_phonemes_to_speech")
 	reg(&fnGetTTSVoices, "moonshine_get_tts_voices")
+	reg(&fnTTSSplitUtterances, "moonshine_tts_split_utterances")
+	reg(&fnTTSPushText, "moonshine_tts_push_text")
+	reg(&fnTTSFlush, "moonshine_tts_flush")
+	reg(&fnTTSEndInput, "moonshine_tts_end_input")
+	reg(&fnTTSCancel, "moonshine_tts_cancel")
+	reg(&fnTTSIsStreaming, "moonshine_tts_is_streaming")
+	reg(&fnTTSNextChunk, "moonshine_tts_next_chunk")
 
 	reg(&fnCreateGraphemeToPhonemizerFromFiles, "moonshine_create_grapheme_to_phonemizer_from_files")
 	reg(&fnFreeGraphemeToPhonemizer, "moonshine_free_grapheme_to_phonemizer")

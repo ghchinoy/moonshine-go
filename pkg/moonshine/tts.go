@@ -33,8 +33,18 @@ func (a Audio) Duration() time.Duration {
 // moonshine_create_tts_synthesizer_from_memory).
 type Synthesizer struct {
 	handle     int32
+	language   string
 	closed     bool
 	pcmBuffers [][]byte // backing buffer references kept alive while handle is open
+}
+
+// TTSChunk is one piece of synthesized audio from a streaming TTS session.
+// It embeds Audio so Samples, SampleRate, and Duration() are directly accessible.
+type TTSChunk struct {
+	Audio
+	Text        string
+	UtteranceID uint64
+	IsFinal     bool
 }
 
 // NewSynthesizer creates a TTS synthesizer for language (a moonshine
@@ -56,7 +66,7 @@ func NewSynthesizer(language string, opts ...Option) (*Synthesizer, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Synthesizer{handle: handle}
+	s := &Synthesizer{handle: handle, language: language}
 	runtime.SetFinalizer(s, func(sy *Synthesizer) { _ = sy.Close() })
 	return s, nil
 }
@@ -128,6 +138,7 @@ func NewSynthesizerFromClone(language string, pcm []float32, sampleRate int32, t
 
 	s := &Synthesizer{
 		handle:     handle,
+		language:   language,
 		pcmBuffers: [][]byte{pcmBytes},
 	}
 	runtime.SetFinalizer(s, func(sy *Synthesizer) { _ = sy.Close() })
@@ -239,4 +250,202 @@ func ListVoices(languages string, opts ...Option) (map[string][]VoiceAvailabilit
 		out[lang] = vs
 	}
 	return out, nil
+}
+
+// PushText appends text to the streaming TTS buffer. Pieces are concatenated
+// verbatim, making it suitable for streaming token-by-token output from an LLM.
+// If no streaming generation is currently running, pushing text starts one.
+//
+// Text is buffered until a complete utterance boundary is detected according to
+// language rules, ensuring natural prosody. Use Flush or EndInput to force
+// synthesis of incomplete trailing text.
+//
+// Returns ErrBusy if another thread or caller is concurrently streaming, or
+// an Error on failure.
+func (s *Synthesizer) PushText(text string) error {
+	if !Loaded() {
+		return errNotLoaded
+	}
+	if s.closed {
+		return errClosed
+	}
+	code := fnTTSPushText(s.handle, text)
+	if code == ErrorCodeBusy {
+		return ErrBusy
+	}
+	return checkCode("tts_push_text", code)
+}
+
+// Flush forces synthesis of whatever text is currently buffered even if it does
+// not yet form a complete sentence.
+func (s *Synthesizer) Flush() error {
+	if !Loaded() {
+		return errNotLoaded
+	}
+	if s.closed {
+		return errClosed
+	}
+	code := fnTTSFlush(s.handle)
+	if code == ErrorCodeBusy {
+		return ErrBusy
+	}
+	return checkCode("tts_flush", code)
+}
+
+// EndInput declares that no more text will be pushed for the current stream.
+// It flushes buffered text and signals that NextChunk will return ErrEndOfStream
+// once all remaining audio chunks have been synthesized and drained.
+func (s *Synthesizer) EndInput() error {
+	if !Loaded() {
+		return errNotLoaded
+	}
+	if s.closed {
+		return errClosed
+	}
+	code := fnTTSEndInput(s.handle)
+	if code == ErrorCodeBusy {
+		return ErrBusy
+	}
+	return checkCode("tts_end_input", code)
+}
+
+// Cancel drops queued text, abandons the active streaming generation in progress,
+// and returns the synthesizer to idle. This is the barge-in path when a user
+// interrupts voice playback. Safe to call even when no stream is active.
+func (s *Synthesizer) Cancel() error {
+	if !Loaded() {
+		return errNotLoaded
+	}
+	if s.closed {
+		return errClosed
+	}
+	code := fnTTSCancel(s.handle)
+	return checkCode("tts_cancel", code)
+}
+
+// IsStreaming reports whether a streaming generation is currently in flight.
+func (s *Synthesizer) IsStreaming() bool {
+	if !Loaded() || s.closed || fnTTSIsStreaming == nil {
+		return false
+	}
+	return fnTTSIsStreaming(s.handle) != 0
+}
+
+// NextChunk synthesizes and returns the next chunk of audio from the stream.
+// It is synchronous and pull-based:
+//   - Returns (*TTSChunk, nil) when an audio chunk is produced.
+//   - Returns (nil, ErrNeedText) when more text is needed to form a sentence (push more or flush).
+//   - Returns (nil, ErrEndOfStream) after EndInput has been called and all audio drained.
+//   - Returns (nil, ErrCancelled) once after Cancel has discarded an active generation.
+//   - Returns (nil, error) on C API errors.
+func (s *Synthesizer) NextChunk() (*TTSChunk, error) {
+	if !Loaded() {
+		return nil, errNotLoaded
+	}
+	if s.closed {
+		return nil, errClosed
+	}
+	var chunkPtr unsafe.Pointer
+	code := fnTTSNextChunk(s.handle, 0, &chunkPtr)
+	switch code {
+	case ErrorCodeNone:
+		if chunkPtr == nil {
+			return nil, nil
+		}
+		cChunk := (*cTTSChunk)(chunkPtr)
+		samples := goFloat32Slice(cChunk.audioData, cChunk.audioDataCount)
+		text := goString(cChunk.text)
+		return &TTSChunk{
+			Audio: Audio{
+				Samples:    samples,
+				SampleRate: cChunk.sampleRate,
+			},
+			Text:        text,
+			UtteranceID: cChunk.utteranceID,
+			IsFinal:     cChunk.isFinal != 0,
+		}, nil
+	case TTSStatusNeedText:
+		return nil, ErrNeedText
+	case TTSStatusEndOfStream:
+		return nil, ErrEndOfStream
+	case TTSStatusCancelled:
+		return nil, ErrCancelled
+	case ErrorCodeBusy:
+		return nil, ErrBusy
+	default:
+		return nil, checkCode("tts_next_chunk", code)
+	}
+}
+
+// TTSStream represents an active streaming TTS generation on a Synthesizer.
+// It exposes the streaming lifecycle methods on a dedicated stream handle.
+type TTSStream struct {
+	synth *Synthesizer
+}
+
+// NewStream creates a new streaming handle bound to this Synthesizer.
+func (s *Synthesizer) NewStream() *TTSStream {
+	return &TTSStream{synth: s}
+}
+
+// PushText appends text to the stream.
+func (st *TTSStream) PushText(text string) error {
+	return st.synth.PushText(text)
+}
+
+// Flush forces synthesis of buffered text.
+func (st *TTSStream) Flush() error {
+	return st.synth.Flush()
+}
+
+// EndInput marks end of text input and flushes remaining audio.
+func (st *TTSStream) EndInput() error {
+	return st.synth.EndInput()
+}
+
+// Cancel abandons current generation for barge-in.
+func (st *TTSStream) Cancel() error {
+	return st.synth.Cancel()
+}
+
+// IsStreaming reports whether generation is active.
+func (st *TTSStream) IsStreaming() bool {
+	return st.synth.IsStreaming()
+}
+
+// NextChunk retrieves the next synthesized audio chunk.
+func (st *TTSStream) NextChunk() (*TTSChunk, error) {
+	return st.synth.NextChunk()
+}
+
+// SplitUtterances splits text into sentence/utterance units using Moonshine's
+// language-aware rules (abbreviations, terminators).
+//
+// Recognised options:
+//
+//	"split_on_colon"  (bool, default true) break after ":" so lead-ins start early
+//	"min_codepoints"  (int, default 0) merge units shorter than this into the next unit
+func SplitUtterances(language string, text string, opts ...Option) ([]string, error) {
+	if !Loaded() {
+		return nil, errNotLoaded
+	}
+	cOpts, optCount, keep := toCOptions(opts)
+	var outPtr unsafe.Pointer
+	code := fnTTSSplitUtterances(language, text, cOpts, optCount, &outPtr)
+	runtime.KeepAlive(keep)
+	if err := checkCode("tts_split_utterances", code); err != nil {
+		return nil, err
+	}
+	defer freeC(outPtr)
+	raw := goString((*byte)(outPtr))
+	var units []string
+	if err := json.Unmarshal([]byte(raw), &units); err != nil {
+		return nil, fmt.Errorf("moonshine: parsing split utterances JSON: %w", err)
+	}
+	return units, nil
+}
+
+// SplitUtterances splits text into sentence/utterance units using this synthesizer's language rules.
+func (s *Synthesizer) SplitUtterances(text string, opts ...Option) ([]string, error) {
+	return SplitUtterances(s.language, text, opts...)
 }

@@ -1,6 +1,36 @@
 package moonshine
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// Standard Moonshine C API error and status codes.
+const (
+	ErrorCodeNone            int32 = 0
+	ErrorCodeUnknown         int32 = -1
+	ErrorCodeInvalidHandle   int32 = -2
+	ErrorCodeInvalidArgument int32 = -3
+	ErrorCodeBusy            int32 = -4
+
+	TTSStatusNeedText    int32 = 1
+	TTSStatusEndOfStream int32 = 2
+	TTSStatusCancelled   int32 = 3
+)
+
+var (
+	// ErrBusy indicates a streaming generation is already in flight on the synthesizer.
+	ErrBusy = errors.New("moonshine: synthesizer is busy with a streaming generation")
+
+	// ErrNeedText indicates that more text is needed to form a complete utterance chunk.
+	ErrNeedText = errors.New("moonshine: more text is needed to produce a chunk")
+
+	// ErrEndOfStream indicates that input ended and all queued chunks have been synthesized.
+	ErrEndOfStream = errors.New("moonshine: end of audio stream reached")
+
+	// ErrCancelled indicates that streaming generation was cancelled via barge-in.
+	ErrCancelled = errors.New("moonshine: streaming generation was cancelled")
+)
 
 // Error wraps a moonshine_error_t-style negative/non-zero return code with
 // the library's own human-readable description (moonshine_error_to_string).

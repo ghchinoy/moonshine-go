@@ -68,6 +68,18 @@ type cTranscript struct {
 	lineCount uint64
 }
 
+// cTTSChunk mirrors `struct tts_chunk_t`.
+type cTTSChunk struct {
+	audioData      *float32
+	audioDataCount uint64
+	sampleRate     int32
+	_              [4]byte // pad before the next pointer field (8-byte alignment)
+	text           *byte
+	utteranceID    uint64
+	isFinal        int8
+	_              [7]byte // pad to 48 bytes (8-byte struct alignment)
+}
+
 // cString allocates a NUL-terminated byte buffer for s and returns a pointer
 // to its first byte along with the backing slice (which the caller must keep
 // alive, e.g. via runtime.KeepAlive, until the C call referencing the
