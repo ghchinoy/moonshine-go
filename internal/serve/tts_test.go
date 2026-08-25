@@ -47,3 +47,80 @@ func TestTTSSpeaker_SetPublisherAndInterrupt(t *testing.T) {
 		t.Fatalf("got %#v, want TTSAudioEvent{State: \"interrupted\"}", pub.published[0])
 	}
 }
+
+func TestTTSSpeaker_Speak_CancelledContext(t *testing.T) {
+	s := NewTTSSpeaker("en_us")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := s.Speak(ctx, nil, "test", "", 1.0)
+	if err != context.Canceled {
+		t.Errorf("Speak with cancelled context = %v, want %v", err, context.Canceled)
+	}
+}
+
+func TestTTSSpeaker_SpeakStream_CancelledContext(t *testing.T) {
+	s := NewTTSSpeaker("en_us")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	textCh := make(chan string)
+	close(textCh)
+
+	err := s.SpeakStream(ctx, nil, textCh, "", 1.0)
+	if err != context.Canceled {
+		t.Errorf("SpeakStream with cancelled context = %v, want %v", err, context.Canceled)
+	}
+}
+
+func TestTTSSpeaker_Closed(t *testing.T) {
+	s := NewTTSSpeaker("en_us")
+	_ = s.Close()
+
+	if err := s.Speak(context.Background(), nil, "test", "", 1.0); err == nil {
+		t.Error("Speak on closed TTSSpeaker should return error")
+	}
+
+	textCh := make(chan string)
+	close(textCh)
+	if err := s.SpeakStream(context.Background(), nil, textCh, "", 1.0); err == nil {
+		t.Error("SpeakStream on closed TTSSpeaker should return error")
+	}
+}
+
+type fakeStreamSpeaker struct {
+	lastText   string
+	lastTokens []string
+}
+
+func (f *fakeStreamSpeaker) Speak(_ context.Context, _ Publisher, text, _ string, _ float64) error {
+	f.lastText = text
+	return nil
+}
+
+func (f *fakeStreamSpeaker) Speaking() bool { return false }
+
+func (f *fakeStreamSpeaker) SpeakStream(_ context.Context, _ Publisher, textCh <-chan string, _ string, _ float64) error {
+	for tok := range textCh {
+		f.lastTokens = append(f.lastTokens, tok)
+	}
+	return nil
+}
+
+func TestScopedSpeaker_SpeakStream(t *testing.T) {
+	fake := &fakeStreamSpeaker{}
+	scoped := &scopedSpeaker{base: fake}
+
+	textCh := make(chan string, 3)
+	textCh <- "hello "
+	textCh <- "world"
+	close(textCh)
+
+	if err := scoped.SpeakStream(context.Background(), nil, textCh, "", 1.0); err != nil {
+		t.Fatalf("SpeakStream: %v", err)
+	}
+
+	if len(fake.lastTokens) != 2 || fake.lastTokens[0] != "hello " || fake.lastTokens[1] != "world" {
+		t.Errorf("unexpected tokens received: %v", fake.lastTokens)
+	}
+}

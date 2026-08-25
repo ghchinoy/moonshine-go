@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -49,6 +50,27 @@ func (s *scopedSpeaker) Speak(ctx context.Context, pub Publisher, text, voice st
 	s.speaking.Store(true)
 	defer s.speaking.Store(false)
 	return s.base.Speak(ctx, pub, text, voice, speed)
+}
+
+func (s *scopedSpeaker) SpeakStream(ctx context.Context, pub Publisher, textCh <-chan string, voice string, speed float64) error {
+	if s.base == nil {
+		return fmt.Errorf("serve: no speaker configured")
+	}
+	if pub == nil {
+		pub = s.pub
+	}
+	s.speaking.Store(true)
+	defer s.speaking.Store(false)
+	if streamSpeaker, ok := s.base.(interface {
+		SpeakStream(context.Context, Publisher, <-chan string, string, float64) error
+	}); ok {
+		return streamSpeaker.SpeakStream(ctx, pub, textCh, voice, speed)
+	}
+	var buf strings.Builder
+	for token := range textCh {
+		buf.WriteString(token)
+	}
+	return s.base.Speak(ctx, pub, buf.String(), voice, speed)
 }
 
 func (s *scopedSpeaker) Speaking() bool {
