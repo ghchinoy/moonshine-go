@@ -480,7 +480,7 @@ moonshine serve --transport ws --agent external
 | `--allow-actions` | `false` | Gate enabling mutating actions (`speak`, `session control`, `run_command`) |
 | `--tts-voice` | (auto) | Default TTS voice override |
 | `--tts-language` | `en_us` | TTS speaker language |
-| `--arch` | `tiny-streaming` | STT model architecture (`tiny-streaming`, `small-streaming`, `medium-streaming`). *Note:* for `--audio-source remote`, `tiny-streaming` or `base-streaming` is recommended due to a known upstream C++ window desync issue in `medium-streaming` ([moonshine-ai/moonshine#218](https://github.com/moonshine-ai/moonshine/issues/218)). |
+| `--arch` | `tiny-streaming` | STT model architecture (`tiny-streaming`, `small-streaming`, `medium-streaming`) |
 | `--language` | `en` | STT model language |
 | `--keyterms` | `""` | Initial comma-separated key terms to bias speech recognition towards (streaming models only) |
 | `--keyterm-boost` | `2.0` | Keyterm biasing boost strength (default: 2.0; streaming models only) |

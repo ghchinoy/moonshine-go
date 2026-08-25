@@ -152,9 +152,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	case "remote":
 		if !jsonOutput() {
 			fmt.Fprintln(os.Stderr, muted(fmt.Sprintf("configuring remote PCM audio source (%dHz, %s, %d ch)...", serveRemoteAudioRate, serveRemoteAudioEncoding, serveRemoteAudioChannels)))
-			if strings.ToLower(strings.TrimSpace(serveArch)) == "medium-streaming" {
-				fmt.Fprintln(os.Stderr, styleWarn.Render("warning: medium-streaming model has a known upstream C++ window desync bug with rapid remote audio chunks (moonshine#218); tiny-streaming or base-streaming is recommended"))
-			}
 		}
 		remoteSource = serve.NewRemoteAudioSource(serve.AudioFormat{
 			SampleRate: serveRemoteAudioRate,
