@@ -16,6 +16,7 @@ details -- this guide assumes you already have `bin/moonshine` built and
 - [live](#live)
 - [serve](#serve)
 - [tts](#tts)
+  - [Streaming Text-to-Speech (TTS) & Low-Latency Speak-Back](#streaming-text-to-speech-tts--low-latency-speak-back)
 - [config](#config)
 - [Runtime Domain Customization (Keyterms & Context Biasing)](#runtime-domain-customization-keyterms--context-biasing)
 - [Speaker diarization and word timestamps](#speaker-diarization-and-word-timestamps)
@@ -620,6 +621,107 @@ moonshine tts --clone ./clips/line_1_000250ms_16k.wav \
 `transcribe --save-line-audio <dir>` works the same way against an existing
 audio file instead of the live microphone, useful for extracting a clean
 reference clip from a pre-recorded interview or voicemail.
+
+### Streaming Text-to-Speech (TTS) & Low-Latency Speak-Back
+
+Moonshine v0.1.5 introduces native streaming text-to-speech with sub-sentence acoustic chunking, enabling voice assistants and agents to start speaking back while the LLM is still generating text.
+
+#### Architecture & Sub-Sentence Chunking
+Traditional TTS operates in **one-shot** mode: the engine waits for the full text response, synthesizes the complete audio waveform in one pass, and only then starts playback. For multi-sentence replies, this introduces noticeable latency (Time-to-First-Audio / TTFA).
+
+Moonshine's streaming TTS is **pull-based and synchronous**:
+- **Pushing text:** `PushText(token)` appends text incrementally as tokens stream in from an LLM.
+- **Utterance boundary detection:** Text is buffered until an utterance or clause boundary is detected according to language rules (handling abbreviations like "Dr." or "z.B." properly).
+- **Sub-sentence acoustic chunking:** Depending on the underlying engine:
+  - **Kokoro:** Cuts *inside* a sentence at prosody/decoder stage boundaries, starting playback significantly earlier.
+  - **Piper / ZipVoice:** Synthesizes and emits chunks on sentence/clause boundaries.
+- **Pulling audio:** `NextChunk()` pulls synthesized PCM audio chunks (`TTSChunk`) containing audio samples, sample rate, utterance ID, and finality indicators.
+- **Flushing & Ending:** `Flush()` forces synthesis of partial trailing thoughts; `EndInput()` signals stream completion so `NextChunk()` returns `ErrEndOfStream`.
+
+#### Latency Waterfall Comparison
+
+```
+One-shot TTS Waterfall (Total TTFA: ~2,200ms):
+[--- LLM Generation (Full Paragraph: 1,500ms) ---]
+                                                  [--- Full TTS Synthesis: 700ms ---]
+                                                                                     [=== Audio Playback Begins ===]
+
+Streaming TTS Waterfall (TTFA: ~280ms):
+[-- LLM Token 1..5: 150ms --]
+                            [- Chunk 1 Synthesis: 130ms -]
+                                                         [=== Audio Chunk 1 Plays ===]
+[-- LLM Token 6..15: 300ms -----------------------------]
+                                                         [- Chunk 2 Synthesis: 120ms -]
+                                                                                      [=== Audio Chunk 2 Plays ===]
+```
+
+#### Go API Usage (`pkg/moonshine`)
+
+```go
+synth, err := moonshine.NewSynthesizer("en_us",
+    moonshine.Option{Name: "voice", Value: "kokoro_af_heart"},
+)
+if err != nil {
+    log.Fatal(err)
+}
+defer synth.Close()
+
+stream := synth.NewStream()
+
+// Push text tokens as they arrive from an LLM
+_ = stream.PushText("First complete sentence. ")
+_ = stream.PushText("Second sentence follows.")
+_ = stream.EndInput()
+
+// Pull and process synthesized chunks
+for {
+    chunk, err := stream.NextChunk()
+    if err == moonshine.ErrEndOfStream {
+        break // finished
+    }
+    if err != nil {
+        log.Fatal(err)
+    }
+    if chunk != nil {
+        fmt.Printf("Produced chunk (%d samples, final=%v, text=%q)\n",
+            len(chunk.Samples), chunk.IsFinal, chunk.Text)
+        // Send chunk over WebSocket or play locally
+    }
+}
+```
+
+#### Barge-In Cancellation
+When a user speaks while the agent is replying, the barge-in path immediately interrupts playback:
+- Calling `stream.Cancel()` (or `TTSSpeaker.Interrupt()` / `session.barge_in` action) drops queued text, cancels active C++ ONNX model computation, and resets the synthesizer to idle.
+- Subsequent calls to `NextChunk()` return `ErrCancelled` once so consumer pipelines know playback was interrupted rather than cleanly finished.
+
+#### AgentFlow Token Streaming (`pkg/agentflow`)
+Voice agents built with `pkg/agentflow` can stream token channels (`<-chan string`) directly to TTS:
+
+```go
+af.ListenFor("summarize article", func(d *agentflow.Dialog) error {
+    tokenCh := make(chan string)
+    go func() {
+        defer close(tokenCh)
+        // Stream tokens from LLM completion API
+        for _, token := range []string{"The ", "article ", "discusses ", "speech ", "recognition."} {
+            tokenCh <- token
+        }
+    }()
+    // Speaks tokens incrementally as they arrive
+    return d.SayStream(tokenCh)
+})
+```
+
+#### Sentence Segmentation with `SplitUtterances`
+For offline or pre-chunked processing, `moonshine.SplitUtterances` exposes the engine's language-aware sentence segmentation:
+
+```go
+units, err := moonshine.SplitUtterances("en_us", "Warning: low battery. Connect charger.",
+    moonshine.Option{Name: "split_on_colon", Value: "true"},
+)
+// units: ["Warning:", "low battery.", "Connect charger."]
+```
 
 ### Configuring `--g2p-root` once instead of every time
 
