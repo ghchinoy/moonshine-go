@@ -280,3 +280,76 @@ func TestAgentFlow_ActionSink(t *testing.T) {
 		t.Errorf("expected 1 session.pause action, got %v", dispatched)
 	}
 }
+
+func TestAgentFlow_SpeakStreamWith(t *testing.T) {
+	var tokens []string
+	var mu sync.Mutex
+
+	af := agentflow.New()
+	af.SpeakStreamWith(func(textCh <-chan string) error {
+		for tok := range textCh {
+			mu.Lock()
+			tokens = append(tokens, tok)
+			mu.Unlock()
+		}
+		return nil
+	})
+
+	var saidText string
+	af.OnSaid(func(text string) {
+		saidText = text
+	})
+
+	ch := make(chan string, 3)
+	ch <- "Hello "
+	ch <- "streaming "
+	ch <- "world."
+	close(ch)
+
+	if err := af.SayStream(ch); err != nil {
+		t.Fatalf("SayStream: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(tokens) != 3 {
+		t.Errorf("expected 3 tokens, got %d: %v", len(tokens), tokens)
+	}
+	if saidText != "Hello streaming world." {
+		saidTextWant := "Hello streaming world."
+		t.Errorf("saidText = %q, want %q", saidText, saidTextWant)
+	}
+}
+
+func TestAgentFlow_Dialog_SayStream_SentenceChunking(t *testing.T) {
+	var sentences []string
+	var mu sync.Mutex
+
+	af := agentflow.New()
+	af.SpeakWith(func(text string) error {
+		mu.Lock()
+		sentences = append(sentences, text)
+		mu.Unlock()
+		return nil
+	})
+
+	af.ListenFor("read news", func(d *agentflow.Dialog) error {
+		ch := make(chan string, 6)
+		ch <- "Here is "
+		ch <- "the first story. "
+		ch <- "And here is "
+		ch <- "the second one."
+		close(ch)
+		return d.SayStream(ch)
+	})
+
+	s1 := af.RegisterSettle()
+	af.HandleUtterance("read news")
+	_ = s1.Wait(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(sentences) < 2 {
+		t.Errorf("expected at least 2 sentences chunked, got %d: %v", len(sentences), sentences)
+	}
+}

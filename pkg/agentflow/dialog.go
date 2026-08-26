@@ -80,6 +80,12 @@ func (d *Dialog) Say(text string) error {
 	return d.runner.speak(text)
 }
 
+// SayStream speaks text tokens incrementally from textCh as they are generated
+// (e.g. by an LLM token stream) and waits for playback to finish.
+func (d *Dialog) SayStream(textCh <-chan string) error {
+	return d.runner.speakStream(textCh)
+}
+
 // Ask asks an open question, speaks prompt, and returns what the user said.
 func (d *Dialog) Ask(prompt string, opts ...AskOptions) (string, error) {
 	options := parseAskOptions(opts)

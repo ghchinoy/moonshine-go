@@ -43,12 +43,13 @@ type AgentFlow struct {
 	wantsSpeech      bool
 	triggerThreshold float32
 
-	onProgressFunc    func(progress float64, message string)
-	speakOverride     func(text string) error
-	heardCallbacks    []func(utterance string)
-	saidCallbacks     []func(text string)
-	errorCallbacks    []func(err error)
-	unmatchedHandlers []UnmatchedHandler
+	onProgressFunc      func(progress float64, message string)
+	speakOverride       func(text string) error
+	speakStreamOverride func(textCh <-chan string) error
+	heardCallbacks      []func(utterance string)
+	saidCallbacks       []func(text string)
+	errorCallbacks      []func(err error)
+	unmatchedHandlers   []UnmatchedHandler
 
 	embedding EmbeddingBackend
 	matcher   *PhraseMatcher
@@ -212,6 +213,14 @@ func (af *AgentFlow) SpeakWith(fn func(text string) error) *AgentFlow {
 	return af
 }
 
+// SpeakStreamWith overrides the default streaming speech synthesizer with a custom stream speak function.
+func (af *AgentFlow) SpeakStreamWith(fn func(textCh <-chan string) error) *AgentFlow {
+	af.mu.Lock()
+	defer af.mu.Unlock()
+	af.speakStreamOverride = fn
+	return af
+}
+
 // SetEmbeddingBackend sets an optional EmbeddingBackend for PhraseMatcher fuzzy matching.
 func (af *AgentFlow) SetEmbeddingBackend(backend EmbeddingBackend) *AgentFlow {
 	af.mu.Lock()
@@ -257,6 +266,11 @@ func (af *AgentFlow) Otherwise(handler UnmatchedHandler) *AgentFlow {
 // Say speaks text outside any flow.
 func (af *AgentFlow) Say(text string) error {
 	return af.speak(text)
+}
+
+// SayStream speaks text tokens incrementally from textCh outside any flow.
+func (af *AgentFlow) SayStream(textCh <-chan string) error {
+	return af.speakStream(textCh)
 }
 
 // HandleUtterance feeds an utterance into the agent for processing.
@@ -360,6 +374,110 @@ func (af *AgentFlow) speak(text string) error {
 	}
 
 	// Default fallback when no TTS engine, override, or ActionSink is bound: silent / log
+	return nil
+}
+
+func (af *AgentFlow) speakStream(textCh <-chan string) error {
+	if textCh == nil {
+		return nil
+	}
+
+	af.mu.Lock()
+	streamOverride := af.speakStreamOverride
+	stringOverride := af.speakOverride
+	wantsSpeech := af.wantsSpeech
+	sink := af.actionSink
+	voice := af.voiceID
+	saids := append([]func(string){}, af.saidCallbacks...)
+	af.isSpeaking = true
+	af.mu.Unlock()
+
+	defer func() {
+		af.mu.Lock()
+		af.isSpeaking = false
+		af.mu.Unlock()
+	}()
+
+	if !wantsSpeech {
+		for range textCh {
+		}
+		return nil
+	}
+
+	if streamOverride != nil {
+		if len(saids) > 0 {
+			teeCh := make(chan string, 16)
+			var buf strings.Builder
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				for tok := range textCh {
+					buf.WriteString(tok)
+					teeCh <- tok
+				}
+				close(teeCh)
+			}()
+			err := streamOverride(teeCh)
+			<-done
+			fullText := buf.String()
+			for _, fn := range saids {
+				fn(fullText)
+			}
+			return err
+		}
+		return streamOverride(textCh)
+	}
+
+	var fullBuf strings.Builder
+	var sentenceBuf strings.Builder
+
+	dispatchSentence := func(s string) error {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return nil
+		}
+		if stringOverride != nil {
+			return stringOverride(s)
+		}
+		if sink != nil {
+			args, err := json.Marshal(serveapi.SpeakArgs{Text: s, Voice: voice})
+			if err != nil {
+				return err
+			}
+			_, err = sink.Dispatch(context.Background(), serveapi.ActionRequest{
+				Verb: "speak",
+				Args: args,
+			})
+			return err
+		}
+		return nil
+	}
+
+	for tok := range textCh {
+		fullBuf.WriteString(tok)
+		sentenceBuf.WriteString(tok)
+		if strings.ContainsAny(tok, ".!?\n") {
+			cur := sentenceBuf.String()
+			trimmed := strings.TrimSpace(cur)
+			if len(trimmed) > 0 && (strings.HasSuffix(trimmed, ".") || strings.HasSuffix(trimmed, "!") || strings.HasSuffix(trimmed, "?") || strings.HasSuffix(cur, "\n")) {
+				if err := dispatchSentence(cur); err != nil {
+					return err
+				}
+				sentenceBuf.Reset()
+			}
+		}
+	}
+
+	if sentenceBuf.Len() > 0 {
+		if err := dispatchSentence(sentenceBuf.String()); err != nil {
+			return err
+		}
+	}
+
+	full := fullBuf.String()
+	for _, fn := range saids {
+		fn(full)
+	}
 	return nil
 }
 
