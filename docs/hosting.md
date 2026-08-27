@@ -209,9 +209,15 @@ Strip the 44-byte RIFF header from `.wav` files before transmitting; WebSocket b
 ### 4. Wire Types (`uint64` Line IDs)
 `Line.ID` and `finalized_line_ids` in `TranscriptEvent` are **64-bit unsigned integers (`uint64`)**. In client languages (Go, Java, Rust, Swift), always decode these fields as unsigned 64-bit integers to avoid signed integer overflow on long-running sessions.
 
-### 5. Reference Implementations
+### 5. Streaming TTS Playback & Gapless Scheduling
+When `moonshine serve` synthesizes speech for remote clients (via `speak` actions), it delivers audio as a **stream of `TTSAudioEvent` frames** (`state: "start"`, followed by N `state: "chunk"` frames, ending with `state: "end"` or `state: "interrupted"` on barge-in).
+- **Sequential Scheduling:** Clients must schedule consecutive chunk buffers along their audio timeline (e.g. `nextPlayTime = Math.max(audioCtx.currentTime, nextPlayTime) + buffer.duration` in the Web Audio API) to ensure gapless, uninterrupted playback without overlapping frames.
+- **Barge-in Interruption:** On receiving `state: "interrupted"`, clients should immediately cancel and stop any currently queued audio buffers.
+
+### 6. Reference Implementations
 - **Go:** See **[samples/go-stream-audio](../samples/go-stream-audio/)** for a complete Go client implementing paced streaming, trailing silence, and bidirectional WebSocket receiving.
 - **Browser (JS):** See **[samples/browser-listen](../samples/browser-listen/)** for in-browser microphone capture and streaming via `AudioWorklet`.
+- **Browser Voice Agent (JS):** See **[samples/browser-cascade-faq](../samples/browser-cascade-faq/)** for bidirectional audio capture, live transcript actions, and gapless streaming TTS playback via the Web Audio API.
 
 ---
 

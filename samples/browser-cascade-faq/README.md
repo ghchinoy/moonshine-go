@@ -101,7 +101,60 @@ browser mic ──AudioWorklet──▶ int16 PCM ──WS binary frame──▶
 3. On finalized transcript lines, `app.js` checks for control commands
    (`stop listening` -> `session.pause`) or FAQ keywords (`mission` -> `speak`).
 4. On a match, `app.js` sends an `ActionRequest` JSON frame (`{"verb": "speak", "args": {"text": "..."}}`).
-5. When `moonshine serve` synthesizes TTS, it emits `TTSAudioEvent` JSON frames (`kind: "tts_audio"`).
-6. `app.js` decodes `audio_data` (`[]float32`) from the TTS event, creates a Web Audio `AudioBuffer`, and plays it via `AudioBufferSourceNode`.
+5. When `moonshine serve` synthesizes TTS, it streams `TTSAudioEvent` JSON frames (`kind: "tts_audio"`):
+   a `state: "start"` frame, followed by N `state: "chunk"` frames (each with float32 PCM in `audio_data`),
+   and a terminal `state: "end"` (or `state: "interrupted"` on barge-in).
+6. `app.js` schedules each chunk sequentially using Web Audio's timeline (`Math.max(audioCtx.currentTime, nextPlayTime)`)
+   for gapless playback without overlap, and cancels active audio nodes if a barge-in interruption arrives.
+
+## Streaming TTS Wire Behavior & Gapless Playback Pattern
+
+With streaming TTS enabled (`v0.1.5+`), `moonshine serve` delivers synthesized speech as an incremental stream rather than waiting for full-utterance generation to complete. This dramatically lowers Time-to-First-Audio (TTFA).
+
+### Wire Sequence
+
+```
+Client (ActionRequest "speak") ──▶ Server
+Server ──▶ {"kind":"tts_audio", "payload":{"state":"start", "text":"..."}}
+Server ──▶ {"kind":"tts_audio", "payload":{"state":"chunk", "audio_data":[...], "sample_rate":24000}}
+Server ──▶ {"kind":"tts_audio", "payload":{"state":"chunk", "audio_data":[...], "sample_rate":24000}}
+...
+Server ──▶ {"kind":"tts_audio", "payload":{"state":"end"}}  (or "interrupted" on barge-in)
+```
+
+### Gapless Web Audio Scheduling Pattern
+
+Because chunks arrive progressively over WebSocket, calling `source.start()` immediately without time coordinates causes all chunks to play concurrently at `audioCtx.currentTime`, resulting in garbled, overlapping sound.
+
+The standard browser pattern tracks a `nextPlayTime` cursor on the `AudioContext` timeline:
+```javascript
+let nextPlayTime = 0;
+const activeSources = new Set();
+
+function playChunk(samples, sampleRate) {
+  const buffer = audioCtx.createBuffer(1, samples.length, sampleRate);
+  buffer.getChannelData(0).set(samples);
+
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioCtx.destination);
+
+  // Schedule chunk to start precisely when the prior chunk finishes
+  const startAt = Math.max(audioCtx.currentTime, nextPlayTime);
+  source.start(startAt);
+  nextPlayTime = startAt + buffer.duration;
+
+  activeSources.add(source);
+  source.onended = () => activeSources.delete(source);
+}
+
+function stopAllAudio() {
+  for (const src of activeSources) {
+    try { src.stop(); } catch (_) {}
+  }
+  activeSources.clear();
+  nextPlayTime = audioCtx.currentTime;
+}
+```
 
 See [../README.md](../README.md) for the full Tier 0/1/2 walkthrough this sample is part of.

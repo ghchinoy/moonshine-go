@@ -27,6 +27,18 @@ const seenFinalized = new Set();
 let finalizedText = "";
 let actionCount = 0;
 
+// Streaming TTS playback state.
+//
+// moonshine serve (v0.1.5+) delivers each spoken answer as a STREAM of
+// TTSAudioEvent frames: one "start", then N "chunk" frames each carrying a
+// slice of float32 PCM, then a terminal "end" (or "interrupted" on barge-in).
+// Web Audio's AudioBufferSourceNode.start() plays immediately at the current
+// clock, so naively starting every chunk on arrival overlaps them into noise.
+// We keep a running `nextPlayTime` cursor and schedule each chunk to begin
+// exactly when the previous one finishes, giving gapless back-to-back audio.
+let nextPlayTime = 0;
+const activeSources = new Set();
+
 const FAQ_ENTRIES = [
   {
     keyword: "mission",
@@ -158,14 +170,24 @@ function handleTranscriptPayload(payload) {
 }
 
 function handleTTSAudioPayload(payload) {
-  // TTSAudioEvent: text, audio_data ([]float32), sample_rate, state ("start"|"chunk"|"end")
+  // TTSAudioEvent stream: state "start" -> N x "chunk" -> "end" / "interrupted".
   const state = payload.state || "chunk";
+
   if (state === "start") {
     appendLog(`[agent] TTS playback started: "${payload.text || ""}"`, "agent-act");
+    // Anchor the gapless playback schedule to the current audio clock at start of utterance.
+    if (audioCtx) {
+      nextPlayTime = audioCtx.currentTime;
+    }
     return;
   }
   if (state === "end") {
     appendLog("[agent] TTS playback finished", "agent-act");
+    return;
+  }
+  if (state === "interrupted") {
+    appendLog("[agent] TTS playback interrupted (barge-in)", "agent-act");
+    stopScheduledAudio();
     return;
   }
 
@@ -195,7 +217,32 @@ function playPCMFloat32(samples, sampleRate) {
   const source = audioCtx.createBufferSource();
   source.buffer = buffer;
   source.connect(audioCtx.destination);
-  source.start();
+
+  // Schedule this chunk to start exactly when the previous chunk ends.
+  // Never schedule in the past (clamp to currentTime) so the first chunk
+  // of a stream or after an idle period begins immediately.
+  const startAt = Math.max(audioCtx.currentTime, nextPlayTime);
+  source.start(startAt);
+  nextPlayTime = startAt + buffer.duration;
+
+  activeSources.add(source);
+  source.onended = () => {
+    activeSources.delete(source);
+  };
+}
+
+function stopScheduledAudio() {
+  for (const source of activeSources) {
+    try {
+      source.stop();
+    } catch {
+      // Source might have already finished or stopped
+    }
+  }
+  activeSources.clear();
+  if (audioCtx) {
+    nextPlayTime = audioCtx.currentTime;
+  }
 }
 
 function connect() {
@@ -244,6 +291,7 @@ function connect() {
 
 function disconnect() {
   stopCapture();
+  stopScheduledAudio();
   if (ws) {
     ws.close();
     ws = null;
