@@ -418,6 +418,96 @@ func BenchmarkInProcessStreamingSession(b *testing.B) {
 	}
 }
 
+const benchTTSParagraph = "Welcome to the platform team documentation. We provide resilient audio streaming and real-time speech recognition for edge devices. Let us know if you have any questions."
+
+// BenchmarkInProcessTTSOneShot measures one-shot text-to-speech synthesis time (TTFA).
+func BenchmarkInProcessTTSOneShot(b *testing.B) {
+	libDir := resolveLibDirBench(b)
+	if err := Load(libDir); err != nil {
+		b.Fatalf("Load(%s): %v", libDir, err)
+	}
+	ttsRoot := resolveTTSRootBench(b)
+
+	voices := []string{"piper_en_US-amy-low", "kokoro_af_heart"}
+
+	for _, voice := range voices {
+		b.Run(voice, func(b *testing.B) {
+			synth, err := NewSynthesizer("en_us",
+				Option{Name: "g2p_root", Value: ttsRoot},
+				Option{Name: "voice", Value: voice},
+			)
+			if err != nil {
+				b.Skipf("creating synthesizer for %s: %v", voice, err)
+			}
+			defer synth.Close()
+
+			// Warmup
+			_, _ = synth.Synthesize("Warmup.")
+
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				audio, err := synth.Synthesize(benchTTSParagraph)
+				if err != nil {
+					b.Fatalf("Synthesize failed: %v", err)
+				}
+				if len(audio.Samples) == 0 {
+					b.Fatal("Synthesize produced 0 samples")
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkInProcessTTSStreamingTTFA measures streaming Time-to-First-Audio (TTFA) latency.
+func BenchmarkInProcessTTSStreamingTTFA(b *testing.B) {
+	libDir := resolveLibDirBench(b)
+	if err := Load(libDir); err != nil {
+		b.Fatalf("Load(%s): %v", libDir, err)
+	}
+	ttsRoot := resolveTTSRootBench(b)
+
+	voices := []string{"piper_en_US-amy-low", "kokoro_af_heart"}
+
+	for _, voice := range voices {
+		b.Run(voice, func(b *testing.B) {
+			synth, err := NewSynthesizer("en_us",
+				Option{Name: "g2p_root", Value: ttsRoot},
+				Option{Name: "voice", Value: voice},
+			)
+			if err != nil {
+				b.Skipf("creating synthesizer for %s: %v", voice, err)
+			}
+			defer synth.Close()
+
+			// Warmup
+			_, _ = synth.Synthesize("Warmup.")
+
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				stream := synth.NewStream()
+				if err := stream.PushText(benchTTSParagraph); err != nil {
+					b.Fatalf("PushText failed: %v", err)
+				}
+				_ = stream.EndInput()
+
+				chunk, err := stream.NextChunk()
+				if err != nil && err != ErrEndOfStream {
+					b.Fatalf("NextChunk failed: %v", err)
+				}
+				if chunk == nil || len(chunk.Samples) == 0 {
+					b.Fatal("streaming produced 0 first chunk samples")
+				}
+				_ = stream.Cancel()
+				_, _ = stream.NextChunk() // consume one-time cancellation notice to return synthesizer to idle
+			}
+		})
+	}
+}
+
 // Helper wrappers for *testing.B
 func resolveAudioAssetsBench(b *testing.B) (string, string) {
 	b.Helper()
@@ -523,5 +613,34 @@ func resolveLibDirBench(b *testing.B) string {
 		}
 	}
 	b.Skip("MOONSHINE_LIB_DIR not set and ./.moonshine/lib not found")
+	return ""
+}
+
+func resolveTTSRootBench(b *testing.B) string {
+	b.Helper()
+	if env := os.Getenv("MOONSHINE_SMOKE_TTS_ROOT"); env != "" {
+		if _, err := os.Stat(env); err == nil {
+			return env
+		}
+	}
+	candidates := []string{
+		"../../core/moonshine-tts/data",
+		"../core/moonshine-tts/data",
+		"./core/moonshine-tts/data",
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(home, "projects", "github", "moonshine", "core", "moonshine-tts", "data"),
+			filepath.Join(home, "projects", "moonshine", "core", "moonshine-tts", "data"),
+		)
+	}
+	for _, c := range candidates {
+		if fi, err := os.Stat(c); err == nil && fi.IsDir() {
+			if _, err := os.Stat(filepath.Join(c, "en_us")); err == nil {
+				return c
+			}
+		}
+	}
+	b.Skip("TTS voice assets not found -- set MOONSHINE_SMOKE_TTS_ROOT or run scripts/fetch-voice-assets.sh")
 	return ""
 }

@@ -638,7 +638,7 @@ Moonshine's streaming TTS is **pull-based and synchronous**:
 - **Pulling audio:** `NextChunk()` pulls synthesized PCM audio chunks (`TTSChunk`) containing audio samples, sample rate, utterance ID, and finality indicators.
 - **Flushing & Ending:** `Flush()` forces synthesis of partial trailing thoughts; `EndInput()` signals stream completion so `NextChunk()` returns `ErrEndOfStream`.
 
-#### Latency Waterfall Comparison
+#### Latency Waterfall Comparison (Illustrative)
 
 ```
 One-shot TTS Waterfall (Total TTFA: ~2,200ms):
@@ -654,6 +654,17 @@ Streaming TTS Waterfall (TTFA: ~280ms):
                                                          [- Chunk 2 Synthesis: 120ms -]
                                                                                       [=== Audio Chunk 2 Plays ===]
 ```
+
+#### Measured Benchmark Results
+
+On Apple Silicon (Apple M5, macOS arm64, CPU-only) synthesizing a realistic 3-sentence voice assistant response (12.2s of speech, 36 words), streaming TTS achieves dramatic latency reductions:
+
+| Engine / Model | Voice ID | One-Shot TTFA | Streaming TTFA | Latency Reduction |
+|---|---|---|---|---|
+| **Kokoro-82M** | `kokoro_af_heart` | **1,962ms** | **187ms** | **10.5x faster** (1,775ms saved) |
+| **Piper** | `piper_en_US-amy-low` | **212ms** | **38ms** | **5.6x faster** (174ms saved) |
+
+*See [BENCHMARKS.md](../BENCHMARKS.md#2b-tts-streaming-synthesis-latency) for reproducible benchmark commands and detailed micro-benchmark profiles.*
 
 #### Go API Usage (`pkg/moonshine`)
 

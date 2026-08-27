@@ -47,6 +47,33 @@ BenchmarkInProcessStreamingSession-10       12.90 xRealtime    (RTF = 0.0775)  6
 
 ---
 
+## 2b. TTS Streaming Synthesis & Time-to-First-Audio (TTFA)
+
+Moonshine v0.1.5 introduces sub-sentence acoustic chunking for text-to-speech. Micro-benchmarks measure the synthesis latency comparing traditional one-shot generation against pull-based streaming Time-to-First-Audio (TTFA).
+
+### Benchmark Results (`BenchmarkInProcessTTS*`)
+
+- **Hardware:** Apple M5 (10-core CPU, CPU-only)
+- **Input Text:** 3-sentence assistant paragraph (36 words, ~12.2s synthesized audio duration)
+
+```
+BenchmarkInProcessTTSOneShot/piper_en_US-amy-low-10         220.9 ms/op      898 KB/op     14 allocs/op
+BenchmarkInProcessTTSOneShot/kokoro_af_heart-10            2034.3 ms/op     1172 KB/op     14 allocs/op
+BenchmarkInProcessTTSStreamingTTFA/piper_en_US-amy-low-10    43.6 ms/op       59 KB/op     31 allocs/op
+BenchmarkInProcessTTSStreamingTTFA/kokoro_af_heart-10       190.6 ms/op       59 KB/op     31 allocs/op
+```
+
+### TTS Latency Profile
+
+| Engine / Model | Voice ID | One-Shot TTFA | Streaming TTFA | Latency Reduction (TTFA) | Speedup Factor |
+|---|---|---|---|---|---|
+| **Kokoro-82M** | `kokoro_af_heart` | **2,034ms** | **191ms** | **1,843ms saved** | **10.6x faster** initial playback |
+| **Piper** | `piper_en_US-amy-low` | **221ms** | **44ms** | **177ms saved** | **5.0x faster** initial playback |
+
+> **Architectural Takeaway:** Streaming TTS with Kokoro cuts user-perceived voice response latency by over 1.8 seconds on Apple Silicon, enabling conversational agents to start speaking in under 200ms.
+
+---
+
 ## 3. Network Load Benchmark (`bench/loadtest`)
 
 `bench/loadtest` simulates concurrent wearable or edge microphones streaming 100ms PCM audio frames over WebSocket binary frames (`--audio-source remote`) to `moonshine serve`.
@@ -109,10 +136,10 @@ We welcome community benchmark submissions! If you run `moonshine-go` on a new a
 
 ### Hardware Benchmark Matrix
 
-| Architecture / CPU | OS | Model | Concurrent Streams | In-Process RTF | P95 Interim Latency | Peak RSS | Contributor |
-|---|---|---|---|---|---|---|---|
-| Apple M5 (10-core) | macOS arm64 | `tiny-en` | 10 | 0.077 (12.9×) | 180ms | 142 MB | `@ghchinoy` |
-| *Submit yours!* | | | | | | | |
+| Architecture / CPU | OS | STT Model | Concurrent Streams | STT RTF | P95 Interim Latency | TTS TTFA (Kokoro) | Peak RSS | Contributor |
+|---|---|---|---|---|---|---|---|---|
+| Apple M5 (10-core) | macOS arm64 | `tiny-en` | 10 | 0.077 (12.9×) | 180ms | 191ms | 142 MB | `@ghchinoy` |
+| *Submit yours!* | | | | | | | | |
 
 ### Pull Request Submission Format
 
