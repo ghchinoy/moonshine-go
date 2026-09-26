@@ -6,10 +6,32 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
+
+// SessionState tracks whether voice-tmux is actively listening or paused.
+// Handled locally within the client so that speech-to-text continues streaming
+// in the background, allowing spoken "resume listening" commands to be recognized
+// and processed without deadlocking on a muted microphone.
+type SessionState struct {
+	mu     sync.RWMutex
+	paused bool
+}
+
+func (s *SessionState) SetPaused(p bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.paused = p
+}
+
+func (s *SessionState) IsPaused() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.paused
+}
 
 var (
 	runRe        = regexp.MustCompile(`(?i)^\s*(run it|execute|hit enter|enter)\s*\.?\s*$`)
@@ -29,6 +51,7 @@ var (
 // controlHandler handles fast-path tmux control commands and session management.
 type controlHandler struct {
 	tmux         *TmuxClient
+	state        *SessionState
 	speakConfirm bool
 	debug        bool
 }
@@ -39,20 +62,51 @@ func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line
 		return nil
 	}
 
+	// 1. If currently paused, ONLY intercept and accept resume commands.
+	// All other spoken text (control verbs and dictation) is discarded.
+	if c.state != nil && c.state.IsPaused() {
+		if resumeRe.MatchString(text) {
+			c.state.SetPaused(false)
+			if c.debug {
+				fmt.Printf("[%s] [debug] control matched: resume listening (unpaused)\n", ts())
+			}
+			fmt.Printf("[%s] [control] session resumed (listening enabled)\n", ts())
+			if c.speakConfirm {
+				args, _ := json.Marshal(serveapi.SpeakArgs{Text: "Listening resumed."})
+				return []serveapi.ActionRequest{{Verb: "speak", Args: args}}
+			}
+			return []serveapi.ActionRequest{{Verb: "none"}}
+		}
+
+		if c.debug {
+			fmt.Printf("[%s] [paused] ignored while paused: %q\n", ts(), text)
+		}
+		// Return sentinel "none" so CompositeHandler treats the line as handled
+		// and does NOT fall through to dictationHandler!
+		return []serveapi.ActionRequest{{Verb: "none"}}
+	}
+
+	// 2. Normal (unpaused) command evaluation
 	switch {
 	case pauseRe.MatchString(text):
-		if c.debug {
-			fmt.Printf("[%s] [debug] control matched: stop listening\n", ts())
+		if c.state != nil {
+			c.state.SetPaused(true)
 		}
-		fmt.Printf("[%s] [control] pause session\n", ts())
-		return []serveapi.ActionRequest{{Verb: "session.pause"}}
+		if c.debug {
+			fmt.Printf("[%s] [debug] control matched: stop listening (paused)\n", ts())
+		}
+		fmt.Printf("[%s] [control] session paused (say 'resume listening' or press Enter in this terminal to resume)\n", ts())
+		if c.speakConfirm {
+			args, _ := json.Marshal(serveapi.SpeakArgs{Text: "Listening paused."})
+			return []serveapi.ActionRequest{{Verb: "speak", Args: args}}
+		}
+		return []serveapi.ActionRequest{{Verb: "none"}}
 
 	case resumeRe.MatchString(text):
 		if c.debug {
-			fmt.Printf("[%s] [debug] control matched: resume listening\n", ts())
+			fmt.Printf("[%s] [debug] already listening\n", ts())
 		}
-		fmt.Printf("[%s] [control] resume session\n", ts())
-		return []serveapi.ActionRequest{{Verb: "session.resume"}}
+		return []serveapi.ActionRequest{{Verb: "none"}}
 
 	case runRe.MatchString(text):
 		if c.debug {
@@ -163,13 +217,57 @@ func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line
 	}
 }
 
+// commandAlias represents a prefix replacement for common acoustic misrecognitions
+// of developer CLI tools (e.g. "get status" -> "git status").
+type commandAlias struct {
+	pattern *regexp.Regexp
+	repl    string
+}
+
+var defaultCommandAliases = []commandAlias{
+	// Git command patterns (e.g. "get status" -> "git status")
+	{
+		pattern: regexp.MustCompile(`(?i)^\s*get\s+(status|commit|diff|push|pull|add|checkout|branch|log|reset|fetch|rebase|stash|clone|init|merge)\b`),
+		repl:    "git $1",
+	},
+	// Kubectl patterns ("cubectal", "cube control", "cube cuddle")
+	{
+		pattern: regexp.MustCompile(`(?i)^\s*(cubectal|cube control|cube cuddle)\b`),
+		repl:    "kubectl",
+	},
+	// NPM patterns ("nnmm", "nmm", "and pm")
+	{
+		pattern: regexp.MustCompile(`(?i)^\s*(nnmm|nmm|and pm)\b`),
+		repl:    "npm",
+	},
+}
+
+func applyCommandAliases(text string, enabled bool, debug bool) string {
+	if !enabled || text == "" {
+		return text
+	}
+	trimmed := strings.TrimSpace(text)
+	for _, alias := range defaultCommandAliases {
+		if alias.pattern.MatchString(trimmed) {
+			rewritten := alias.pattern.ReplaceAllString(trimmed, alias.repl)
+			if debug {
+				fmt.Printf("[%s] [debug] alias rewrite: %q -> %q\n", ts(), trimmed, rewritten)
+			}
+			fmt.Printf("[%s] [alias] %q -> %q\n", ts(), trimmed, rewritten)
+			return rewritten
+		}
+	}
+	return text
+}
+
 // normalizeDictation formats spoken speech text for terminal input:
 //   - If raw is true, leaves text untouched.
 //   - Trims surrounding whitespace.
 //   - Strips trailing sentence punctuation (. ? ! , ;).
+//   - Replaces common acoustic command prefixes if enableAliases is true.
 //   - Lowercases the initial character UNLESS the second character is also uppercase
 //     (e.g., "Git status." -> "git status", but "NPM test" -> "NPM test").
-func normalizeDictation(text string, raw bool) string {
+func normalizeDictation(text string, raw bool, enableAliases bool, debug bool) string {
 	text = strings.TrimSpace(text)
 	if raw || text == "" {
 		return text
@@ -182,7 +280,10 @@ func normalizeDictation(text string, raw bool) string {
 		return ""
 	}
 
-	// 2. Lowercase leading character unless followed by another uppercase letter or digit (acronym check)
+	// 2. Apply command aliases on leading terms if enabled
+	text = applyCommandAliases(text, enableAliases, debug)
+
+	// 3. Lowercase leading character unless followed by another uppercase letter or digit (acronym check)
 	runes := []rune(text)
 	if len(runes) > 0 && unicode.IsUpper(runes[0]) {
 		isAcronym := len(runes) > 1 && (unicode.IsUpper(runes[1]) || unicode.IsDigit(runes[1]))
@@ -199,13 +300,19 @@ func normalizeDictation(text string, raw bool) string {
 // SAFETY: Never appends Enter or executes commands automatically.
 type dictationHandler struct {
 	tmux          *TmuxClient
+	state         *SessionState
 	minConfidence float32
 	speakConfirm  bool
 	raw           bool
+	enableAliases bool
 	debug         bool
 }
 
 func (d *dictationHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
+	if d.state != nil && d.state.IsPaused() {
+		return nil
+	}
+
 	text := strings.TrimSpace(line.Text)
 	if text == "" {
 		return nil
@@ -222,7 +329,7 @@ func (d *dictationHandler) OnFinalizedLine(ctx context.Context, line serveapi.Li
 		return nil
 	}
 
-	normalized := normalizeDictation(text, d.raw)
+	normalized := normalizeDictation(text, d.raw, d.enableAliases, d.debug)
 	if normalized == "" {
 		return nil
 	}
