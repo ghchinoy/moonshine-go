@@ -14,6 +14,17 @@ serve` a genuinely *hostable* cascade rather than a single-machine-only
 CLI feature: audio never has to originate from the same box the daemon
 runs on.
 
+## Sample Rating
+
+| Axis | Rating / Details |
+|---|---|
+| **Tier** | Tier 1 |
+| **Complexity** | 2/5 |
+| **Setup Cost** | Medium (requires browser with Web Audio microphone access + moonshine serve) |
+| **Pillars** | Composability, Privacy |
+| **Industry / Use Case** | Web Applications, Zero-Install Audio Capture |
+| **Appeal** | 4/5 |
+
 ## How it works
 
 ```

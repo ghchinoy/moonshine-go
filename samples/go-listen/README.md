@@ -17,6 +17,17 @@ This sample is its own Go module (see `go.mod`) so it can't accidentally
 import `internal/*` from the parent module — it consumes exactly what an
 external, un-privileged client would have access to.
 
+## Sample Rating
+
+| Axis | Rating / Details |
+|---|---|
+| **Tier** | Tier 0 |
+| **Complexity** | 1/5 |
+| **Setup Cost** | Low (plain WebSocket client, zero moonshine-go imports) |
+| **Pillars** | Composability |
+| **Industry / Use Case** | Developer Tooling, Real-Time Transcript Feed |
+| **Appeal** | 2/5 |
+
 ## Run it
 
 In one terminal, start the sidecar:

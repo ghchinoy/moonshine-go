@@ -7,4 +7,6 @@ require (
 	nhooyr.io/websocket v1.8.17
 )
 
+require github.com/ebitengine/purego v0.10.1 // indirect
+
 replace github.com/ghchinoy/moonshine-go => ../..

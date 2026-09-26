@@ -103,6 +103,23 @@ per-poll latency:
 go run . -addr ws://localhost:8765/ws -debug
 ```
 
+### Semantic Vector Phrase Matching (Gemma-300M Embeddings)
+
+By default, AgentFlow evaluates triggers via normalized substring matching. In `v0.10.0+`, you can enable semantic vector phrase matching using `pkg/moonshine.EmbeddingModel` with the Gemma-300M embedding model:
+
+```sh
+# Enable semantic phrase matching (auto-resolves or downloads Gemma-300M quantized model):
+go run . -addr ws://localhost:8765/ws -embedding-model auto
+
+# Custom cosine similarity trigger threshold (default 0.65):
+go run . -addr ws://localhost:8765/ws -embedding-model auto -embedding-threshold 0.60
+```
+
+With embeddings enabled, natural conversational phrasing variants that don't literally contain the keyword still trigger the correct FAQ answer:
+- *"What is your policy regarding data security and confidential audio?"* -> triggers **privacy**
+- *"Can I attach and compose external services in Go or Python over WebSocket?"* -> triggers **composability**
+- *"How can I audit, log, and inspect every spoken utterance with timestamps?"* -> triggers **observability**
+
 ## A note on the demo dataset & AgentFlow phrase matching
 
 The FAQ answers are six short entries pulled straight from `docs/MISSION.md`, wired up via `flow.ListenFor` in `newAgentFlow()` in `main.go`.

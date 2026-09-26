@@ -10,6 +10,17 @@ using the Web Audio API.
 No build step, no framework, no server-side agent process in any language —
 open `index.html` in a browser and the tab itself is the agent.
 
+## Sample Rating
+
+| Axis | Rating / Details |
+|---|---|
+| **Tier** | Tier 1 |
+| **Complexity** | 3/5 |
+| **Setup Cost** | Medium (requires browser with Web Audio microphone access + moonshine serve) |
+| **Pillars** | Control, Privacy, Composability |
+| **Industry / Use Case** | Customer Support, Kiosks, Offline Web Voice Agent |
+| **Appeal** | 5/5 |
+
 ## What it demonstrates
 
 - **Composability, maximally** — the strongest proof of the composability

@@ -6,6 +6,17 @@ moonshine-go dependency of any kind — just `websockets` and `json`. Proves
 the "composability" pillar from [docs/MISSION.md](../../docs/MISSION.md):
 the transcript is a bus any language can attach to.
 
+## Sample Rating
+
+| Axis | Rating / Details |
+|---|---|
+| **Tier** | Tier 0 |
+| **Complexity** | 1/5 |
+| **Setup Cost** | Low (Python 3.10+ and `websockets`) |
+| **Pillars** | Composability |
+| **Industry / Use Case** | Developer Tooling, Real-Time Audio Transcription Feed |
+| **Appeal** | 2/5 |
+
 ## Run it
 
 In one terminal, start the sidecar:
