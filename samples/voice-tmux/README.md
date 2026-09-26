@@ -113,11 +113,11 @@ In the second pane (`voice:0.1`), start the voice daemon with actions enabled:
 ```sh
 cd ../.. # repo root
 export MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib"
-./bin/moonshine serve --transport ws --addr :8765 --allow-actions --agent external --arch small-streaming
+./bin/moonshine serve --transport ws --addr :8765 --allow-actions --agent external --arch tiny-streaming
 ```
 
 > **Why `--agent external`?** Tells the daemon *not* to run its own built-in LLM or dialog rules, ensuring only `voice-tmux` interprets and executes actions on transcripts.  
-> **Why `--arch small-streaming`?** Provides significantly higher vocabulary precision for technical commands than `tiny` while maintaining real-time streaming latency.
+> **Why `--arch tiny-streaming`?** Fast, low-latency streaming recognition that supports runtime keyterm biasing. (You can also pass `--arch small-streaming` for broader general vocabulary).
 
 ### 4. Run `voice-tmux` (Pane 2)
 
@@ -169,14 +169,18 @@ Safety guarantee: Aliases **only match at the start of a command line**. Saying 
 - Disable prefix rewriting via `-no-aliases`
 - Disable all formatting/normalization via `-raw`
 
-### Empirical Recognition Across Architectures
+### Empirical Recognition Across Architectures (Synthetic Audio Test)
 
-| Spoken Phrase | `tiny` (static) | `tiny-streaming` | `small-streaming` (with aliases) |
-|---|---|---|---|
-| **"git status"** | `Get status.` | `Get status.` | `git status` |
-| **"git commit"** | `Get commit.` | `Get commit.` | `git commit` |
-| **"npm install"** | `And an mm install.` | `NMM install.` | `npm install` |
-| **"kubectl get pods"** | `Q-Bictile Get Pods` | `Cubectal get pods.` | `kubectl get pods` |
+The table below records raw transcription output measured across models using Kokoro TTS audio clips, alongside the final command text typed into tmux after normalization and alias rewriting:
+
+| Spoken Phrase | Raw Model Output (`tiny` / `tiny-streaming` / `small-streaming`) | Typed by `voice-tmux` (Normalized + Aliases) |
+|---|---|---|
+| **"git status"** | `Get status.` | `git status` |
+| **"git commit"** | `Get commit.` | `git commit` |
+| **"npm install"** | `NMM install.` / `NNMM Install.` | `npm install` |
+| **"kubectl get pods"** | `Cubectal get pods.` / `Cubectal Get Pods` | `kubectl get pods` |
+
+*(Note: Tested against synthetic Kokoro TTS audio clips. Keyterm biasing provides acoustic bonuses, but because conversational language priors for common words like "get" are so strong, the client-side prefix alias table is what guarantees reliable execution for common developer commands).*
 
 ---
 
