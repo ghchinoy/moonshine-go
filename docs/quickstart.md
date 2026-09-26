@@ -2,6 +2,8 @@
 
 This guide walks you through setting up `moonshine-go`, building the CLI, downloading a speech-to-text model, and transcribing your first audio file.
 
+> **Time expectation:** ~5 minutes on Linux (using prebuilt binaries); ~15–20 minutes on macOS (due to one-time C++ compilation of `libmoonshine` from source).
+
 ## 1. Prerequisites
 
 - **Go 1.25+**
@@ -67,7 +69,7 @@ All essential checks should report green. If any item shows a warning, `doctor` 
 
 ## 4. Download a Speech-to-Text Model
 
-Download the default lightweight English model (`tiny`, ~150MB):
+Download the default lightweight English model (`tiny`, 71 MB on disk):
 
 ```sh
 ./bin/moonshine setup --arch tiny
@@ -96,6 +98,9 @@ Transcribe the audio:
 Output:
 
 ```text
+decoding audio...
+loading tiny model...
+transcribing 44.4s of audio...
 [  0.99s] It was the best of times, it was the worst of times.
 [  4.80s] It was the age of wisdom,
 [  6.43s] It was the age of foolishness.
@@ -103,8 +108,14 @@ Output:
 [ 10.56s] It was the epoch of incredulity.
 [ 13.22s] It was a season of light.
 [ 14.91s] It was a season of darkness.
+[ 17.31s] It was the swin of hope. It was the winter of despair.
+[ 20.99s] We had everything before us, we had nothing before us.
+[ 24.42s] We all go and direct to heaven,
+[ 26.34s] We were all going to act the other way.
+[ 28.86s] In short,, the period was so far like the present period,
+[ 32.51s] That some of its noisiest authorities insisted on its being received for good or for evil in the superlative degree of comparison only.
 --------------------------------------------------
-stats: load=142ms decode=32ms infer=99ms audio=44.4s rtf=71.3x
+stats: load=146ms decode=234ms infer=671ms audio=44.37s rtf=66.1x
 ```
 
 ## Where to Go Next
