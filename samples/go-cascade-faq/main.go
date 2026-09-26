@@ -48,6 +48,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -56,6 +57,7 @@ import (
 	"nhooyr.io/websocket/wsjson"
 
 	"github.com/ghchinoy/moonshine-go/pkg/agentflow"
+	"github.com/ghchinoy/moonshine-go/pkg/moonshine"
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
 
@@ -86,10 +88,24 @@ type envelope struct {
 func main() {
 	addr := flag.String("addr", "ws://localhost:8765/ws", "moonshine serve WebSocket URL")
 	flag.BoolVar(&debug, "debug", false, "print per-rule/per-keyword matching trace")
+	embeddingFlag := flag.String("embedding-model", "", "enable semantic vector matching using Gemma-300M (pass 'auto' to auto-resolve/download or path to directory)")
+	thresholdFlag := flag.Float64("embedding-threshold", 0.65, "cosine similarity trigger threshold for vector matching (0.0-1.0)")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
+
+	var embBackend agentflow.EmbeddingBackend
+	if *embeddingFlag != "" {
+		fmt.Printf("[%s] [cascade-faq] Loading embedding model %q for semantic phrase matching...\n", ts(), *embeddingFlag)
+		embModel, err := loadEmbeddingModel(*embeddingFlag)
+		if err != nil {
+			log.Fatalf("loading embedding model: %v", err)
+		}
+		defer embModel.Close()
+		embBackend = embModel
+		fmt.Printf("[%s] [cascade-faq] Semantic phrase matching enabled (Gemma-300M, threshold: %.2f)\n", ts(), *thresholdFlag)
+	}
 
 	conn, _, err := websocket.Dial(ctx, *addr, nil)
 	if err != nil {
@@ -110,7 +126,7 @@ func main() {
 	// session once set -- see pkg/serveapi/event.go).
 	var ttftLogged bool
 
-	agentHandler := newAgentFlow(sink)
+	agentHandler := newAgentFlow(sink, embBackend, float32(*thresholdFlag))
 	runner := serveapi.NewAgentRunner(agentHandler, sink)
 
 	events := make(chan serveapi.TranscriptEvent, 16)
@@ -189,10 +205,18 @@ type faqEntry struct {
 }
 
 // newAgentFlow constructs a Go-native AgentFlow voice agent and adapts it to
-// satisfy serveapi.AgentHandler via agentflow.NewHandlerAdapter.
-func newAgentFlow(sink serveapi.ActionSink) serveapi.AgentHandler {
+// satisfy serveapi.AgentHandler via agentflow.NewHandlerAdapter. If an
+// EmbeddingBackend is provided, phrase matching uses cosine-similarity
+// semantic vector embeddings rather than case-insensitive substring matching.
+func newAgentFlow(sink serveapi.ActionSink, embBackend agentflow.EmbeddingBackend, threshold float32) serveapi.AgentHandler {
 	flow := agentflow.New()
 	flow.ActionSink(sink)
+	if embBackend != nil {
+		flow.SetEmbeddingBackend(embBackend)
+		if threshold > 0 {
+			flow.TriggerThreshold(threshold)
+		}
+	}
 
 	// Direct speech output through the WebSocket action sink so d.Say(...) in
 	// conversation flows sends a "speak" action back to the sidecar.
@@ -416,4 +440,41 @@ func (s *wsActionSink) newID() string {
 	id := s.nextID
 	s.mu.Unlock()
 	return "cascade-faq-" + strconv.FormatInt(id, 10)
+}
+
+func loadEmbeddingModel(target string) (*moonshine.EmbeddingModel, error) {
+	libPath := os.Getenv("MOONSHINE_LIB_DIR")
+	if err := moonshine.Load(libPath); err != nil {
+		return nil, fmt.Errorf("loading libmoonshine: %w (ensure MOONSHINE_LIB_DIR points to libmoonshine.{dylib,so})", err)
+	}
+
+	modelDir := target
+	if target == "auto" || target == "gemma" || target == "default" {
+		cacheRoot := os.Getenv("MOONSHINE_VOICE_CACHE")
+		if cacheRoot == "" {
+			if home, err := os.UserHomeDir(); err == nil {
+				cacheRoot = filepath.Join(home, "Library", "Caches", "moonshine_voice")
+				if _, err := os.Stat(cacheRoot); os.IsNotExist(err) {
+					cacheRoot = filepath.Join(home, ".cache", "moonshine_voice")
+				}
+			}
+		}
+
+		manifest, err := moonshine.GetEmbeddingDependencies(moonshine.DefaultEmbeddingModelName, moonshine.Option{Name: "variant", Value: "q4"})
+		if err != nil {
+			return nil, fmt.Errorf("fetching embedding manifest: %w", err)
+		}
+
+		if err := moonshine.Download(context.Background(), manifest, cacheRoot, false); err != nil {
+			return nil, fmt.Errorf("downloading embedding model: %w", err)
+		}
+
+		dir, err := moonshine.PrimaryModelDir(cacheRoot, manifest)
+		if err != nil {
+			return nil, fmt.Errorf("resolving primary embedding model directory: %w", err)
+		}
+		modelDir = dir
+	}
+
+	return moonshine.NewEmbeddingModel(modelDir, moonshine.EmbeddingModelArchGemma300M, "q4")
 }

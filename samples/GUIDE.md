@@ -42,9 +42,9 @@ Every sample in `samples/` self-reports its rating schema in its own `README.md`
 | **[browser-cascade-faq](browser-cascade-faq/)** | Tier 1 | 3/5 | Medium | Control, Privacy, Composability | Zero-install browser voice FAQ with Web Audio TTS | 5/5 |
 | **[go-cascade-faq](go-cascade-faq/)** | Tier 1 | 3/5 | Medium | Control, Observability, Privacy, Composability | Flagship Go offline RAG voice agent | 4/5 |
 | **[go-domain-customization](go-domain-customization/)** | Tier 1 / Tier 2 | 3/5 | Low | Control, Composability, Observability, Privacy | Dynamic keyterm biasing & passage context extraction | 5/5 |
-| **[python-agent](python-agent/)** | Tier 2 | 4/5 | Medium | Control, Composability | Multi-turn spoken LLM agent with tools | 4/5 |
+| **[python-agent](python-agent/)** | Tier 1 | 2/5 | Low | Control, Composability, Observability | Voice command agent with time & pause/resume (Python) | 3/5 |
 | **[go-bulk-analysis](go-bulk-analysis/)** | Tier 2 | 3/5 | Medium | Observability, Composability, Privacy | Batch audio corpus transcription & LLM report synthesis | 5/5 |
-| **[go-embedded](go-embedded/)** | Native / in-process | 2/5 | Medium | Privacy, Composability | Direct in-process batch & streaming STT (no daemon) | 4/5 |
+| **[go-embedded](go-embedded/)** | Native / in-process | 2/5 | Medium | Privacy, Composability | Direct in-process STT & streaming TTS synthesis (no daemon) | 5/5 |
 | **[mcp-transcribe](mcp-transcribe/)** | Native / in-process | 3/5 | Medium | Composability, Privacy | Embedded MCP server exposing in-process STT tool | 5/5 |
 | **[desktop-app](desktop-app/)** | Native / in-process | 3/5 | High | Privacy, Composability | Native Wails v2 GUI app with in-process STT (no daemon) | 5/5 |
 

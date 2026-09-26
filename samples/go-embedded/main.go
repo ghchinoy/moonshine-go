@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"os"
@@ -18,19 +19,29 @@ func main() {
 		archFlag             string
 		wordTimestampsFlag   bool
 		identifySpeakersFlag bool
+		ttsFlag              string
+		ttsVoiceFlag         string
+		ttsG2PRootFlag       string
+		ttsOutDirFlag        string
 	)
 
-	flag.StringVar(&audioFlag, "audio", "", "Path to .wav audio file to transcribe in-process")
+	flag.StringVar(&audioFlag, "audio", "", "Path to .wav audio file to transcribe in-process (STT)")
 	flag.BoolVar(&streamFlag, "stream", false, "Demonstrate streaming API (NewStream) in-process with chunked audio ingestion")
 	flag.StringVar(&langFlag, "language", "en", "STT model language")
 	flag.StringVar(&archFlag, "arch", "tiny", "STT model architecture (e.g. tiny, tiny-streaming)")
 	flag.BoolVar(&wordTimestampsFlag, "word-timestamps", false, "Enable per-word timestamps")
 	flag.BoolVar(&identifySpeakersFlag, "identify-speakers", false, "Enable speaker diarization")
+
+	flag.StringVar(&ttsFlag, "tts", "", "Text to synthesize in-process comparing one-shot vs streaming TTFA (TTS)")
+	flag.StringVar(&ttsVoiceFlag, "tts-voice", "kokoro_af_heart", "TTS voice identifier (e.g. kokoro_af_heart, piper_en_US-amy-low)")
+	flag.StringVar(&ttsG2PRootFlag, "tts-g2p-root", "", "Path to TTS models/voices directory (default: MOONSHINE_TTS_ROOT or cache)")
+	flag.StringVar(&ttsOutDirFlag, "tts-out-dir", ".", "Directory to write output WAV files (tts_oneshot.wav and tts_streaming.wav)")
 	flag.Parse()
 
-	if audioFlag == "" {
-		fmt.Fprintf(os.Stderr, "Usage of go-embedded (in-process STT via pkg/moonshine):\n")
-		fmt.Fprintf(os.Stderr, "  go run . -audio <path_to_wav> [flags]\n\n")
+	if audioFlag == "" && ttsFlag == "" {
+		fmt.Fprintf(os.Stderr, "Usage of go-embedded (in-process STT & TTS via pkg/moonshine):\n")
+		fmt.Fprintf(os.Stderr, "  STT: go run . -audio <path_to_wav> [flags]\n")
+		fmt.Fprintf(os.Stderr, "  TTS: go run . -tts \"Text to speak\" [flags]\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -45,25 +56,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 2. Load STT Transcriber model
-	modelDir := resolveModelDir(langFlag, archFlag)
+	// 2. Run STT if requested
+	if audioFlag != "" {
+		runSTTInProcess(audioFlag, langFlag, archFlag, streamFlag, wordTimestampsFlag, identifySpeakersFlag)
+	}
+
+	// 3. Run TTS if requested
+	if ttsFlag != "" {
+		runTTSInProcess(ttsFlag, ttsVoiceFlag, ttsG2PRootFlag, ttsOutDirFlag)
+	}
+}
+
+func runSTTInProcess(audioPath, lang, arch string, stream, wordTimestamps, identifySpeakers bool) {
+	modelDir := resolveModelDir(lang, arch)
 	if modelDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: STT model for %s/%s not found.\n", langFlag, archFlag)
-		fmt.Fprintf(os.Stderr, "Run 'moonshine setup --language %s --arch %s' first.\n", langFlag, archFlag)
+		fmt.Fprintf(os.Stderr, "Error: STT model for %s/%s not found.\n", lang, arch)
+		fmt.Fprintf(os.Stderr, "Run 'moonshine setup --language %s --arch %s' first.\n", lang, arch)
 		os.Exit(1)
 	}
 
-	fmt.Fprintf(os.Stderr, "[go-embedded] Loading model from %s...\n", modelDir)
+	fmt.Fprintf(os.Stderr, "[go-embedded] Loading STT model from %s...\n", modelDir)
 	var opts []moonshine.Option
-	if identifySpeakersFlag {
+	if identifySpeakers {
 		opts = append(opts, moonshine.Option{Name: "identify_speakers", Value: "1"})
 	}
 
-	// ModelArchTiny = 0, ModelArchBase = 1, ModelArchTinyStreaming = 2
 	archID := moonshine.ModelArchTiny
-	if archFlag == "tiny-streaming" {
+	if arch == "tiny-streaming" {
 		archID = moonshine.ModelArchTinyStreaming
-	} else if archFlag == "base" {
+	} else if arch == "base" {
 		archID = moonshine.ModelArchBase
 	}
 
@@ -74,17 +95,16 @@ func main() {
 	}
 	defer tr.Close()
 
-	// 3. Load WAV audio samples (mono float32, 16kHz)
-	samples, sampleRate, err := loadWAVSamples(audioFlag)
+	samples, sampleRate, err := loadWAVSamples(audioPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading WAV file %s: %v\n", audioFlag, err)
+		fmt.Fprintf(os.Stderr, "Error loading WAV file %s: %v\n", audioPath, err)
 		os.Exit(1)
 	}
 
 	audioDurationSec := float64(len(samples)) / float64(sampleRate)
 	fmt.Fprintf(os.Stderr, "[go-embedded] Loaded %.2fs audio (sample rate %dHz)\n", audioDurationSec, sampleRate)
 
-	if streamFlag {
+	if stream {
 		runStreamingInProcess(tr, samples, int32(sampleRate), audioDurationSec)
 	} else {
 		runBatchInProcess(tr, samples, int32(sampleRate), audioDurationSec)
@@ -257,4 +277,241 @@ func loadWAVSamples(path string) ([]float32, int, error) {
 	}
 
 	return samples, sampleRate, nil
+}
+
+func runTTSInProcess(text, voice, g2pRoot, outDir string) {
+	fmt.Fprintf(os.Stderr, "\n[go-embedded] Running in-process TTS synthesis...\n")
+	if g2pRoot == "" {
+		g2pRoot = resolveTTSModelDir()
+	}
+	if g2pRoot == "" {
+		fmt.Fprintf(os.Stderr, "Error: TTS model root (g2p_root) not found.\n")
+		fmt.Fprintf(os.Stderr, "Specify -tts-g2p-root or set MOONSHINE_TTS_ROOT / MOONSHINE_SRC.\n")
+		os.Exit(1)
+	}
+
+	var opts []moonshine.Option
+	opts = append(opts, moonshine.Option{Name: "g2p_root", Value: g2pRoot})
+	if voice != "" {
+		opts = append(opts, moonshine.Option{Name: "voice", Value: voice})
+	} else {
+		opts = append(opts, moonshine.Option{Name: "voice", Value: "kokoro_af_heart"})
+		voice = "kokoro_af_heart"
+	}
+
+	synth, err := moonshine.NewSynthesizer("en_us", opts...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating TTS synthesizer: %v\n", err)
+		os.Exit(1)
+	}
+	defer synth.Close()
+
+	if outDir == "" {
+		outDir = "."
+	}
+
+	// 1. One-shot synthesis
+	fmt.Fprintf(os.Stderr, "[go-embedded] Synthesizing one-shot...\n")
+	tOneShotStart := time.Now()
+	oneShotAudio, err := synth.Synthesize(text)
+	oneShotTTFA := time.Since(tOneShotStart)
+	oneShotTotal := oneShotTTFA
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "One-shot TTS error: %v\n", err)
+		os.Exit(1)
+	}
+
+	oneShotWAV := filepath.Join(outDir, "tts_oneshot.wav")
+	if err := saveWAVFile(oneShotWAV, oneShotAudio.Samples, oneShotAudio.SampleRate); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving one-shot WAV: %v\n", err)
+	}
+
+	oneShotDuration := float64(len(oneShotAudio.Samples)) / float64(oneShotAudio.SampleRate)
+
+	// 2. Streaming synthesis (NewStream)
+	fmt.Fprintf(os.Stderr, "[go-embedded] Synthesizing streaming (NewStream)...\n")
+	stream := synth.NewStream()
+
+	tStreamStart := time.Now()
+	if err := stream.PushText(text); err != nil {
+		fmt.Fprintf(os.Stderr, "Error pushing text to stream: %v\n", err)
+		os.Exit(1)
+	}
+	if err := stream.EndInput(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error ending stream input: %v\n", err)
+		os.Exit(1)
+	}
+
+	var streamSamples []float32
+	var streamSampleRate int32
+	var streamTTFA time.Duration
+	chunkCount := 0
+
+	for {
+		chunk, err := synth.NextChunk()
+		if err == moonshine.ErrEndOfStream || err == moonshine.ErrNeedText {
+			break
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error retrieving stream chunk: %v\n", err)
+			break
+		}
+		if chunkCount == 0 {
+			streamTTFA = time.Since(tStreamStart)
+		}
+		chunkCount++
+		streamSamples = append(streamSamples, chunk.Audio.Samples...)
+		streamSampleRate = chunk.Audio.SampleRate
+	}
+	streamTotal := time.Since(tStreamStart)
+
+	streamWAV := filepath.Join(outDir, "tts_streaming.wav")
+	if err := saveWAVFile(streamWAV, streamSamples, streamSampleRate); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving streaming WAV: %v\n", err)
+	}
+
+	streamDuration := float64(len(streamSamples)) / float64(streamSampleRate)
+
+	speedup := 1.0
+	if streamTTFA > 0 {
+		speedup = float64(oneShotTTFA) / float64(streamTTFA)
+	}
+
+	fmt.Println("\n=== In-Process TTS Synthesis (One-Shot vs Streaming TTFA) ===")
+	fmt.Printf("Text:   %q\n", text)
+	fmt.Printf("Voice:  %s (%dHz)\n\n", voice, oneShotAudio.SampleRate)
+	fmt.Printf("%-24s %-18s %-24s %-14s\n", "Metric", "One-Shot", "Streaming (NewStream)", "Speedup")
+	fmt.Println("------------------------------------------------------------------------------------")
+	fmt.Printf("%-24s %-18s %-24s %-14s\n",
+		"Time-to-First-Audio",
+		fmt.Sprintf("%dms", oneShotTTFA.Milliseconds()),
+		fmt.Sprintf("%dms", streamTTFA.Milliseconds()),
+		fmt.Sprintf("%.1fx faster", speedup),
+	)
+	fmt.Printf("%-24s %-18s %-24s %-14s\n",
+		"Total Generation Time",
+		fmt.Sprintf("%dms", oneShotTotal.Milliseconds()),
+		fmt.Sprintf("%dms", streamTotal.Milliseconds()),
+		"-",
+	)
+	fmt.Printf("%-24s %-18s %-24s %-14s\n",
+		"Audio Duration",
+		fmt.Sprintf("%.2fs (%d smp)", oneShotDuration, len(oneShotAudio.Samples)),
+		fmt.Sprintf("%.2fs (%d smp)", streamDuration, len(streamSamples)),
+		"-",
+	)
+	fmt.Printf("%-24s %-18s %-24s %-14s\n",
+		"Saved WAV File",
+		oneShotWAV,
+		streamWAV,
+		"-",
+	)
+	fmt.Println()
+}
+
+func resolveTTSModelDir() string {
+	if root := os.Getenv("MOONSHINE_TTS_ROOT"); root != "" {
+		if fi, err := os.Stat(root); err == nil && fi.IsDir() {
+			return root
+		}
+	}
+	if root := os.Getenv("MOONSHINE_SMOKE_TTS_ROOT"); root != "" {
+		if fi, err := os.Stat(root); err == nil && fi.IsDir() {
+			return root
+		}
+	}
+	if src := os.Getenv("MOONSHINE_SRC"); src != "" {
+		candidate := filepath.Join(src, "core", "moonshine-tts", "data")
+		if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
+			return candidate
+		}
+	}
+	home, err := os.UserHomeDir()
+	if err == nil {
+		candidates := []string{
+			filepath.Join(home, "projects", "github", "moonshine", "core", "moonshine-tts", "data"),
+			filepath.Join(home, "Library", "Caches", "moonshine_voice", "tts"),
+			filepath.Join(home, ".cache", "moonshine_voice", "tts"),
+		}
+		for _, c := range candidates {
+			if fi, err := os.Stat(c); err == nil && fi.IsDir() {
+				return c
+			}
+		}
+	}
+	return ""
+}
+
+func saveWAVFile(path string, samples []float32, sampleRate int32) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	numChannels := uint16(1)
+	bitsPerSample := uint16(16)
+	bytesPerSample := bitsPerSample / 8
+	dataSize := uint32(len(samples)) * uint32(bytesPerSample) * uint32(numChannels)
+	fileSize := 36 + dataSize
+
+	// RIFF header
+	if _, err := f.Write([]byte("RIFF")); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, fileSize); err != nil {
+		return err
+	}
+	if _, err := f.Write([]byte("WAVEfmt ")); err != nil {
+		return err
+	}
+
+	// Subchunk 1 ("fmt ")
+	subchunk1Size := uint32(16)
+	audioFormat := uint16(1) // PCM
+	byteRate := uint32(sampleRate) * uint32(numChannels) * uint32(bytesPerSample)
+	blockAlign := numChannels * bytesPerSample
+
+	if err := binary.Write(f, binary.LittleEndian, subchunk1Size); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, audioFormat); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, numChannels); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(sampleRate)); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, byteRate); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, blockAlign); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, bitsPerSample); err != nil {
+		return err
+	}
+
+	// Subchunk 2 ("data")
+	if _, err := f.Write([]byte("data")); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, dataSize); err != nil {
+		return err
+	}
+
+	for _, s := range samples {
+		if s > 1.0 {
+			s = 1.0
+		} else if s < -1.0 {
+			s = -1.0
+		}
+		val := int16(s * 32767.0)
+		if err := binary.Write(f, binary.LittleEndian, val); err != nil {
+			return err
+		}
+	}
+	return nil
 }

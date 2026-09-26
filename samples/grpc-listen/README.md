@@ -10,6 +10,17 @@ Both do the exact same Tier 0 job (subscribe to live finalized lines), but
 codegen'd protobuf contract (`servepb.NewVoiceSidecarClient`) rather than
 decoding plain JSON envelopes off a WebSocket.
 
+## Sample Rating
+
+| Axis | Rating / Details |
+|---|---|
+| **Tier** | Tier 0 |
+| **Complexity** | 1/5 |
+| **Setup Cost** | Low (gRPC connection to `:9090`) |
+| **Pillars** | Composability, Observability |
+| **Industry / Use Case** | Developer Tooling, High-Throughput gRPC Pipeline |
+| **Appeal** | 3/5 |
+
 ## Run it
 
 Build/fetch `libmoonshine` first if you haven't (see repo root [README](../../README.md)).

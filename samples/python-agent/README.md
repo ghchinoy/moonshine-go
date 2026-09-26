@@ -12,6 +12,17 @@ This demonstrates the **"control"** pillar from
 an LLM call — fully auditable, fully offline, and a fast-path pattern any
 language can implement without an SDK.
 
+## Sample Rating
+
+| Axis | Rating / Details |
+|---|---|
+| **Tier** | Tier 1 |
+| **Complexity** | 2/5 |
+| **Setup Cost** | Low (Python 3.10+ and `websockets`) |
+| **Pillars** | Control, Composability, Observability |
+| **Industry / Use Case** | Developer Tooling, Voice Command Agent (Python) |
+| **Appeal** | 3/5 |
+
 ## Run it
 
 In one terminal, start the sidecar:
