@@ -164,9 +164,51 @@ func (d *Dialog) EmitAction(req serveapi.ActionRequest) (serveapi.ActionResult, 
 	return d.runner.EmitAction(req)
 }
 
+// PauseOption configures Dialog.PauseListening.
+type PauseOption func(*pauseOptions)
+
+type pauseOptions struct {
+	hardMute bool
+}
+
+// WithHardMute instructs PauseListening to request a hardware/capture-level privacy mute
+// instead of the default wake-phrase standby mode. Note: with hard mute enabled, voice-driven
+// unpause is impossible until an external network client dispatches session.resume.
+func WithHardMute() PauseOption {
+	return func(o *pauseOptions) {
+		o.hardMute = true
+	}
+}
+
 // PauseListening emits a session.pause control action to pause speech recognition.
-func (d *Dialog) PauseListening() (serveapi.ActionResult, error) {
-	return d.EmitAction(serveapi.ActionRequest{Verb: "session.pause"})
+// By default, it requests software standby mode with the flow's registered resume phrases
+// (default: "resume listening", "start listening"), keeping the mic streaming so voice unpause works.
+// Pass WithHardMute() to request a full hardware capture mute.
+func (d *Dialog) PauseListening(opts ...PauseOption) (serveapi.ActionResult, error) {
+	var po pauseOptions
+	for _, opt := range opts {
+		opt(&po)
+	}
+
+	var args []byte
+	if !po.hardMute && d.runner != nil {
+		d.runner.mu.Lock()
+		phrases := append([]string(nil), d.runner.resumePhrases...)
+		d.runner.mu.Unlock()
+
+		if len(phrases) > 0 {
+			raw, err := json.Marshal(serveapi.PauseArgs{Passthrough: phrases})
+			if err != nil {
+				return serveapi.ActionResult{}, err
+			}
+			args = raw
+		}
+	}
+
+	return d.EmitAction(serveapi.ActionRequest{
+		Verb: "session.pause",
+		Args: args,
+	})
 }
 
 // ResumeListening emits a session.resume control action to resume speech recognition.

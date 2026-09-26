@@ -488,6 +488,8 @@ moonshine serve --transport ws --agent external
 | `--allow-actions` | `false` | Gate enabling mutating actions (`speak`, `session control`, `run_command`) |
 | `--tts-voice` | (auto) | Default TTS voice override |
 | `--tts-language` | `en_us` | TTS speaker language |
+| `--g2p-root` | (auto) | Directory holding kokoro/, <lang>/piper-voices/, etc. (derived from config, moonshine.src_dir, or downloaded voices; see `moonshine doctor`) |
+| `--wake-phrases` | `""` | Comma-separated wake phrases for voice resumption during `session.pause` standby (e.g. `resume listening,start listening`; default: none/hard-mute) |
 | `--arch` | `tiny-streaming` | STT model architecture (`tiny-streaming`, `small-streaming`, `medium-streaming`) |
 | `--language` | `en` | STT model language |
 | `--keyterms` | `""` | Initial comma-separated key terms to bias speech recognition towards (streaming models only) |
@@ -503,11 +505,29 @@ When `--allow-actions` is enabled, connected WebSocket and gRPC subscribers can 
 |---|---|---|
 | `speak` | `{"text": "...", "voice": "...", "speed": 1.0}` | Synthesizes speech and plays it locally via TTS |
 | `display` | `{"title": "...", "body": "...", "kind": "..."}` | Fans out a DisplayCard event to connected UI subscribers |
-| `session.pause` | `null` | Mutes microphone input and pauses transcription |
+| `session.pause` | `{"passthrough": ["resume listening"]}` | Pauses transcription. Pass `passthrough` wake phrases for software standby mode; omit or pass empty list for hard driver capture mute |
 | `session.resume` | `null` | Unmutes microphone input and resumes transcription |
 | `session.stop` | `null` | Stops the running sidecar session |
 | `session.set_keyterms` | `{"keyterms": ["Kubernetes", "Ceph"]}` | Replaces contextual biasing key terms dynamically mid-session |
 | `session.set_context` | `{"context": "...", "max_terms": 200}` | Submits free-form text for automatic tokenizer term extraction |
+
+### Pause Modes: Hard Privacy Mute vs. Wake-Phrase Standby
+
+`moonshine serve` supports two distinct operational modes for `session.pause`:
+
+1. **Hard Privacy Mute (Default when no wake phrases are set):**
+   - **Invocation:** `session.pause` with `null` args, `{}` args, or `{"passthrough": []}`.
+   - **Behavior:** The audio input driver (`AudioSource.SetMutedFunc`) physically discards microphone samples at the capture layer. Zero audio data leaves the driver or reaches the transcriber, ensuring complete privacy and zero inference compute.
+   - **Resumption:** Because the microphone is completely muted, voice-driven resumption is physically impossible; the session can only be resumed by an external network client sending a `session.resume` action (e.g. clicking a UI button or terminal keypress).
+
+2. **Wake-Phrase Standby Mode:**
+   - **Invocation:** `session.pause` with `{"passthrough": ["resume listening", "start listening"]}`, or starting the sidecar with `--wake-phrases "resume listening,start listening"`.
+   - **Behavior:** The microphone capture remains active, but `moonshine serve` enters a gated software standby:
+     - Interim transcript updates are suppressed so ambient speech is never published to subscribers.
+     - Finalized utterances are tested against the configured wake phrases.
+     - When a matching phrase is spoken (e.g. *"resume listening"*), the daemon automatically executes `session.resume`, broadcasts a `DisplayCard{Kind: "session", Title: "Listening Resumed"}` notification, and forwards the resume utterance.
+     - All other ambient speech is dropped.
+   - **AgentFlow Integration:** Calling `d.PauseListening()` in `pkg/agentflow` defaults to standby mode using the flow's registered resume phrases (`["resume listening", "start listening"]`). Call `d.PauseListening(agentflow.WithHardMute())` if a full hardware privacy mute is required.
 
 ### Key Invariants
 - **Backpressure & Idempotency:** Interim frames drop under backpressure, but every finalized line (`Line.ID`) is delivered to subscribers/agents exactly once.

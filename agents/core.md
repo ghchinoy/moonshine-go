@@ -75,6 +75,7 @@ Releases are published intentionally following [docs/RELEASING.md](../docs/RELEA
   *Note: `setup --tts` intentionally never mutates `config.yaml` so higher-precedence overrides remain active.*
 - **Streaming TTS Barge-In State (`TTSStream.Cancel()`):** Calling `stream.Cancel()` aborts active C++ computation, and the immediate subsequent call to `stream.NextChunk()` returns sentinel `ErrCancelled` once. This error must be consumed before pushing a new utterance to reset the synthesizer to idle.
 - **Concurrent Stream VAD Limitation (Upstream #229):** All transcription streams in a process share a single static `SileroVad*` pointer in C++ (`VoiceActivityDetector::silero_vad`). Because Silero VAD carries recurrent RNN state (`_state`, `_context`), simultaneous live streams in a single `moonshine serve` process will corrupt each other's speech detection boundaries. For multi-channel live audio, deploy separate `moonshine serve` worker processes (process-level isolation).
+- **Pause Modes & Wake-Phrase Standby:** `AudioSource.SetMutedFunc` physically mutes mic capture only on hard pause (when no wake phrases are configured). In standby mode (wake phrases supplied via `session.pause` `PauseArgs.Passthrough` or `--wake-phrases`), audio capture remains streaming, interim transcripts are suppressed, and matching wake phrases automatically trigger `sessCtrl.Resume()` and broadcast a `DisplayCard{Kind: "session", Title: "Listening Resumed"}`.
 
 ---
 

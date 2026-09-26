@@ -37,15 +37,12 @@ var ttsCmd = &cobra.Command{
 or ZipVoice, selected via --voice), or clones a voice from a reference .wav
 clip with --clone (also ZipVoice, but uses your reference audio instead of a
 preset voice -- see docs/user-guide.md's "Recording and cloning a voice").
---g2p-root must point at a directory laid out like a moonshine checkout's
-core/moonshine-tts/data (containing kokoro/, <lang>/piper-voices/, etc.) -- see
-docs/user-guide.md for how to fetch these voice assets; "moonshine setup" only
-automates STT model downloads (see its --help for why).
+--g2p-root points at a directory laid out like core/moonshine-tts/data (containing
+kokoro/, <lang>/piper-voices/, etc.). Use "moonshine setup --tts <voice>" to download
+voice models directly into your local cache without needing an upstream checkout.
 
---g2p-root defaults to <moonshine.src_dir>/core/moonshine-tts/data if
-moonshine.src_dir is set (env $MOONSHINE_SRC, or the moonshine.src_dir key
-in config.yaml) -- set it once with "moonshine config set moonshine.src_dir
-/path/to/moonshine" instead of passing --g2p-root every time.
+If --g2p-root is omitted, it defaults to moonshine.src_dir/core/moonshine-tts/data
+if configured, or automatically falls back to voices downloaded by "moonshine setup --tts".
 
 --show-phonemes and --ipa support an inspect-and-edit workflow for fixing
 mispronunciations (e.g. proper nouns): run --show-phonemes on your text to
@@ -58,7 +55,7 @@ func init() {
 	ttsCmd.Flags().StringVar(&ttsLanguage, "language", "en_us", "Language / CLI tag")
 	ttsCmd.Flags().StringVar(&ttsVoice, "voice", "", `Voice id, e.g. "kokoro_af_heart", "piper_en_US-amy-low", "zipvoice_american_female"`)
 	ttsCmd.Flags().StringVar(&ttsSpeed, "speed", "", "Synthesis speed multiplier (default 1.0)")
-	ttsCmd.Flags().StringVar(&ttsG2PRoot, "g2p-root", "", "Directory holding kokoro/, <lang>/piper-voices/, etc. (default: derived from moonshine.src_dir; see 'moonshine config --help')")
+	ttsCmd.Flags().StringVar(&ttsG2PRoot, "g2p-root", "", "Directory holding kokoro/, <lang>/piper-voices/, etc. (default: derived from config, moonshine.src_dir, or downloaded voices; see 'moonshine doctor')")
 	ttsCmd.Flags().StringVarP(&ttsOutput, "output", "o", "out.wav", "Output WAV file path")
 	ttsCmd.Flags().BoolVar(&ttsListVoices, "list-voices", false, "List known voices for --language and exit")
 	ttsCmd.Flags().BoolVar(&ttsPlay, "play", false, "Play the synthesized audio through the default output device after writing it")
