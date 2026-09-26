@@ -58,7 +58,7 @@ smoke:
 ## bench: Run native in-process benchmarks for pkg/moonshine (requires .moonshine/lib).
 bench:
 	./scripts/fetch-bench-assets.sh
-	MOONSHINE_LIB_DIR=$(CURDIR)/$(LIB_DIR) go test -tags native_bench ./pkg/moonshine/... -bench . -benchmem -v
+	MOONSHINE_LIB_DIR=$(CURDIR)/$(LIB_DIR) go test -tags native_bench ./pkg/moonshine/... -run '^$$' -bench . -benchmem -v
 
 ## proto: Regenerate pkg/servepb from pkg/servepb/serve.proto.
 ##        Requires protoc, protoc-gen-go, and protoc-gen-go-grpc on PATH

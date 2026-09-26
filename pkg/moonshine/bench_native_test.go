@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,6 +134,45 @@ func loadSharedTranscriber(t *testing.T) *Transcriber {
 	}
 
 	tr, err := LoadTranscriber(modelDir, ModelArchTiny)
+	if err != nil {
+		t.Fatalf("LoadTranscriber: %v", err)
+	}
+	t.Cleanup(func() { _ = tr.Close() })
+	return tr
+}
+
+// loadStreamingTranscriber loads native libmoonshine and returns a
+// streaming Transcriber instance (ModelArchTinyStreaming).
+func loadStreamingTranscriber(t *testing.T) *Transcriber {
+	t.Helper()
+	libDir := resolveLibDir(t)
+	if err := Load(libDir); err != nil {
+		t.Fatalf("Load(%s): %v", libDir, err)
+	}
+
+	manifest, err := GetSTTDependencies("en", Option{Name: "model_arch", Value: "2"})
+	if err != nil {
+		t.Fatalf("GetSTTDependencies: %v", err)
+	}
+
+	cacheRoot := t.TempDir()
+	if cacheDir, err := os.UserCacheDir(); err == nil {
+		shared := filepath.Join(cacheDir, "moonshine_voice")
+		if _, err := os.Stat(shared); err == nil {
+			cacheRoot = shared
+		}
+	}
+
+	if err := Download(context.Background(), manifest, cacheRoot, false); err != nil {
+		t.Fatalf("Download: %v", err)
+	}
+
+	modelDir, err := PrimaryModelDir(cacheRoot, manifest)
+	if err != nil {
+		t.Fatalf("PrimaryModelDir: %v", err)
+	}
+
+	tr, err := LoadTranscriber(modelDir, ModelArchTinyStreaming)
 	if err != nil {
 		t.Fatalf("LoadTranscriber: %v", err)
 	}
@@ -343,6 +383,180 @@ func TestSharedTranscriberContentionProbe(t *testing.T) {
 				k, int(totalAudioSec), elapsed.Round(time.Millisecond), rtf, elapsed.Seconds())
 		})
 	}
+}
+
+// TestConcurrentStreamVADCorruption verifies that concurrent streams do not
+// corrupt each other's speech detection (VAD) state (upstream issue #229).
+//
+// In upstream moonshine <= v0.1.5, VoiceActivityDetector::silero_vad is a
+// single process-wide static pointer whose recurrent RNN state (_state, _context)
+// is shared across all streams in the process. When a loud stream and a quiet
+// stream are interleaved in small chunks (10-20ms), the quiet stream's speech
+// detection is corrupted by the loud stream's VAD state, dropping lines.
+//
+// Expected to FAIL on upstream <= v0.1.5 and PASS once upstream fixes #229.
+func TestConcurrentStreamVADCorruption(t *testing.T) {
+	twoCitiesPath, _ := resolveAudioAssets(t)
+	loudPCM, sr := readPCM16MonoWAV(t, twoCitiesPath)
+
+	// Quiet stream: attenuated by -30 dB (factor ~0.0316)
+	attenuation := float32(math.Pow(10.0, -30.0/20.0))
+	quietPCM := make([]float32, len(loudPCM))
+	for i, v := range loudPCM {
+		quietPCM[i] = v * attenuation
+	}
+
+	chunkSamples := int(sr / 50) // 20ms chunks (320 samples at 16kHz)
+
+	// Step 1: Baseline - run quiet stream alone to establish ground truth line count
+	trSolo := loadStreamingTranscriber(t)
+	stSolo, err := trSolo.NewStream(0)
+	if err != nil {
+		t.Fatalf("NewStream (solo): %v", err)
+	}
+	defer stSolo.Close()
+	if err := stSolo.Start(); err != nil {
+		t.Fatalf("Start (solo): %v", err)
+	}
+
+	for pos := 0; pos < len(quietPCM); pos += chunkSamples {
+		end := pos + chunkSamples
+		if end > len(quietPCM) {
+			end = len(quietPCM)
+		}
+		if err := stSolo.AddAudio(quietPCM[pos:end], sr); err != nil {
+			t.Fatalf("AddAudio (solo): %v", err)
+		}
+		_, _ = stSolo.Transcribe(0)
+	}
+	_ = stSolo.Stop()
+	txSolo, err := stSolo.Transcribe(0)
+	if err != nil {
+		t.Fatalf("final Transcribe (solo): %v", err)
+	}
+	soloLines := len(txSolo.Lines)
+	if soloLines == 0 {
+		t.Fatalf("Solo quiet stream produced 0 lines; cannot establish baseline")
+	}
+	t.Logf("Solo Quiet Baseline: %d lines detected", soloLines)
+
+	// Step 2: Test Same Transcriber
+	t.Run("SameTranscriber", func(t *testing.T) {
+		tr := loadStreamingTranscriber(t)
+		stA, err := tr.NewStream(0)
+		if err != nil {
+			t.Fatalf("NewStream A: %v", err)
+		}
+		defer stA.Close()
+
+		stB, err := tr.NewStream(0)
+		if err != nil {
+			t.Fatalf("NewStream B: %v", err)
+		}
+		defer stB.Close()
+
+		_ = stA.Start()
+		_ = stB.Start()
+
+		maxLen := len(loudPCM)
+		if len(quietPCM) > maxLen {
+			maxLen = len(quietPCM)
+		}
+
+		for pos := 0; pos < maxLen; pos += chunkSamples {
+			endA := pos + chunkSamples
+			if endA > len(loudPCM) {
+				endA = len(loudPCM)
+			}
+			if pos < len(loudPCM) {
+				_ = stA.AddAudio(loudPCM[pos:endA], sr)
+				_, _ = stA.Transcribe(0)
+			}
+
+			endB := pos + chunkSamples
+			if endB > len(quietPCM) {
+				endB = len(quietPCM)
+			}
+			if pos < len(quietPCM) {
+				_ = stB.AddAudio(quietPCM[pos:endB], sr)
+				_, _ = stB.Transcribe(0)
+			}
+		}
+
+		_ = stA.Stop()
+		_ = stB.Stop()
+		txA, _ := stA.Transcribe(0)
+		txB, _ := stB.Transcribe(0)
+
+		interleavedLines := len(txB.Lines)
+		t.Logf("SameTranscriber: Loud Stream A=%d lines, Quiet Stream B=%d lines (solo baseline was %d)",
+			len(txA.Lines), interleavedLines, soloLines)
+
+		if interleavedLines < int(float64(soloLines)*0.5) {
+			t.Errorf("Upstream #229 detected (SameTranscriber): quiet stream B lines dropped from %d (solo) to %d (interleaved); speech detection corrupted by shared Silero VAD state (moonshine-ai/moonshine#229)",
+				soloLines, interleavedLines)
+		}
+	})
+
+	// Step 3: Test Separate Transcribers (demonstrating process-wide static VAD scope)
+	t.Run("SeparateTranscribers", func(t *testing.T) {
+		tr1 := loadStreamingTranscriber(t)
+		tr2 := loadStreamingTranscriber(t)
+
+		stA, err := tr1.NewStream(0)
+		if err != nil {
+			t.Fatalf("NewStream A: %v", err)
+		}
+		defer stA.Close()
+
+		stB, err := tr2.NewStream(0)
+		if err != nil {
+			t.Fatalf("NewStream B: %v", err)
+		}
+		defer stB.Close()
+
+		_ = stA.Start()
+		_ = stB.Start()
+
+		maxLen := len(loudPCM)
+		if len(quietPCM) > maxLen {
+			maxLen = len(quietPCM)
+		}
+
+		for pos := 0; pos < maxLen; pos += chunkSamples {
+			endA := pos + chunkSamples
+			if endA > len(loudPCM) {
+				endA = len(loudPCM)
+			}
+			if pos < len(loudPCM) {
+				_ = stA.AddAudio(loudPCM[pos:endA], sr)
+				_, _ = stA.Transcribe(0)
+			}
+
+			endB := pos + chunkSamples
+			if endB > len(quietPCM) {
+				endB = len(quietPCM)
+			}
+			if pos < len(quietPCM) {
+				_ = stB.AddAudio(quietPCM[pos:endB], sr)
+				_, _ = stB.Transcribe(0)
+			}
+		}
+
+		_ = stA.Stop()
+		_ = stB.Stop()
+		txA, _ := stA.Transcribe(0)
+		txB, _ := stB.Transcribe(0)
+
+		interleavedLines := len(txB.Lines)
+		t.Logf("SeparateTranscribers: Loud Stream A=%d lines, Quiet Stream B=%d lines (solo baseline was %d)",
+			len(txA.Lines), interleavedLines, soloLines)
+
+		if interleavedLines < int(float64(soloLines)*0.5) {
+			t.Errorf("Upstream #229 detected (SeparateTranscribers): quiet stream B lines dropped from %d (solo) to %d (interleaved); speech detection corrupted by shared Silero VAD state across separate transcribers (moonshine-ai/moonshine#229)",
+				soloLines, interleavedLines)
+		}
+	})
 }
 
 // BenchmarkInProcessTranscribe measures non-streaming Transcribe performance.
