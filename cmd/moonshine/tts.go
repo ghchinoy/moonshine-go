@@ -81,7 +81,7 @@ func runTTS(cmd *cobra.Command, args []string) error {
 	language := viper.GetString("tts.language")
 	voice := viper.GetString("tts.voice")
 	speed := viper.GetString("tts.speed")
-	g2pRoot := viper.GetString("tts.g2p_root")
+	g2pRoot := resolveG2PRoot()
 
 	if ttsIPA != "" && len(args) > 0 {
 		return fmt.Errorf("tts: --ipa and a <text> argument are mutually exclusive -- --ipa already provides phonemes directly, it doesn't need text to convert")

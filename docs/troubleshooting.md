@@ -137,23 +137,27 @@ Error: tts.g2p_root not set -- only needed for `moonshine tts`; set moonshine.sr
 ```
 
 **Cause:**
-Unlike STT models, TTS voice assets (Kokoro and Piper) are stored inside the upstream `moonshine` repository under `core/moonshine-tts/data/`. `moonshine setup` does not download TTS voices automatically yet (tracked in `#wyop`).
+`moonshine tts` requires voice models (ONNX) and grapheme-to-phoneme (G2P) dictionaries to convert text into speech.
 
 **Resolution:**
-1. In your upstream `moonshine` checkout, pull only the specific voice assets you need:
+1. Download your preferred voice directly using `moonshine setup --tts`:
    ```sh
-   # Option A: Pull Kokoro 82M voice assets (105 MB total):
-   git -C ~/projects/github/moonshine lfs pull --include="core/moonshine-tts/data/kokoro/**"
-   git -C ~/projects/github/moonshine lfs pull --include="core/moonshine-tts/data/en_us/dict_filtered_heteronyms.tsv"
+   # Download Kokoro 82M default voice:
+   moonshine setup --tts kokoro_af_heart
 
-   # Option B: Pull a single Piper voice, e.g. Amy Low (16.6 MB total across 5 files):
-   git -C ~/projects/github/moonshine lfs pull --include="core/moonshine-tts/data/en_us/piper-voices/en_US-amy-low*"
+   # Or download a Piper voice:
+   moonshine setup --tts piper_en_US-amy-low
    ```
-   *(Note: Do not run `lfs pull --include="core/moonshine-tts/data/en_us/**"` without a voice filter, as that will download every English voice totaling 582 MB).*
-2. Point `--g2p-root` (or `MOONSHINE_TTS_ROOT`) at the data directory:
+   Downloaded voices are automatically stored in `model.dir` and discovered by `moonshine tts` and `moonshine serve` without needing any path flags.
+
+2. Alternatively, if you maintain a local clone of the upstream `moonshine` repository with voice assets populated:
+   Set `moonshine.src_dir` once:
    ```sh
-   export MOONSHINE_TTS_ROOT="$HOME/projects/github/moonshine/core/moonshine-tts/data"
-   ./bin/moonshine tts "Speech synthesis works." --voice kokoro_af_heart -o speech.wav
+   moonshine config set moonshine.src_dir ~/projects/github/moonshine
+   ```
+   or pass `--g2p-root` explicitly:
+   ```sh
+   ./bin/moonshine tts "Speech synthesis works." --g2p-root ~/projects/github/moonshine/core/moonshine-tts/data --voice kokoro_af_heart -o speech.wav
    ```
 
 ---

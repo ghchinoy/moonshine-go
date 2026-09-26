@@ -87,13 +87,20 @@ scripts/CI); `[WARN]`/`[SKIP]` don't. `--json` gives the same checks as a
 moonshine setup                                    # tiny, en (defaults)
 moonshine setup --arch base --language en
 moonshine setup --arch tiny-streaming --language en # for `live`
-moonshine setup --force                             # re-download even if present
+moonshine setup --tts kokoro_af_heart              # download Kokoro TTS voice + G2P assets
+moonshine setup --tts piper_en_US-amy-low          # download Piper TTS voice
+moonshine setup --tts all --tts-language en_us     # download all Kokoro & Piper voices for English
+moonshine setup --arch none --tts kokoro_af_heart  # download TTS voice without downloading STT models
+moonshine setup --force                            # re-download even if present
 ```
 
 | Flag | Default | Notes |
 |---|---|---|
 | `--language` | `en` | Language code or English name, e.g. `en`, `Spanish` |
-| `--arch` | `tiny` | `tiny`, `base`, `tiny-streaming`, `base-streaming`, `small-streaming`, `medium-streaming` |
+| `--arch` | `tiny` | `tiny`, `base`, `tiny-streaming`, `base-streaming`, `small-streaming`, `medium-streaming`, `none` |
+| `--tts` | `""` | Download TTS voice model(s): single voice ID (e.g. `kokoro_af_heart`, `piper_en_US-amy-low`), comma-separated list, or `all` |
+| `--tts-language` | `en_us` | Language for `--tts` voice assets (config key: `tts.language`) |
+| `--identify-speakers` | `false` | Also download speaker diarization models (`segmentation.ort` and `embedding.ort`) |
 | `--force` | `false` | Re-download even if files already exist |
 
 Downloads land under `<model.dir>/<url-path>/`, e.g.
@@ -735,29 +742,44 @@ units, err := moonshine.SplitUtterances("en_us", "Warning: low battery. Connect 
 // units: ["Warning:", "low battery.", "Connect charger."]
 ```
 
-### Configuring `--g2p-root` once instead of every time
+### Getting Voice Assets & Configuring `--g2p-root`
 
-Unlike STT, `moonshine setup` does **not** download TTS voice assets --
-libmoonshine's dependency API only returns canonical asset *keys* for
-TTS/G2P, not a URL manifest, because voices are published through a
-separate pipeline (Kokoro exports, Piper voice files, ZipVoice reference
-clips) rather than one flat CDN layout. So `--g2p-root` needs to point at a
-moonshine checkout (after pulling the voice assets you want via Git LFS,
-below) every time you run `tts`.
+`moonshine setup --tts <voice>` downloads text-to-speech voice models and their corresponding grapheme-to-phoneme (G2P) assets directly from the upstream CDN:
 
-Rather than passing `--g2p-root /path/to/moonshine/core/moonshine-tts/data`
-on every invocation, set your moonshine checkout's location once:
+```sh
+# Download Kokoro voice:
+moonshine setup --tts kokoro_af_heart
+
+# Download Piper voice:
+moonshine setup --tts piper_en_US-amy-low
+
+# Download all Kokoro & Piper voices for English:
+moonshine setup --tts all --tts-language en_us
+```
+
+Once downloaded, `moonshine tts` and `moonshine serve` automatically discover the voice assets in your local cache (`<model.dir>/download.moonshine.ai/tts`) without needing `--g2p-root` or an upstream checkout.
+
+#### Precedence Order for `--g2p-root`
+When resolving voice assets at runtime, `moonshine` inspects locations in the following strict order (highest to lowest):
+1. **Explicit flag:** `--g2p-root <path>` passed on `tts` or `serve`
+2. **Explicit configuration / env:** `tts.g2p_root` in `config.yaml`
+3. **Upstream source checkout:** `<moonshine.src_dir>/core/moonshine-tts/data` (set via `moonshine config set moonshine.src_dir <path>` or `$MOONSHINE_SRC`)
+4. **Downloaded cache fallback:** `<model.dir>/download.moonshine.ai/tts` (automatically populated by `moonshine setup --tts`)
+
+#### Architectural Design Notes
+1. **Single Unified Cache Root (`model.dir`):**
+   TTS assets are stored under `<model.dir>/download.moonshine.ai/tts/` alongside STT models. This reuses existing cache configuration (`MOONSHINE_MODEL_DIR` / `MOONSHINE_VOICE_CACHE`) and keeps Go and Python tooling in exact cache parity without introducing a second cache directory setting.
+2. **Dynamic Fallback Without Config Mutation:**
+   `moonshine setup --tts` deliberately does **not** write `tts.g2p_root` to `config.yaml`. Instead, `cmd/moonshine` evaluates the downloaded cache as the lowest-precedence default fallback. This guarantees that explicit CLI flags, custom config overrides, or pointing `moonshine.src_dir` at a local development checkout will always continue to take precedence.
+
+#### Alternative: Pointing at a local moonshine checkout
+If you already maintain a local clone of the C++ `moonshine` repository with voice assets populated (via `scripts/fetch-voice-assets.sh tts` in that repo), you can point `moonshine.src_dir` at it once:
 
 ```sh
 moonshine config set moonshine.src_dir ~/projects/github/moonshine
 ```
 
-`--g2p-root` then defaults to `<moonshine.src_dir>/core/moonshine-tts/data`
-automatically (see [config](#config) below). `MOONSHINE_SRC` -- the same env
-var `make buildlib` reads -- works too and takes priority over the config
-file; `--g2p-root` itself still overrides both if you pass it explicitly
-(e.g. to point at a pruned/custom asset directory that isn't a full
-checkout).
+`--g2p-root` then defaults to `<moonshine.src_dir>/core/moonshine-tts/data` automatically (see [config](#config) below). `MOONSHINE_SRC` -- the same env var `make buildlib` reads -- works too and takes priority over the config file; `--g2p-root` itself still overrides both if you pass it explicitly.
 
 ### Fetching voice assets via Git LFS
 
