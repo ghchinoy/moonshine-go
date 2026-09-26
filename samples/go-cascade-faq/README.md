@@ -23,7 +23,7 @@ one small, runnable program:
   attach to.
 - **Control** — AgentFlow global handlers (`flow.Always`) intercept "stop
   listening" / "resume listening" *before* any FAQ flow is evaluated,
-  sending `session.pause`/`session.resume` actions back to the sidecar over WS.
+  managing client-side pause/resume state with voice resumption and keyboard Enter fallback.
 - **Observability** — every finalized line, trigger match, and action this agent
   takes is printed to stdout as it happens, timestamped, with real numbers: the
   STT engine's own per-line latency (`Line.LastLatencyMs`), the session's time-to-first-token
@@ -54,15 +54,16 @@ one small, runnable program:
 flowchart TD
     Mic[Microphone Input] --> Serve[moonshine serve]
     Serve -->|WebSocket TranscriptEvent JSON| Runner[serveapi.AgentRunner]
-    Runner --> Adapter[agentflow.HandlerAdapter]
+    Runner --> PausedGate[pausedAgentHandler]
+    PausedGate -->|Unpaused or Resume Trigger| Adapter[agentflow.HandlerAdapter]
+    PausedGate -.->|Drop while Paused| Discard[Discard Ambient Utterance]
     Adapter --> Flow[agentflow.AgentFlow]
 
-    Flow -->|flow.Always: stop/resume| Pause[session.pause / session.resume]
+    Flow -->|flow.Always: stop/resume| PauseCtrl[SessionState: Paused/Resumed]
     Flow -->|flow.ListenFor: mission, privacy...| Ret[StaticRetriever -> d.Say]
     Flow -->|flow.Otherwise| Guide[Terminal Guidance]
 
-    Pause --> Action[ActionRequest JSON]
-    Ret --> Action
+    Ret --> Action[ActionRequest JSON: speak]
     Action -->|WebSocket Return| Dispatcher[Sidecar Dispatcher]
     Dispatcher --> TTS[TTS Synthesizer Speak-Back]
 ```
@@ -129,18 +130,22 @@ By default, `PhraseMatcher` performs case-insensitive substring matching. In `v0
 
 For simple, single-turn voice control commands without multi-turn conversation flows (`Say`/`Ask`/`Confirm`), `moonshine serve`'s built-in fast path uses `internal/serve.IntentMatcher` (a 95-line deterministic regex rule engine returning synchronous control-plane action requests).
 
-Here is how the session pause/resume controls in this sample compare when written as a regex rule matcher versus `pkg/agentflow`:
+Here is how the session pause/resume controls compare when written as a regex rule matcher versus `pkg/agentflow`:
 
 ```go
 // Deterministic regex fast-path (internal/serve.IntentMatcher style)
-type controlHandler struct{}
+type controlHandler struct {
+    state *SessionState
+}
 
 func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
     switch {
     case stopListeningRe.MatchString(line.Text):
-        return []serveapi.ActionRequest{{Verb: "session.pause"}}
+        c.state.SetPaused(true)
+        return []serveapi.ActionRequest{{Verb: "none"}}
     case resumeListeningRe.MatchString(line.Text):
-        return []serveapi.ActionRequest{{Verb: "session.resume"}}
+        c.state.SetPaused(false)
+        return []serveapi.ActionRequest{{Verb: "none"}}
     default:
         return nil
     }
@@ -150,13 +155,16 @@ func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line
 flow := agentflow.New()
 flow.ActionSink(sink)
 flow.Always("stop listening", func(d *agentflow.Dialog) error {
-    _, err := d.PauseListening()
-    return err
+    sessState.SetPaused(true)
+    return d.Say("Listening paused.")
 })
 flow.Always("resume listening", func(d *agentflow.Dialog) error {
-    _, err := d.ResumeListening()
-    return err
+    sessState.SetPaused(false)
+    return d.Say("Listening resumed.")
 })
 ```
+
+> **Note on Server `session.pause` vs Client Standby:**
+> In `moonshine serve`, dispatching a raw `session.pause` action activates a hardware/capture-level privacy mute (`AudioSource.SetMutedFunc`), which prevents microphone audio from leaving the device driver to ensure complete privacy. However, because audio capture is muted, the speech engine cannot transcribe incoming audio chunks, making voice-driven resumption ("resume listening") impossible over the wire. This sample adopts client-side `SessionState` so the microphone remains streaming while speech dialogue is gated, allowing voice unpause (or keyboard Enter fallback) at all times. Once daemon wake-phrase passthrough (#qc70) lands, server-side pause will support native wake-phrase resumption directly.
 
 Both patterns are valid: use `IntentMatcher`-style regex for zero-dependency, single-shot control rules; use `pkg/agentflow` when building structured, multi-turn voice agents (`Say`, `Ask`, `Confirm`, `Choose`).
