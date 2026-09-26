@@ -77,9 +77,11 @@ flowchart TD
 A voice-to-shell bridge must never execute unintended commands in a live shell:
 
 1. **No Auto-Execution:** Spoken sentences are typed into the shell input buffer using literal escaping (`tmux send-keys -l`). They sit on the command line for visual inspection until you say *"run it"*.
-2. **Dry-Run Mode (`-dry-run`):** Prints tmux commands to stdout without executing them, allowing you to test voice recognition safely.
-3. **Confidence Gating (`-min-confidence`):** Evaluates `line.MeanConfidence()` (default 0.50). Transcripts below the threshold are discarded with a log message.
-4. **Voice Confirmation (`-speak-confirm`):** Emits a `speak` ActionRequest through sidecar TTS, announcing *"Running"* when executing a command, or *"Please repeat"* when confidence is low.
+2. **Dictation Normalization:** Moonshine emits capitalized sentence prose with trailing punctuation (e.g. `"Git status."`). `voice-tmux` automatically strips trailing sentence punctuation (`.`, `?`, `!`, `,`, `;`) and lowercases the initial character unless it is a recognized acronym (e.g. `"Git status."` becomes `git status`, while `"NPM install"` and `"K8S"` retain their casing). Use `-raw` to disable normalization when dictating prose.
+3. **Target Pane Requirement:** To prevent typing keystrokes into unintended windows (such as voice-tmux's or the daemon's own terminal), `-target` is required unless running with `-dry-run`. If omitted, voice-tmux lists all active tmux panes to help you pick the right target.
+4. **Dry-Run Mode (`-dry-run`):** Prints tmux commands to stdout without executing them, allowing you to test voice recognition safely.
+5. **Confidence Gating (`-min-confidence`):** Evaluates `line.MeanConfidence()` (default 0.50). Transcripts below the threshold are discarded with a log message.
+6. **Voice Confirmation (`-speak-confirm`):** Emits a `speak` ActionRequest through sidecar TTS, announcing *"Running"* when executing a command, or *"Please repeat"* when confidence is low.
 
 ---
 
@@ -90,19 +92,22 @@ A voice-to-shell bridge must never execute unintended commands in a live shell:
 - `tmux` installed and available on your PATH (`brew install tmux` or `apt-get install tmux`)
 - `moonshine` CLI built and an STT model downloaded (see repo [README](../../README.md))
 
-### 2. Start a Tmux Session
+### 2. Start a Tmux Session with a 3-Pane Layout
 
-Open your terminal emulator (e.g. Ghostty or iTerm2) and start or attach to a tmux session:
+Open your terminal emulator (e.g. Ghostty or iTerm2) and create a dedicated tmux session:
 
 ```sh
 tmux new -s voice
 ```
 
-Split the window into two panes (`Ctrl-b "` or `Ctrl-b %`).
+Split the window so you have three panes (e.g. `Ctrl-b %` to split vertically, then `Ctrl-b "` to split one side horizontally):
+- **Pane `voice:0.0`:** Your working shell (the voice-controlled workload pane)
+- **Pane `voice:0.1`:** `moonshine serve` daemon
+- **Pane `voice:0.2`:** `voice-tmux` bridge
 
 ### 3. Start `moonshine serve` (Pane 1)
 
-In the first pane, start the voice daemon with actions enabled:
+In the second pane (`voice:0.1`), start the voice daemon with actions enabled:
 
 ```sh
 cd ../.. # repo root
@@ -112,16 +117,22 @@ export MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib"
 
 ### 4. Run `voice-tmux` (Pane 2)
 
-In the second pane (or another window), run `voice-tmux`:
+First, test safely in **dry-run mode** to see recognized commands without executing:
 
 ```sh
 cd samples/voice-tmux
-go run . -addr ws://localhost:8765/ws
+go run . -dry-run
+```
+
+Once confirmed, target your working shell pane (`voice:0.0`):
+
+```sh
+go run . -target "voice:0.0"
 ```
 
 ### 5. Speak to Your Terminal!
 
-1. Say: `"git status"` → Notice `git status ` appears on your command line.
+1. Say: `"git status"` → Notice `git status ` appears on your command line in pane `voice:0.0`.
 2. Say: `"run it"` → Sends `Enter`, running `git status`.
 3. Say: `"split right"` → Splits your window horizontally into a new pane.
 4. Say: `"clear"` → Clears the screen.
@@ -134,13 +145,16 @@ go run . -addr ws://localhost:8765/ws
 go run . -dry-run
 
 # Target a specific pane or window:
-go run . -target "voice:0.1"
+go run . -target "voice:0.0"
+
+# Preserve unnormalized punctuation and uppercase prose:
+go run . -target "voice:0.0" -raw
 
 # Enable voice feedback and set a strict 75% confidence threshold:
-go run . -speak-confirm -min-confidence 0.75
+go run . -target "voice:0.0" -speak-confirm -min-confidence 0.75
 
 # Verbose debug logging:
-go run . -debug
+go run . -target "voice:0.0" -debug
 ```
 
 ---

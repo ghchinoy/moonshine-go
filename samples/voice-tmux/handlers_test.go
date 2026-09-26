@@ -73,3 +73,39 @@ func TestDictationHandlerConfidenceGating(t *testing.T) {
 		t.Errorf("expected nil actions on successful dictation, got %#v", actions)
 	}
 }
+
+func TestNormalizeDictation(t *testing.T) {
+	tests := []struct {
+		input string
+		raw   bool
+		want  string
+	}{
+		// Punctuation stripping + initial lowercasing
+		{"Git status.", false, "git status"},
+		{"List dash la.", false, "list dash la"},
+		{"Docker compose up!", false, "docker compose up"},
+		{"Where is the file?", false, "where is the file"},
+		{"Make test;", false, "make test"},
+		{"Echo hello,", false, "echo hello"},
+
+		// Acronym preservation
+		{"NPM install express.", false, "NPM install express"},
+		{"K8S get pods.", false, "K8S get pods"},
+		{"AWS s3 ls.", false, "AWS s3 ls"},
+
+		// Raw mode (preserves formatting and trailing punctuation)
+		{"Git status.", true, "Git status."},
+		{"Hello, world!", true, "Hello, world!"},
+
+		// Empty/whitespace cases
+		{"   ", false, ""},
+		{"...", false, ""},
+	}
+
+	for _, tt := range tests {
+		got := normalizeDictation(tt.input, tt.raw)
+		if got != tt.want {
+			t.Errorf("normalizeDictation(%q, %v) = %q, want %q", tt.input, tt.raw, got, tt.want)
+		}
+	}
+}
