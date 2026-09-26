@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.10.0] - 2026-09-26
+
+### Added
+- **Core Streaming Text-to-Speech (TTS) Bindings**: Bound `moonshine_tts_push_text`, `moonshine_tts_next_chunk`, `moonshine_tts_flush`, `moonshine_tts_end_input`, `moonshine_tts_cancel`, `moonshine_tts_is_streaming`, and `moonshine_tts_split_utterances` in `pkg/moonshine` (`Synthesizer.NewStream`, `TTSStream`), adding sub-sentence acoustic chunking for Kokoro and Piper (`#m2xb`, `#ilts`).
+- **Incremental Streaming Speak-Back in Sidecar**: Updated `internal/serve.TTSSpeaker` to stream audio chunks incrementally over `audio.PlayFloat32` and emit structured `TTSAudioEvent` frames (`start` -> N x `chunk` -> `end`), with barge-in cancellation wired to `moonshine_tts_cancel` (`#hinm`).
+- **Token-by-Token Streaming Speech in `pkg/agentflow`**: Added `Dialog.SayStream(<-chan string)` and `AgentFlow.SpeakStreamWith` to stream LLM generation token-by-token directly to TTS with minimal Time-to-First-Audio (TTFA) and automatic sentence-boundary fallback chunking (`#v1s5`).
+- **Text Embedding Model Bindings**: Bound `moonshine_create_embedding_model`, `moonshine_create_embedding_model_from_memory`, `moonshine_calculate_embedding`, `moonshine_free_embedding`, `moonshine_calculate_embedding_distance`, and `moonshine_get_embedding_dependencies` in `pkg/moonshine` (`EmbeddingModel`), directly satisfying `agentflow.EmbeddingBackend` for vector-based semantic phrase matching with Gemma-300M (`#tpg`, `#xm8`).
+- **Bidirectional Remote PCM Sample (`samples/go-stream-audio`)**: Added runnable Go sample demonstrating 16kHz PCM streaming over WebSocket binary frames with 1x real-time pacing and VAD trailing silence (`#me40`, GH #30).
+- **Remote Audio Client Guidelines**: Documented chunk sizing (50-100ms), real-time pacing, VAD endpointing, and uint64 wire types in `docs/hosting.md` and `docs/user-guide.md` (GH #31).
+- **Empirical TTS Latency Benchmarks**: Added reproducible in-process micro-benchmarks (`BenchmarkInProcessTTSOneShot`, `BenchmarkInProcessTTSStreamingTTFA`) in `pkg/moonshine/bench_native_test.go` and documented 10.5x TTFA latency reductions (1,962ms -> 187ms on Kokoro) in `BENCHMARKS.md` and `docs/user-guide.md` (`#0kxx`).
+
+### Changed
+- **Upstream Library Pin**: Bumped `MOONSHINE_RELEASE_TAG` to `v0.1.5`, rebuilding `libmoonshine` with upstream window synchronization and mmap leak fixes (`#utqz`).
+
+### Fixed
+- **Session EOF Audio Flush & Summary**: Fixed `internal/session` `Live.Run()` dropping trailing audio on source closure, ensuring flush and terminal summary updates are emitted (`#cxy4`, GH #29).
+- **Medium-Streaming Memory Empty Error**: Verified upstream #218 fix under concurrent remote audio streaming and removed defensive startup warning (`#1pu5`, GH #28).
+- **Web Audio Multi-Chunk Playback**: Added gapless sequential playback queue in `samples/browser-cascade-faq/app.js` to prevent overlapping frames on streaming TTS (`#wsj8`).
+- **Concurrent Stream VAD Isolation Operational Caveats**: Documented process-wide Silero VAD state sharing limitation (upstream #229) in `BENCHMARKS.md`, `docs/hosting.md`, and `docs/user-guide.md` (`#yuvl`, PR #32).
+
+---
+
 ## [v0.9.2] - 2026-08-14
 
 ### Added
