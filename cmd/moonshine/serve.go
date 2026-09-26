@@ -170,7 +170,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// TTS Speaker
 	ttsOpts := ortProviderOptions(viper.GetString("tts.providers"))
-	if g2pRoot := viper.GetString("tts.g2p_root"); g2pRoot != "" {
+	if g2pRoot := resolveG2PRoot(); g2pRoot != "" {
 		ttsOpts = append(ttsOpts, moonshine.Option{Name: "g2p_root", Value: g2pRoot})
 	}
 	if serveTTSVoice != "" {

@@ -43,7 +43,7 @@ var configKeys = []configKeyDoc{
 	{"tts.language", nil, "Default --language for tts"},
 	{"tts.voice", nil, "Default --voice for tts"},
 	{"tts.speed", nil, "Default --speed for tts"},
-	{"tts.g2p_root", nil, "Default --g2p-root for tts; derived from moonshine.src_dir if unset"},
+	{"tts.g2p_root", nil, "Default --g2p-root for tts; derived from moonshine.src_dir or downloaded voices in model.dir if unset"},
 }
 
 func configFilePath() string {
@@ -102,6 +102,9 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 	entries := make([]configEntry, 0, len(configKeys))
 	for _, ck := range configKeys {
 		val := viper.GetString(ck.Key)
+		if ck.Key == "tts.g2p_root" && val == "" {
+			val = resolveG2PRoot()
+		}
 		prov := "default"
 		for _, ev := range ck.EnvVars {
 			if os.Getenv(ev) != "" {

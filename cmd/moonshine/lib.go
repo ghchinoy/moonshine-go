@@ -56,6 +56,41 @@ func sttModelDir(language string, arch uint32) (string, error) {
 	return moonshine.PrimaryModelDir(viper.GetString("model.dir"), manifest)
 }
 
+// ttsCacheDir returns the root directory for downloaded TTS voice models under
+// model.dir (typically <model.dir>/download.moonshine.ai/tts).
+//
+// Architectural Decision 1: Single shared cache root with STT models
+// (aligned with Python package and MOONSHINE_MODEL_DIR/MOONSHINE_VOICE_CACHE).
+//
+// Architectural Decision 2: Never written into config.yaml during setup;
+// root.go inspects this directory as the lowest-precedence fallback default
+// so explicit flags, env vars, config values, and moonshine.src_dir always outrank it.
+func ttsCacheDir() string {
+	return moonshine.GroupDir(viper.GetString("model.dir"), moonshine.DependencyGroup{
+		BaseURL: "https://download.moonshine.ai/tts/",
+	})
+}
+
+// resolveG2PRoot returns the effective g2p_root directory path based on precedence:
+//  1. Explicit tts.g2p_root (from --g2p-root flag, env, or config.yaml)
+//  2. moonshine.src_dir/core/moonshine-tts/data (if moonshine.src_dir is configured)
+//  3. Downloaded voices cache (<model.dir>/download.moonshine.ai/tts), if the directory exists
+//
+// Returns "" if none of the above are configured or exist.
+func resolveG2PRoot() string {
+	if root := viper.GetString("tts.g2p_root"); root != "" {
+		return root
+	}
+	if src := viper.GetString("moonshine.src_dir"); src != "" {
+		return filepath.Join(src, "core", "moonshine-tts", "data")
+	}
+	downloadedDir := ttsCacheDir()
+	if fi, err := os.Stat(downloadedDir); err == nil && fi.IsDir() {
+		return downloadedDir
+	}
+	return ""
+}
+
 // loadTranscriberFor loads a transcriber for (language, arch), with a
 // CLI-friendly error suggesting `moonshine setup` if the model isn't
 // downloaded yet. extraOpts are passed through to moonshine.LoadTranscriber

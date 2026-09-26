@@ -137,13 +137,10 @@ make build   # -> bin/moonshine ; equivalently: go build -o bin/moonshine ./cmd/
 ./bin/moonshine transcribe -o transcript.txt path/to/audio.wav
 ./bin/moonshine live -o session.txt
 
-# Text to speech. TTS voice assets (Kokoro/Piper/ZipVoice) aren't
-# auto-downloaded by `setup` (see `moonshine tts --help` for why) --
-# point --g2p-root at a moonshine checkout's core/moonshine-tts/data,
-# after `git lfs pull`-ing the voice(s) you want.
-./bin/moonshine tts --g2p-root /path/to/moonshine/core/moonshine-tts/data \
-  --language en_us --voice piper_en_US-amy-low -o out.wav "Hello world."
-./bin/moonshine tts --g2p-root ... --list-voices
+# Text to speech. Download voice models with `setup --tts`, then synthesize:
+./bin/moonshine setup --tts piper_en_US-amy-low
+./bin/moonshine tts --voice piper_en_US-amy-low -o out.wav "Hello world."
+./bin/moonshine tts --list-voices
 ```
 
 **Example output** (`transcribe` against a public-domain test clip):
@@ -206,7 +203,7 @@ moonshine config path                      # print the config.yaml path
 | `tts.language`      | `--language` (tts)           | --                                                | `en_us` |
 | `tts.voice`         | `--voice` (tts)              | --                                                | (unset -> auto) |
 | `tts.speed`         | `--speed` (tts)              | --                                                | (unset -> 1.0) |
-| `tts.g2p_root`      | `--g2p-root` (tts)           | --                                                | derived from `moonshine.src_dir` |
+| `tts.g2p_root`      | `--g2p-root` (tts)           | --                                                | derived from `moonshine.src_dir` or `setup --tts` |
 
 `stt.arch`/`stt.language` are shared between `setup` and `transcribe` (set
 one config value, both commands pick it up). `live` shares `stt.language`
@@ -269,14 +266,13 @@ re-fetching them. Override with `--model-dir` / `MOONSHINE_MODEL_DIR` if you
 want a project-local or otherwise separate location.
 
 **`moonshine.src_dir`**: the local moonshine checkout used to build
-`libmoonshine` (`make buildlib`'s `MOONSHINE_SRC`) is also the same
-checkout `tts --g2p-root` needs to point at (Kokoro/Piper/ZipVoice voice
-assets live there, fetched via Git LFS -- see
-[docs/user-guide.md](docs/user-guide.md#tts)). Setting `moonshine.src_dir`
-once (`moonshine config set moonshine.src_dir /path/to/moonshine`) derives
-`tts.g2p_root`'s default automatically, so you don't need `--g2p-root` on
-every `tts` invocation. It has no dedicated flag since nothing else at
-runtime needs it.
+`libmoonshine` (`make buildlib`'s `MOONSHINE_SRC`). When set
+(`moonshine config set moonshine.src_dir /path/to/moonshine` or `$MOONSHINE_SRC`),
+`tts.g2p_root` automatically defaults to `<src_dir>/core/moonshine-tts/data`.
+If unset, `moonshine` automatically falls back to voices downloaded by
+`moonshine setup --tts <voice>` under `model.dir` (see
+[docs/user-guide.md](docs/user-guide.md#tts)). It has no dedicated flag since
+nothing else at runtime needs it.
 
 ## Verifying the bindings
 

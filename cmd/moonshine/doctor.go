@@ -283,14 +283,14 @@ func checkGCSCredentials() doctorCheck {
 
 func checkTTSAssets() doctorCheck {
 	name := "TTS voice assets (--g2p-root)"
-	root := viper.GetString("tts.g2p_root")
+	root := resolveG2PRoot()
 	if root == "" {
 		return doctorCheck{name, statusSkip,
-			"tts.g2p_root not set -- only needed for `moonshine tts`; set moonshine.src_dir or pass --g2p-root (see 'moonshine tts --help')"}
+			"tts.g2p_root not set -- only needed for `moonshine tts`; run `moonshine setup --tts <voice>` to download voices, set moonshine.src_dir, or pass --g2p-root (see 'moonshine tts --help')"}
 	}
 	info, err := os.Stat(root)
 	if err != nil || !info.IsDir() {
-		return doctorCheck{name, statusWarn, fmt.Sprintf("tts.g2p_root=%s does not exist or isn't a directory", root)}
+		return doctorCheck{name, statusWarn, fmt.Sprintf("tts.g2p_root=%s does not exist or isn't a directory; run `moonshine setup --tts <voice>`", root)}
 	}
 	return doctorCheck{name, statusOK, root}
 }

@@ -132,5 +132,11 @@ Now that you have a working transcription pipeline:
    Read the **[AgentFlow Tutorial](../samples/TUTORIAL.md)** to create a conversational voice bot using Go, or explore the **[Samples Catalog](../samples/)**.
 3. **Embed Moonshine in Your Go Applications:**
    Use `pkg/moonshine` directly in your application with zero daemon dependency — see **[samples/go-embedded](../samples/go-embedded/)**.
-4. **Troubleshooting:**
+4. **Text-to-Speech (TTS):**
+   Download a voice model directly from the CDN and synthesize speech:
+   ```sh
+   ./bin/moonshine setup --tts kokoro_af_heart
+   ./bin/moonshine tts --voice kokoro_af_heart --play "Hello from Moonshine voice."
+   ```
+5. **Troubleshooting:**
    If you hit missing library errors or compilation issues, see the **[Troubleshooting Guide](troubleshooting.md)**.

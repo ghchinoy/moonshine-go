@@ -104,15 +104,23 @@ func initViper() {
 
 	_ = viper.ReadInConfig() // missing config file is not an error
 
-	// Derived default: once moonshine.src_dir is known (env or config,
-	// resolved above/by ReadInConfig), default tts.g2p_root to
-	// <src_dir>/core/moonshine-tts/data unless a flag/env/config value for
-	// tts.g2p_root already outranks it. Using SetDefault (not Set) keeps
-	// this at the correct, lowest precedence rather than masquerading as an
-	// explicit override.
+	// Derived defaults for tts.g2p_root:
+	// Precedence order (highest to lowest):
+	//   1. Explicit flag (--g2p-root on tts or serve)
+	//   2. Explicit environment variable / explicit config.yaml key (tts.g2p_root)
+	//   3. moonshine.src_dir/core/moonshine-tts/data (if moonshine.src_dir is set)
+	//   4. Downloaded voices directory (<model.dir>/download.moonshine.ai/tts), if it exists
+	//
+	// Architectural Decision 2: We use SetDefault (never mutating config.yaml) so that
+	// moonshine.src_dir or an explicit config key always outranks the downloaded directory.
 	if viper.GetString("tts.g2p_root") == "" {
 		if src := viper.GetString("moonshine.src_dir"); src != "" {
 			viper.SetDefault("tts.g2p_root", filepath.Join(src, "core", "moonshine-tts", "data"))
+		} else {
+			downloadedDir := ttsCacheDir()
+			if fi, err := os.Stat(downloadedDir); err == nil && fi.IsDir() {
+				viper.SetDefault("tts.g2p_root", downloadedDir)
+			}
 		}
 	}
 }
