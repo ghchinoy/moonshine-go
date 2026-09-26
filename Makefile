@@ -13,7 +13,7 @@ export CGO_ENABLED ?= 1
 # checkout (e.g. building from a source tarball with no .git directory).
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: all build buildlib fetchlib release-package clean test check-nocgo verify-samples smoke bench fmt fmt-fix vet lint proto
+.PHONY: all build buildlib fetchlib release-package clean test check-nocgo verify-samples smoke bench fmt fmt-fix vet lint proto site-sync site-build site-dev
 
 all: build
 
@@ -93,3 +93,15 @@ clean:
 ## distclean: Also remove the staged native library output.
 distclean: clean
 	rm -rf .moonshine
+
+## site-sync: Sync markdown documentation into site content directory.
+site-sync:
+	cd site && npm run sync
+
+## site-build: Build the Astro Starlight documentation site.
+site-build:
+	cd site && npm run build
+
+## site-dev: Run local development server for the documentation site.
+site-dev:
+	cd site && npm run dev
