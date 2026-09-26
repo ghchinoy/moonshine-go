@@ -13,8 +13,8 @@
 //     pkg/serveapi + pkg/agentflow over WebSocket -- the shape any real
 //     external Go consumer would use.
 //   - Control: AgentFlow global handlers (flow.Always) intercept
-//     "stop/resume listening" before triggering FAQ flows, dispatching
-//     event.ActionRequest{Verb: "session.pause"/"session.resume"} over WS.
+//     "stop/resume listening" before triggering FAQ flows, managing
+//     client-side pause/resume state with voice and keyboard Enter resumption.
 //   - Observability: every finalized line and every action this agent takes
 //     is printed to stdout as it happens.
 //   - Privacy: the FAQ answers come from a fixed local dataset
@@ -41,6 +41,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -49,7 +50,9 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,8 +129,27 @@ func main() {
 	// session once set -- see pkg/serveapi/event.go).
 	var ttftLogged bool
 
-	agentHandler := newAgentFlow(sink, embBackend, float32(*thresholdFlag))
+	sessState := &SessionState{}
+	baseHandler := newAgentFlow(sink, embBackend, float32(*thresholdFlag), sessState)
+	agentHandler := &pausedAgentHandler{
+		inner: baseHandler,
+		state: sessState,
+		debug: debug,
+	}
 	runner := serveapi.NewAgentRunner(agentHandler, sink)
+
+	// Keyboard unpause listener on terminal stdin
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			if sessState.IsPaused() {
+				sessState.SetPaused(false)
+				fmt.Printf("[%s] [control] keyboard unpause: session resumed (listening enabled)\n", ts())
+			} else {
+				fmt.Printf("[%s] [status] listening (say 'mission', 'privacy', or 'stop listening')\n", ts())
+			}
+		}
+	}()
 
 	events := make(chan serveapi.TranscriptEvent, 16)
 
@@ -198,6 +220,67 @@ func main() {
 	fmt.Println("\nstopped.")
 }
 
+// SessionState tracks client-side pause/resume state.
+type SessionState struct {
+	mu     sync.RWMutex
+	paused bool
+}
+
+func (s *SessionState) SetPaused(p bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.paused = p
+}
+
+func (s *SessionState) IsPaused() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.paused
+}
+
+var (
+	resumeRe = regexp.MustCompile(`(?i)^\s*(resume listening|start listening)\s*\.?\s*$`)
+)
+
+// pausedAgentHandler wraps an AgentHandler with client-side pause/resume state.
+// While paused, only resume phrases ("resume listening", "start listening") are
+// forwarded to unpause; all other utterances are dropped without triggering FAQ flows or TTS.
+type pausedAgentHandler struct {
+	inner serveapi.AgentHandler
+	state *SessionState
+	debug bool
+}
+
+func (p *pausedAgentHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
+	text := strings.TrimSpace(line.Text)
+	if text == "" {
+		return nil
+	}
+
+	if p.state != nil && p.state.IsPaused() {
+		if resumeRe.MatchString(text) {
+			p.state.SetPaused(false)
+			if p.debug {
+				fmt.Printf("[%s] [debug] control: matched \"resume listening\" (unpaused)\n", ts())
+			}
+			fmt.Printf("[%s] [control] session resumed (listening enabled)\n", ts())
+			if p.inner != nil {
+				return p.inner.OnFinalizedLine(ctx, line)
+			}
+			return nil
+		}
+		if p.debug {
+			fmt.Printf("[%s] [paused] ignored while paused: %q\n", ts(), text)
+		}
+		return nil
+	}
+
+	if p.inner != nil {
+		return p.inner.OnFinalizedLine(ctx, line)
+	}
+	return nil
+}
+
 // faqEntry is one keyword-triggered answer, sourced from docs/MISSION.md.
 type faqEntry struct {
 	keyword string // spotted as a trigger phrase by AgentFlow
@@ -208,7 +291,7 @@ type faqEntry struct {
 // satisfy serveapi.AgentHandler via agentflow.NewHandlerAdapter. If an
 // EmbeddingBackend is provided, phrase matching uses cosine-similarity
 // semantic vector embeddings rather than case-insensitive substring matching.
-func newAgentFlow(sink serveapi.ActionSink, embBackend agentflow.EmbeddingBackend, threshold float32) serveapi.AgentHandler {
+func newAgentFlow(sink serveapi.ActionSink, embBackend agentflow.EmbeddingBackend, threshold float32, sessState *SessionState) serveapi.AgentHandler {
 	flow := agentflow.New()
 	flow.ActionSink(sink)
 	if embBackend != nil {
@@ -226,41 +309,50 @@ func newAgentFlow(sink serveapi.ActionSink, embBackend agentflow.EmbeddingBacken
 		return err
 	})
 
-	// Global control commands: intercepted ahead of FAQ flows using Dialog action helpers.
+	// Global control commands: managed via client-side SessionState so the server
+	// audio capture stream remains active for voice-driven resumption.
 	flow.Always("stop listening", func(d *agentflow.Dialog) error {
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"stop listening\"\n", ts())
 		}
-		fmt.Printf("[%s] [agent] heard \"stop listening\" -- pausing session\n", ts())
-		_, err := d.PauseListening()
-		return err
+		fmt.Printf("[%s] [control] session paused (say 'resume listening' or press Enter in this terminal to resume)\n", ts())
+		if sessState != nil {
+			sessState.SetPaused(true)
+		}
+		return d.Say("Listening paused.")
 	})
 
 	flow.Always("pause listening", func(d *agentflow.Dialog) error {
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"pause listening\"\n", ts())
 		}
-		fmt.Printf("[%s] [agent] heard \"pause listening\" -- pausing session\n", ts())
-		_, err := d.PauseListening()
-		return err
+		fmt.Printf("[%s] [control] session paused (say 'resume listening' or press Enter in this terminal to resume)\n", ts())
+		if sessState != nil {
+			sessState.SetPaused(true)
+		}
+		return d.Say("Listening paused.")
 	})
 
 	flow.Always("resume listening", func(d *agentflow.Dialog) error {
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"resume listening\"\n", ts())
 		}
-		fmt.Printf("[%s] [agent] heard \"resume listening\" -- resuming session\n", ts())
-		_, err := d.ResumeListening()
-		return err
+		if sessState != nil {
+			sessState.SetPaused(false)
+		}
+		fmt.Printf("[%s] [control] session resumed (listening enabled)\n", ts())
+		return d.Say("Listening resumed.")
 	})
 
 	flow.Always("start listening", func(d *agentflow.Dialog) error {
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"start listening\"\n", ts())
 		}
-		fmt.Printf("[%s] [agent] heard \"start listening\" -- resuming session\n", ts())
-		_, err := d.ResumeListening()
-		return err
+		if sessState != nil {
+			sessState.SetPaused(false)
+		}
+		fmt.Printf("[%s] [control] session resumed (listening enabled)\n", ts())
+		return d.Say("Listening resumed.")
 	})
 
 	// FAQ dataset sourced from docs/MISSION.md.
