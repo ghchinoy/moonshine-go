@@ -29,11 +29,11 @@ If any check reports a failure or warning, `doctor` outputs the exact command re
 
 **Symptom:**
 ```text
-Error loading libmoonshine: could not dlopen libmoonshine.dylib: image not found
+Error: moonshine: could not find libmoonshine (checked [.moonshine/lib /usr/local/lib /opt/homebrew/lib]); build it with scripts/build-libmoonshine.sh and set MOONSHINE_LIB_DIR, or pass an explicit path
 ```
 
 **Cause:**
-`moonshine-go` uses pure Go dynamic loading (`ebitengine/purego`) to open `libmoonshine` at runtime. If `MOONSHINE_LIB_DIR` is unset, it searches standard system paths and fails if the library is not installed globally.
+`moonshine-go` uses pure Go dynamic loading (`ebitengine/purego`) to open `libmoonshine` at runtime. If `MOONSHINE_LIB_DIR` is unset, it searches standard candidate paths (`.moonshine/lib`, `/usr/local/lib`, `/opt/homebrew/lib`) and fails if the library is not found.
 
 **Resolution:**
 Point `MOONSHINE_LIB_DIR` at your staged library directory:
@@ -51,13 +51,13 @@ Verify that both `libmoonshine` and its matching `libonnxruntime` shared library
 ### 2. Git LFS Pointer Compiler Errors
 
 **Symptom:**
+Compilation fails during `make buildlib` or CMake configuration with unexpected syntax errors in third-party C++ headers, or files are recognized as text pointer stubs:
 ```text
-fatal error: '...': file was recognized as text pointer 'version https://git-lfs.github.com/spec/v1'
+file was recognized as text pointer 'version https://git-lfs.github.com/spec/v1'
 ```
-or `make buildlib` fails with unexpected syntax errors in third-party C++ headers.
 
 **Cause:**
-The upstream `moonshine` repository stores several large binaries and embedded models as Git LFS pointers. If the repository was cloned without Git LFS installed, the files remain tiny text pointer stubs instead of real binary assets.
+The upstream `moonshine` repository stores several large binaries and embedded models as Git LFS pointers. If the repository was cloned without Git LFS installed or before running `git lfs pull`, the files remain tiny text pointer stubs instead of real binary assets.
 
 **Resolution:**
 Install Git LFS and pull the real file contents in your Moonshine checkout:
@@ -75,8 +75,11 @@ Then re-run `make buildlib MOONSHINE_SRC=/path/to/moonshine`.
 
 **Symptom:**
 ```text
-Error: STT model for en/tiny not found.
-Run 'moonshine setup --language en --arch tiny' first.
+Failed to load transcriber: Model directory does not exist at path '.../download.moonshine.ai/model/tiny-en/quantized/tiny-en'
+
+Error: moonshine: load_transcriber_from_files: Unknown error (code -1)
+
+hint: run `moonshine setup --language en --arch tiny` first
 ```
 
 **Cause:**
@@ -100,6 +103,13 @@ Check all downloaded models with `./bin/moonshine models`.
 ### 4. Cgo Compiler Required for `moonshine live`
 
 **Symptom:**
+Compiling with `CGO_ENABLED=0` fails:
+```text
+# github.com/ghchinoy/moonshine-go/internal/audio
+internal/audio/mic.go:16:19: undefined: malgo.AllocatedContext
+internal/audio/mic.go:31:22: undefined: malgo.InitContext
+```
+or building on a system without a C compiler reports:
 ```text
 go build: cgo is required for gen2brain/malgo: C compiler "clang" or "gcc" not found
 ```
@@ -117,8 +127,13 @@ go build: cgo is required for gen2brain/malgo: C compiler "clang" or "gcc" not f
 ### 5. Getting TTS Voice Models (`tts.g2p_root`)
 
 **Symptom:**
+Running `moonshine doctor` reports:
 ```text
-Error: tts.g2p_root not set -- only needed for moonshine tts
+[ SKIP ] TTS voice assets (--g2p-root)      tts.g2p_root not set -- only needed for `moonshine tts`; set moonshine.src_dir or pass --g2p-root (see 'moonshine tts --help')
+```
+or running `moonshine tts` without `--g2p-root` set reports:
+```text
+Error: tts.g2p_root not set -- only needed for `moonshine tts`; set moonshine.src_dir or pass --g2p-root (see 'moonshine tts --help')
 ```
 
 **Cause:**
@@ -127,13 +142,14 @@ Unlike STT models, TTS voice assets (Kokoro and Piper) are stored inside the ups
 **Resolution:**
 1. In your upstream `moonshine` checkout, pull only the specific voice assets you need:
    ```sh
-   # Pull Kokoro 82M neural voices (~85 MB):
+   # Option A: Pull Kokoro 82M voice assets (105 MB total):
    git -C ~/projects/github/moonshine lfs pull --include="core/moonshine-tts/data/kokoro/**"
-   git -C ~/projects/github/moonshine lfs pull --include="core/moonshine-tts/data/en_us/**"
+   git -C ~/projects/github/moonshine lfs pull --include="core/moonshine-tts/data/en_us/dict_filtered_heteronyms.tsv"
 
-   # Or pull Piper American English Amy Low (~15 MB):
+   # Option B: Pull a single Piper voice, e.g. Amy Low (16.6 MB total across 5 files):
    git -C ~/projects/github/moonshine lfs pull --include="core/moonshine-tts/data/en_us/piper-voices/en_US-amy-low*"
    ```
+   *(Note: Do not run `lfs pull --include="core/moonshine-tts/data/en_us/**"` without a voice filter, as that will download every English voice totaling 582 MB).*
 2. Point `--g2p-root` (or `MOONSHINE_TTS_ROOT`) at the data directory:
    ```sh
    export MOONSHINE_TTS_ROOT="$HOME/projects/github/moonshine/core/moonshine-tts/data"
