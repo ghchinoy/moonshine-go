@@ -69,13 +69,34 @@ The project documentation is deployed as a static site to GitHub Pages at [https
   - The bucket is configured with `allUsers: objectViewer`, 1-year immutable caching (`public, max-age=31536000, immutable`), and CORS origins for `https://ghchinoy.github.io`. Note: This bucket is shared with `moonshine-rs` (under `moonshine-rs/`).
   - Audio clips are generated locally via `site/scripts/gen-audio.sh` and tracked in `site/src/data/audio-manifest.json`.
 - **Link Rewriting & Build-Time Validation:**
-  - `site/scripts/sync-content.mjs` validates all relative markdown links at build time. Internal docs/samples resolve to clean Starlight URLs (`/moonshine-go/guides/...`, `/moonshine-go/samples/...`). Code files (`.go`, `.py`, `.js`, configs) resolve to GitHub blob URLs. Broken local links will trigger warnings or build failures.
+  - `site/scripts/sync-content.mjs` validates all relative markdown links at build time. Internal docs/samples resolve to clean Starlight URLs (`/moonshine-go/guides/...`, `/moonshine-go/samples/...`). Code files (`.go`, `.py`, `.js`, configs) resolve to GitHub blob URLs. Broken local links trigger fatal build failures (`errors++`), ensuring broken references never reach production.
 - **Sample Rating Tables:**
   - Every sample under `samples/` must include a self-reported `Sample Rating` table formatted per `samples/CONTRIBUTING.md`. The sync script parses these tables into `site/src/data/samples.json` to generate the interactive catalog at `/moonshine-go/samples/`.
 - **Useful Make Targets:**
   - `make site-sync` — Runs the content synchronization script.
   - `make site-build` — Syncs content and builds the static Starlight site into `site/dist/`.
   - `make site-dev` — Runs the local Astro development server.
+
+## Operational lessons and gotchas for coding agents
+
+Reflections and hard-earned patterns discovered across past coding sessions in this repository:
+
+- **MDX-Safe Markdown Prose:**
+  The documentation site builds `README.md` and `BENCHMARKS.md` as `.mdx` files to embed live audio players and SVG charts. In MDX, bare `<` signs (e.g. `< 2,000ms`), LaTeX-style curly braces (e.g. `\text{s}`), and unescaped brackets are parsed as JSX expressions and cause build-time syntax errors. Always write plain prose (e.g., "is under 2,000ms") or wrap expressions inside backticks.
+- **Component Injection Heading Anchors:**
+  `site/scripts/sync-content.mjs` injects Astro components (such as `<AudioShowcase />` and `<BenchmarkCharts />`) using heading text matching (e.g., `## Contents`, `## 2. In-Process Micro-Benchmarks`). If you rename or edit these headings in the source markdown, update the corresponding string literals in `site/scripts/sync-content.mjs` in the same commit. The sync script asserts anchor existence and will fail the build if an anchor is missing.
+- **Never Use Ephemeral `github.com/user-attachments/...` URLs:**
+  GitHub user-attachment URLs can expire or return 404 outside GitHub issue comments. Always host public images, GIFs, and media in `gs://moonshine-ports-site-assets/moonshine-go/` with 1-year immutable caching.
+- **Media Numbers Must Be Measured, Never Typed:**
+  Any metric or latency number displayed alongside media (e.g., TTFA ms, speedup factor) must be parsed directly from the benchmark or synthesis run that produced the audio (via `site/scripts/gen-audio.sh`), never hardcoded or estimated.
+- **Pre-Planning Dependency Checks:**
+  Before proposing plans or choosing toolchains, verify currently installed versions (`node -v`, `npm view <pkg> version`, `go version`). For example, verify Starlight peer dependencies before assuming older Astro majors.
+- **Worktree Synchronization via Git (No File Copying):**
+  When working across multiple worktrees (e.g. `moonshine-go` and `moonshine-go-samples`), synchronize branches exclusively via git (`git fetch`, `git pull --ff-only`, `git checkout`). Never copy files or run `rsync` between worktrees; doing so copies build artifacts (`node_modules`, binaries) and dirties worktree tracking.
+- **`bd close --force` for Role Mismatches:**
+  The `bd` issue tracker requires `--force` when your active actor identity differs from the issue's assignee.
+- **Explicit User Approval for Direct Pushes:**
+  While purely additive files in owned sample subdirectories can fast-forward push once verified, shared files (`README.md`, `docs/`, `AGENTS.md`) require a reviewable PR unless the user explicitly authorizes a direct push for that specific task.
 
 ## Multi-agent coordination in this repo
 
