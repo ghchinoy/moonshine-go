@@ -12,20 +12,29 @@ make test                                                  # go test ./... (no n
 make smoke                                                 # exercises a real libmoonshine.dylib/.so
 ```
 
-`make smoke` additionally honors `MOONSHINE_SMOKE_WAV` (a 16kHz mono wav,
-e.g. moonshine's own `test-assets/two_cities_16k.wav`) and
-`MOONSHINE_SMOKE_TTS_ROOT` (a `core/moonshine-tts/data`-shaped directory with
-at least one Piper voice's `.onnx`/`.onnx.json` pulled via `git lfs pull`) to
-run real-speech and TTS smoke tests, not just the always-on silence
-round-trip.
+`make smoke` additionally honors:
+- `MOONSHINE_SMOKE_WAV`: a 16kHz mono wav (e.g. moonshine's own `test-assets/two_cities_16k.wav`) for real-speech non-streaming and streaming transcription tests.
+- `MOONSHINE_SMOKE_TTS_ROOT`: a `core/moonshine-tts/data`-shaped directory with voice assets (downloaded via `moonshine setup --tts <voice>` or `scripts/fetch-voice-assets.sh tts` in an upstream checkout) for TTS synthesis and streaming tests. Note: upstream no longer hosts voice models in Git LFS.
+- `MOONSHINE_SMOKE_EMBEDDING=1`: opt-in flag to run the Gemma-300M text embedding model download, inference, and semantic matching smoke tests (downloads ~300MB on first run).
 
 A moonshine checkout ships several files as Git LFS pointers that aren't
 needed for the normal `moonshine-voice` app but ARE needed to build
 `libmoonshine` (embedded C++ sources) and to run it (vendored onnxruntime
-binaries, TTS voice assets). If `scripts/build-libmoonshine.sh` fails with
-compiler errors mentioning `git-lfs.github.com`, run `git lfs pull` in that
-checkout (see README.md's "Build libmoonshine" section for exactly which
-paths matter if you want to avoid pulling the entire LFS payload).
+binaries). If `scripts/build-libmoonshine.sh` fails with compiler errors
+mentioning `git-lfs.github.com`, run `git lfs pull` in that checkout (see
+README.md's "Build libmoonshine" section for exactly which paths matter if
+you want to avoid pulling the entire LFS payload).
+
+## Agent Personae & Ownership Separation
+
+Two dedicated agent personae coordinate development in this repository:
+
+- **Core Agent (`moonshine-go-core`)**:
+  - **Ownership:** `pkg/moonshine` (purego C bindings), `cmd/moonshine` (flagship CLI), `internal/` (serve sidecar daemon, session orchestration, audio capture/playback, TUI), build/smoke tooling (`Makefile`, `scripts/`), performance benchmarks (`bench/`, `BENCHMARKS.md`), official releases (`CHANGELOG.md`, `docs/RELEASING.md`), and upstream synchronization with `~/projects/github/moonshine`.
+  - **Responsibilities:** Maintains `main` branch stability, reviews DevRel pull requests, verifies C ABI parity, and tags semver releases.
+- **DevRel Agent (`moonshine-go-dev`)**:
+  - **Ownership:** `samples/` (runnable Tier 0/1/2 reference applications, sample READMEs, `samples/CONTRIBUTING.md`, `samples/GUIDE.md`, `samples/TUTORIAL.md`), documentation website (`site/`), tutorial and onboarding guides (`docs/quickstart.md`, `docs/troubleshooting.md`, `docs/MISSION.md`), and developer UX workflows.
+  - **Responsibilities:** Delivers clean developer onboarding, verifies samples against live `moonshine serve` processes, and submits shared doc/core updates via reviewable pull requests.
 
 ## Architecture notes for future changes
 
@@ -51,6 +60,10 @@ paths matter if you want to avoid pulling the entire LFS payload).
   - **Daemon assembly is importable** as `internal/serve.Server`/`ServerConfig` (`server.go`), extracted from `cmd/moonshine/serve.go` so code *inside this module* can embed the daemon with a custom `AgentHandler`/`AudioSource`. `cmd/moonshine/serve.go` itself is reduced to flag parsing + calling it.
 - `pkg/serveapi` is the **public, Go-native extension surface** for `moonshine serve`: `AgentHandler`, `Retriever`, `LLMClient`, `AudioSource`, and shadow structs for every wire type (`Line`, `TranscriptEvent`, `ActionRequest`, ...). It's a leaf package -- stdlib only, `CGO_ENABLED=0`-buildable, never imports `internal/session` or `internal/audio` -- so external Go modules can build against it without a C toolchain. `internal/serve` consumes it as the source of truth for these types (no duplicated definitions). It does **not** yet expose a public daemon-embedding wrapper (only `internal/serve.Server` does, which is `internal/`-only); a true external module can drive the sidecar today only as a separate process talking `pkg/serveapi` over WS/gRPC -- see `samples/go-cascade-faq` for that shape.
 - `samples/` holds runnable, live-verified Tier 0/1/2 examples against `moonshine serve` (Go and Python), replacing what used to be a docs-only quickstart. See [samples/CONTRIBUTING.md](samples/CONTRIBUTING.md) for conventions before adding one -- the short version: a sample isn't done until it's been run against a real `moonshine serve` process, not just compiled.
+- **TTS G2P Root Precedence (`resolveG2PRoot()`):** Never read `viper.GetString("tts.g2p_root")` directly. Always call `resolveG2PRoot()` in `cmd/moonshine/lib.go`. It enforces the strict 4-tier precedence: (1) explicit `--g2p-root` CLI flag; (2) explicit `tts.g2p_root` in `config.yaml`; (3) `<moonshine.src_dir>/core/moonshine-tts/data`; (4) downloaded cache `<model.dir>/download.moonshine.ai/tts`. `moonshine setup --tts` intentionally never mutates `config.yaml` so higher-precedence overrides remain active.
+- **Embedding Model Vector Deallocation (`pkg/moonshine.EmbeddingModel`):** Memory allocated by `moonshine_calculate_embedding` must be freed with `moonshine_free_embedding` (C `std::free`), NOT `moonshine_free_buffer`. `EmbeddingModel` directly satisfies `agentflow.EmbeddingBackend`.
+- **Streaming TTS Barge-In State (`TTSStream.Cancel()`):** Calling `stream.Cancel()` cancels active C++ computation, and the immediate subsequent call to `stream.NextChunk()` returns sentinel `ErrCancelled` once. This error must be consumed before pushing a new utterance to reset the synthesizer to idle.
+- **Concurrent Stream VAD Isolation Limitation (Upstream #229):** All transcription streams in a process share a single static `SileroVad*` pointer in C++ (`VoiceActivityDetector::silero_vad`). Because Silero VAD carries recurrent RNN state (`_state`, `_context`), simultaneous live streams in a single `moonshine serve` process will corrupt each other's speech detection boundaries. For multi-channel live audio, deploy separate `moonshine serve` worker processes (process-level isolation).
 
 ## Documentation, site, and media conventions
 
@@ -87,8 +100,16 @@ Reflections and hard-earned patterns discovered across past coding sessions in t
   `site/scripts/sync-content.mjs` injects Astro components (such as `<AudioShowcase />` and `<BenchmarkCharts />`) using heading text matching (e.g., `## Contents`, `## 2. In-Process Micro-Benchmarks`). If you rename or edit these headings in the source markdown, update the corresponding string literals in `site/scripts/sync-content.mjs` in the same commit. The sync script asserts anchor existence and will fail the build if an anchor is missing.
 - **Never Use Ephemeral `github.com/user-attachments/...` URLs:**
   GitHub user-attachment URLs can expire or return 404 outside GitHub issue comments. Always host public images, GIFs, and media in `gs://moonshine-ports-site-assets/moonshine-go/` with 1-year immutable caching.
-- **Media Numbers Must Be Measured, Never Typed:**
-  Any metric or latency number displayed alongside media (e.g., TTFA ms, speedup factor) must be parsed directly from the benchmark or synthesis run that produced the audio (via `site/scripts/gen-audio.sh`), never hardcoded or estimated.
+- **All Numbers in Documentation Must Be Measured, Never Typed:**
+  Any metric, latency number, speedup ratio, or benchmark score displayed in documentation (`docs/`, `README.md`, `BENCHMARKS.md`) must be parsed directly from the benchmark or synthesis run that produced the output (e.g. via `site/scripts/gen-audio.sh` or benchmark test logs), never hardcoded or estimated. If a diagram is conceptual, explicitly label it `(Illustrative)`.
+- **Assert Real Failure Symptoms in Concurrency Tests:**
+  When authoring concurrency tests, do not only assert that transcripts don't interleave words; assert line counts and finalization latency against a solo baseline (e.g. `TestConcurrentStreamVADCorruption`). Upstream bugs often manifest as dropped lines or latency inflation rather than word corruption.
+- **`make bench` Excludes Expected Regression Probes:**
+  `make bench` passes `-run '^$'` to run exclusively `Benchmark*` functions and skip regression probe tests that intentionally fail on current upstream library pins until upstream fixes land.
+- **Wire Contract Changes Break Downstream Samples:**
+  When modifying `internal/serve` event payloads or emission sequences (e.g. streaming TTS changing `TTSAudioEvent` from 1 chunk to N chunks), immediately audit `samples/` for consumers (such as `browser-cascade-faq/app.js`) that assume legacy sequence shapes, and file follow-up issues.
+- **Exhaustive Documentation Audit on Breaking UX Changes:**
+  When a command's fundamental behavior changes (e.g. `setup --tts` automating voice downloads), grep `docs/`, `README.md`, `samples/*/README.md`, and `cmd/moonshine` help text to purge obsolete instructions (e.g. manual Git LFS pulls).
 - **Pre-Planning Dependency Checks:**
   Before proposing plans or choosing toolchains, verify currently installed versions (`node -v`, `npm view <pkg> version`, `go version`). For example, verify Starlight peer dependencies before assuming older Astro majors.
 - **Worktree Synchronization via Git (No File Copying):**
@@ -104,12 +125,20 @@ Multiple agents (and the human maintainer) commit to `main` concurrently and
 somewhat continuously -- this is a normal, expected working mode here, not
 an edge case. `main` can move between the start and end of your session,
 sometimes within seconds of you checking it. Releases are tagged and
-published (`v*` triggers `.github/workflows/release.yml`, see
-[docs/RELEASING.md](docs/RELEASING.md)) on essentially every merge, so
-version tags advance quickly too -- don't assume the latest tag you saw a
-few tool-calls ago is still the latest one.
+published intentionally following [docs/RELEASING.md](docs/RELEASING.md)
+(semver minor `v0.X.0` for new subsystems/features, patch `v0.X.Y` for bug
+fixes; pushing a `v*` tag triggers `.github/workflows/release.yml`). Don't
+assume the latest tag or commit you saw earlier is still the tip of `main`.
 
 **Practical consequences:**
+
+- **Upstream Synchronization Routine:**
+  When evaluating upstream changes in `~/projects/github/moonshine`:
+  1. Inspect `upstream/main` and active `upstream/dev-v*` branches (`git fetch upstream --tags`). Ignore benign "would clobber" warnings on historical tags.
+  2. Check C API header diff: `git diff <current_tag>..upstream/dev-v* -- core/moonshine-c-api.h`. If empty, zero Go binding changes are needed.
+  3. Inspect active upstream PRs and issues for known crashes, races, or concurrency bugs.
+  4. Only bump `MOONSHINE_RELEASE_TAG` on tagged releases, validating prebuilts with `scripts/check-release-asset.sh`.
+  5. Probe C API capabilities empirically with a minimal script rather than assuming older documentation is accurate.
 
 - **Before any push that could move a shared branch (`main` especially),
   `git fetch origin <branch>` *immediately* beforehand and check the
@@ -136,6 +165,7 @@ few tool-calls ago is still the latest one.
   -- shared files are the real collision surface and benefit from a visible
   diff to review against; purely additive work in an owned area doesn't
   need that ceremony.
+- **Active Agent Profile (Team-Maintainer):** Agents operate under the **Team-maintainer profile** within the boundaries defined above: agents may run quality gates, close beads, commit, and push directly to `main` for purely additive changes in owned areas and `.beads/` tracker exports; shared files (`README.md`, `docs/`, `AGENTS.md`) must land via reviewable PR unless explicitly authorized by the user for that specific task.
 - **Untracked file collisions during `git pull` / `git rebase`**: A `git pull --ff-only` or `git rebase` can abort if an untracked file or directory in your working tree collides with an incoming path from another agent's merged commit. Before assuming a git merge conflict, `diff` the untracked path against the incoming commit (`git show origin/main:<path>`). If identical or stale, safe to remove (`rm -rf <path>`) and retry the pull.
 - Before starting `internal/serve` work specifically, skim
   [docs/serve-sidecar.md](docs/serve-sidecar.md) -- it's largely a
