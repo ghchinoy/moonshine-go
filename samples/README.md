@@ -19,15 +19,19 @@ conventions and the verification bar.
 
 ## Architecture overview
 
-```
-mic → session.Live ──Update──▶ Hub ──event(JSON)──▶ Transports (WS + gRPC) ──▶ Subscribers
-                                 ▲                          │
-              action(JSON) ──────┘◀─────────────────────────┘
-                                 │
-                          Dispatcher ──▶ Agent (Gemini or external IPC subscriber)
-                                 │            tools: lookup/retrieve, display_card, speak
-                                 ├─ TTS  (Synthesizer → PlayFloat32, mic-mute barge-in guard)
-                                 └─ session control (pause/resume/stop)
+```mermaid
+flowchart LR
+    Mic[Microphone / RemoteAudioSource] --> Session[session.Live]
+    Session -->|Update| Hub[Event Hub]
+    Hub -->|TranscriptEvent JSON/proto| Transports[Transports: WS & gRPC]
+    Transports --> Subscribers[Subscribers & External Agents]
+
+    Subscribers -->|ActionRequest JSON| Transports
+    Transports -->|ActionRequest| Dispatcher[Action Dispatcher]
+
+    Dispatcher --> TTS[TTS Synthesizer]
+    Dispatcher --> Control[Session Control: pause/resume/stop]
+    Dispatcher --> Custom[Custom Commands / Tools]
 ```
 
 Two layers, deliberately decoupled: an **event/transport layer** (dumb,

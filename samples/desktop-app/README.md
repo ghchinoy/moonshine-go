@@ -21,12 +21,21 @@ This sample demonstrates building a standalone, self-contained desktop GUI appli
 
 Unlike daemon IPC samples (`browser-listen`, `go-cascade-faq`) that stream raw audio over WebSocket to a separate background server, `desktop-app` runs entirely within a single desktop application process:
 
-```
-[ Wails Webview Frontend ]                       [ Go Application Backend ]
-navigator.mediaDevices.getUserMedia          wails.Run() / App struct
-  └─► AudioWorklet (16kHz PCM)                    └─► pkg/moonshine (purego)
-        └─► App.PushPCMChunk(floatArray) ───────►       └─► Stream.AddAudio()
-                                                              └─► Stream.Transcribe()
+```mermaid
+flowchart LR
+    subgraph Frontend["Wails Webview Frontend"]
+        Mic[getUserMedia Microphone] --> Worklet[AudioWorklet 16kHz PCM]
+        Worklet --> Bridge[App.PushPCMChunk]
+    end
+
+    subgraph Backend["Go Application Backend (In-Process)"]
+        Bridge --> App[App struct / wails.Run]
+        App --> AddAudio[pkg/moonshine Stream.AddAudio]
+        AddAudio --> Transcribe[Stream.Transcribe]
+        Transcribe --> Events[Live Transcript UI Updates]
+    end
+
+    Events -.->|Wails Events/Callback| Frontend
 ```
 
 1. **Frontend Audio Capture** — the HTML/JS webview frontend captures microphone audio using `navigator.mediaDevices.getUserMedia` and buffers 100ms 16kHz float32 PCM chunks via an `AudioWorklet`.

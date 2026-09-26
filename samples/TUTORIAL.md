@@ -19,14 +19,13 @@ Welcome to the hands-on developer tutorial for **moonshine-go**! This 4-part gui
 
 `moonshine serve` operates as an agentic voice sidecar. It runs Speech-to-Text (STT) and Text-to-Speech (TTS) locally, exposing a lightweight transport bus (WebSocket & gRPC):
 
-```
-mic → moonshine serve → WebSocket (TranscriptEvent JSON) → your agent
-                                                                │
-                                                        ActionRequest (JSON)
-                                                                │
-                                WebSocket (back to sidecar) ────┘
-                                         │
-                               Dispatcher → TTS speak-back / session control
+```mermaid
+flowchart TD
+    Mic[Microphone Input] --> Serve[moonshine serve]
+    Serve -->|WebSocket TranscriptEvent JSON| Agent[Your External Agent]
+    Agent -->|ActionRequest JSON| ReturnWS[WebSocket Return]
+    ReturnWS --> Dispatcher[Dispatcher]
+    Dispatcher --> Out[TTS Speak-Back / Session Control]
 ```
 
 ---

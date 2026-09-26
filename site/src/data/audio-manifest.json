@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-09-26T15:03:45Z",
+  "base_url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio",
+  "voices": [
+    {
+      "id": "kokoro_af_heart",
+      "label": "Kokoro - American Female (Heart)",
+      "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
+      "file": "kokoro_af_heart-ca37973d.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/kokoro_af_heart-ca37973d.mp3"
+    }
+,
+    {
+      "id": "kokoro_am_adam",
+      "label": "Kokoro - American Male (Adam)",
+      "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
+      "file": "kokoro_am_adam-7154d98a.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/kokoro_am_adam-7154d98a.mp3"
+    }
+,
+    {
+      "id": "piper_en_US-amy-low",
+      "label": "Piper - American Female (Amy Low)",
+      "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
+      "file": "piper_en_US-amy-low-389b56fe.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/piper_en_US-amy-low-389b56fe.mp3"
+    }
+,
+    {
+      "id": "piper_en_US-lessac-medium",
+      "label": "Piper - American English (Lessac Medium)",
+      "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
+      "file": "piper_en_US-lessac-medium-15b6c5d5.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/piper_en_US-lessac-medium-15b6c5d5.mp3"
+    }
+
+  ],
+  "ttfa_comparison": {
+    "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
+    "voice": "kokoro_af_heart",
+    "oneshot": {
+      "file": "tts_oneshot-3ff29282.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/tts_oneshot-3ff29282.mp3",
+      "ttfa_ms": 1127
+    },
+    "streaming": {
+      "file": "tts_streaming-85f5343f.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/tts_streaming-85f5343f.mp3",
+      "ttfa_ms": 292
+    }
+  },
+  "stt_demo": {
+    "title": "A Tale of Two Cities (Charles Dickens)",
+    "source": "LibriVox (Public Domain)",
+    "file": "stt_two_cities-b3963282.mp3",
+    "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/stt_two_cities-b3963282.mp3",
+    "transcript": "decoding audio... loading tiny model... transcribing 6.0s of audio... [  0.99s] It was the best of times, it was the worst of times. [  4.80s] It was the age of wisdom. -------------------------------------------------- stats: load=142ms decode=32ms infer=99ms audio=6.00s rtf=60.7x"
+  }
+}

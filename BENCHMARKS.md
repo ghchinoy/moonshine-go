@@ -12,8 +12,8 @@ Before reporting latency numbers, we run a **concurrency correctness gate** (`Te
 
 ### Phase 0 Results
 
-- **Thread-Safety & Cross-Contamination:** **PASSED (100%)**. Across $K \in \{2, 4, 8, 16\}$ concurrent streams running simultaneously against a single shared `Transcriber` handle with distinct audio inputs (*Two Cities* vs. *Samuel Beckett*), **zero cross-talk or transcript interleaving occurred** at the acoustic model and decoder layers.
-- **Contention Profile:** ONNX Runtime CPU execution on a single transcriber handle runs sequentially per model instance. Across 1 to 8 concurrent streams, the **aggregate Real-Time Factor (RTF) remains fixed at ~0.065** (~15.4× realtime across all streams combined). Wall-clock duration per stream scales linearly with stream count ($2.93\text{s}$ for 1 stream, $5.82\text{s}$ for 2 streams, $22.71\text{s}$ for 8 streams of 44.4s audio).
+- **Thread-Safety & Cross-Contamination:** **PASSED (100%)**. Across K = 2, 4, 8, 16 concurrent streams running simultaneously against a single shared `Transcriber` handle with distinct audio inputs (*Two Cities* vs. *Samuel Beckett*), **zero cross-talk or transcript interleaving occurred** at the acoustic model and decoder layers.
+- **Contention Profile:** ONNX Runtime CPU execution on a single transcriber handle runs sequentially per model instance. Across 1 to 8 concurrent streams, the **aggregate Real-Time Factor (RTF) remains fixed at ~0.065** (~15.4× realtime across all streams combined). Wall-clock duration per stream scales linearly with stream count (2.93s for 1 stream, 5.82s for 2 streams, 22.71s for 8 streams of 44.4s audio).
 
 > **Architectural Takeaway:** A single `Transcriber` instance is thread-safe for concurrent multi-stream applications. For max throughput on high-core server CPUs, instantiate a **pool of `Transcriber` handles** (1 per CPU core or NUMA node) to scale inference fully parallel across hardware.
 
@@ -44,8 +44,8 @@ BenchmarkInProcessTranscribe-10             71.27 xRealtime    (RTF = 0.0140)   
 BenchmarkInProcessStreamingSession-10       12.90 xRealtime    (RTF = 0.0775)  611.15 MB/op  14312 allocs/op
 ```
 
-- **Non-Streaming Transcription (`BenchmarkInProcessTranscribe`):** **71.27× Realtime** ($0.0140\text{ RTF}$). Transcribes a full $44.4\text{s}$ audio file in $\sim 0.62\text{s}$ with only 35 Go heap allocations.
-- **Streaming Session (`BenchmarkInProcessStreamingSession`):** **12.90× Realtime** ($0.0775\text{ RTF}$). Feeds 100ms audio chunks sequentially, running incremental hypothesis re-decoding after every chunk.
+- **Non-Streaming Transcription (`BenchmarkInProcessTranscribe`):** **71.27× Realtime** (RTF 0.0140). Transcribes a full 44.4s audio file in ~0.62s with only 35 Go heap allocations.
+- **Streaming Session (`BenchmarkInProcessStreamingSession`):** **12.90× Realtime** (RTF 0.0775). Feeds 100ms audio chunks sequentially, running incremental hypothesis re-decoding after every chunk.
 
 ---
 
@@ -90,7 +90,7 @@ BenchmarkInProcessTTSStreamingTTFA/kokoro_af_heart-10       190.6 ms/op       59
 
 ### SLO Threshold
 
-A load configuration passes the SLO if **P95 Interim Poll Latency $\le 2,000\text{ms}$**.
+A load configuration passes the SLO if **P95 Interim Poll Latency is under 2,000ms**.
 
 ---
 

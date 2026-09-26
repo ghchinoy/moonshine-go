@@ -1,0 +1,49 @@
+---
+interface Props {
+  src: string;
+  label?: string;
+  sublabel?: string;
+}
+
+const { src, label, sublabel } = Astro.props;
+---
+
+<div class="audio-sample-card">
+  {label && <div class="audio-sample-header">
+    <span class="audio-sample-title">{label}</span>
+    {sublabel && <span class="audio-sample-sub">{sublabel}</span>}
+  </div>}
+  <audio controls preload="none" class="audio-player">
+    <source src={src} type="audio/mpeg" />
+    Your browser does not support the audio element.
+  </audio>
+</div>
+
+<style>
+  .audio-sample-card {
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-6);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+  }
+  .audio-sample-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  .audio-sample-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--sl-color-white);
+  }
+  .audio-sample-sub {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+  }
+  .audio-player {
+    width: 100%;
+    height: 36px;
+  }
+</style>

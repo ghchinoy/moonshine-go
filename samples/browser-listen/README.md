@@ -27,14 +27,19 @@ runs on.
 
 ## How it works
 
-```
-browser mic ──AudioWorklet──▶ int16 PCM ──WS binary frame──▶ moonshine serve
-                                                                    │
-                                                        RemoteAudioSource
-                                                                    │
-                                                              STT pipeline
-                                                                    │
-              browser  ◀──WS JSON frame── {"kind":"transcript",...}
+```mermaid
+sequenceDiagram
+    actor User as User Microphone
+    participant Worklet as AudioWorklet (worklet.js)
+    participant Browser as Browser UI (app.js)
+    participant Serve as moonshine serve (RemoteAudioSource)
+
+    User->>Worklet: Audio capture (Float32 PCM)
+    Worklet->>Browser: Int16 PCM chunks
+    Browser->>Serve: WebSocket binary frame (Int16 PCM)
+    Note over Serve: Streaming STT Pipeline
+    Serve->>Browser: WebSocket text frame ({"kind":"transcript", ...})
+    Note over Browser: Render live transcript
 ```
 
 - `worklet.js` runs on the audio rendering thread, converts each

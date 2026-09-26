@@ -1,0 +1,84 @@
+---
+import AudioSample from './AudioSample.astro';
+import manifest from '../data/audio-manifest.json';
+---
+
+<div class="audio-showcase">
+  <h3>TTS Voice Showcase (Kokoro & Piper)</h3>
+  <p>Hear real audio synthesized locally via <code>bin/moonshine tts</code>:</p>
+  
+  <div class="voices-grid">
+    {manifest.voices.map((v) => (
+      <AudioSample
+        src={v.url}
+        label={v.label}
+        sublabel={v.id}
+      />
+    ))}
+  </div>
+
+  {manifest.ttfa_comparison && (
+    <div class="ttfa-box">
+      <h3>Streaming TTS Latency (One-Shot vs Sub-Sentence Streaming)</h3>
+      <p>Comparing Time-to-First-Audio (TTFA) measured in <code>samples/go-embedded</code>:</p>
+      <div class="comparison-grid">
+        <AudioSample
+          src={manifest.ttfa_comparison.oneshot.url}
+          label="One-Shot Synthesis"
+          sublabel={`TTFA: ${manifest.ttfa_comparison.oneshot.ttfa_ms}ms`}
+        />
+        <AudioSample
+          src={manifest.ttfa_comparison.streaming.url}
+          label="Streaming Synthesis (NewStream)"
+          sublabel={`TTFA: ${manifest.ttfa_comparison.streaming.ttfa_ms}ms (3.8x faster)`}
+        />
+      </div>
+    </div>
+  )}
+
+  {manifest.stt_demo && (
+    <div class="stt-demo-box">
+      <h3>Speech-to-Text Demo</h3>
+      <p>Source: <em>{manifest.stt_demo.title}</em> ({manifest.stt_demo.source})</p>
+      <AudioSample
+        src={manifest.stt_demo.url}
+        label="Input Audio (6 seconds)"
+      />
+      <div class="transcript-box">
+        <strong>Transcribed by Moonshine (tiny-en):</strong>
+        <blockquote>"It was the best of times, it was the worst of times. It was the age of wisdom."</blockquote>
+      </div>
+    </div>
+  )}
+</div>
+
+<style>
+  .audio-showcase {
+    margin: 1.5rem 0;
+  }
+  .voices-grid, .comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .ttfa-box, .stt-demo-box {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-6);
+    border-radius: 0.75rem;
+  }
+  .transcript-box {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+  }
+  .transcript-box blockquote {
+    margin: 0.5rem 0 0 0;
+    color: var(--sl-color-accent-high);
+    font-style: italic;
+  }
+</style>

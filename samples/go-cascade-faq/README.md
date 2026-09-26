@@ -50,23 +50,21 @@ one small, runnable program:
 
 ## Architecture
 
-```
-mic → moonshine serve → WebSocket (TranscriptEvent JSON) → this program
-                                                                  │
-                                             serveapi.AgentRunner
-                                                                  │
-                                              agentflow.HandlerAdapter
-                                                                  │
-                                              agentflow.AgentFlow
-                                              ├── flow.Always ("stop/resume listening") ──> session.pause/resume
-                                              ├── flow.ListenFor ("mission", "privacy"...) ──> StaticRetriever -> d.Say
-                                              └── flow.Otherwise ──> log guidance
-                                                                  │
-                                                           ActionRequest
-                                                                  │
-                                                    WebSocket (back to sidecar)
-                                                                  │
-                                                         Dispatcher → TTS speak-back
+```mermaid
+flowchart TD
+    Mic[Microphone Input] --> Serve[moonshine serve]
+    Serve -->|WebSocket TranscriptEvent JSON| Runner[serveapi.AgentRunner]
+    Runner --> Adapter[agentflow.HandlerAdapter]
+    Adapter --> Flow[agentflow.AgentFlow]
+
+    Flow -->|flow.Always: stop/resume| Pause[session.pause / session.resume]
+    Flow -->|flow.ListenFor: mission, privacy...| Ret[StaticRetriever -> d.Say]
+    Flow -->|flow.Otherwise| Guide[Terminal Guidance]
+
+    Pause --> Action[ActionRequest JSON]
+    Ret --> Action
+    Action -->|WebSocket Return| Dispatcher[Sidecar Dispatcher]
+    Dispatcher --> TTS[TTS Synthesizer Speak-Back]
 ```
 
 ## Run it

@@ -8,14 +8,21 @@ This sample addresses the practical integration patterns discovered when buildin
 
 ## What It Demonstrates
 
-```
-WAV file / Mic ──PCM chunks (Binary WS)──▶ moonshine serve (--audio-source remote)
-                                                     │
-                                             RemoteAudioSource
-                                                     │
-                                          Streaming STT Pipeline
-                                                     │
-Terminal stdout ◀──TranscriptEvents (JSON WS)────────┘
+```mermaid
+sequenceDiagram
+    participant Client as go-stream-audio Client
+    participant Server as moonshine serve (--audio-source remote)
+
+    Note over Client: Read WAV / Strip RIFF Header
+    loop Realtime Stream (100ms chunks)
+        Client->>Server: WebSocket Binary Frame (16kHz PCM16)
+        Server-->>Client: WebSocket Text Frame (Interim TranscriptEvent)
+    end
+    Note over Client: Append 1.5s Trailing Silence
+    Client->>Server: WebSocket Binary Frame (Zero-PCM Silence)
+    Note over Server: VAD Endpoint Detection
+    Server->>Client: WebSocket Text Frame (Finalized Line Event)
+    Client->>Server: WebSocket Close (StatusNormalClosure)
 ```
 
 1. **Bidirectional WebSocket Multiplexing:** Outbound binary frames (`websocket.MessageBinary`) stream raw audio into the daemon, while inbound text frames (`{"kind": "transcript", "payload": {...}}`) stream live transcripts back to the client across a single connection.
