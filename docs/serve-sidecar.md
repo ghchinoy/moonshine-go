@@ -30,15 +30,19 @@ pipeline into an **agentic voice sidecar**:
 
 ### Data flow
 
-```
-mic → session.Live ──Update──▶ Hub ──event(JSON)──▶ Transport Manager ──▶ subscribers (WS + gRPC)
-                                 ▲                          │
-              action(JSON) ──────┘◀─────────────────────────┘
-                                 │
-                          Dispatcher ──▶ Agent (Gemini function-calling, or ExternalAgent)
-                                 │            tools: lookup/retrieve, display_card, run_command, speak
-                                 ├─ TTS  (Synthesizer → PlayFloat32, mic-mute barge-in guard)
-                                 └─ session control (pause/resume/stop)
+```mermaid
+flowchart LR
+    Mic[Microphone / RemoteAudioSource] --> Session[session.Live]
+    Session -->|Update| Hub[Event Hub]
+    Hub -->|TranscriptEvent JSON/proto| Transport[Transport Manager: WS & gRPC]
+    Transport --> Subscribers[Subscribers & External Agents]
+
+    Subscribers -->|ActionRequest JSON| Transport
+    Transport -->|ActionRequest| Dispatcher[Action Dispatcher]
+
+    Dispatcher --> Agent[Agent: Gemini or External]
+    Dispatcher --> TTS[TTS Synthesizer: PlayFloat32 & Barge-in Guard]
+    Dispatcher --> Control[Session Control: pause/resume/stop]
 ```
 
 Two layers, deliberately decoupled:

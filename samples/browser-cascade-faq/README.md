@@ -90,23 +90,25 @@ Ask about **mission**, **cascade**, **privacy**, **control**,
 
 ## How it works
 
-```
-browser mic ──AudioWorklet──▶ int16 PCM ──WS binary frame──▶ moonshine serve
-                                                                    │
-                                                        RemoteAudioSource
-                                                                    │
-                                                               STT pipeline
-                                                                    │
-             browser JS agent  ◀──WS JSON transcript frame──────────┤
-                     │                                              │
-        keyword match / action request                              │
-                     │                                              │
-                     ├──WS JSON action frame (speak/session.*)─────▶│
-                     │                                         Dispatcher
-                     │                                              │
-                     │                                         TTS Synthesizer
-                     │                                              │
-   Web Audio ◀──WS JSON TTSAudioEvent frame (float32 PCM)───────────┘
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User Microphone
+    participant Worklet as AudioWorklet (worklet.js)
+    participant Browser as Browser Client (app.js)
+    participant Serve as moonshine serve
+    participant AudioOut as Web Audio Playback
+
+    User->>Worklet: Audio capture (Float32 PCM)
+    Worklet->>Browser: Int16 PCM chunks
+    Browser->>Serve: WebSocket binary frame (Int16 PCM)
+    Note over Serve: RemoteAudioSource -> STT Pipeline
+    Serve->>Browser: WebSocket text frame (TranscriptEvent JSON)
+    Note over Browser: Keyword Match / Intent Gating
+    Browser->>Serve: ActionRequest JSON (speak / session.*)
+    Note over Serve: Dispatcher -> TTS Synthesizer
+    Serve->>Browser: TTSAudioEvent JSON (Float32 PCM stream)
+    Browser->>AudioOut: Gapless AudioBufferSourceNode playback
 ```
 
 1. `worklet.js` captures Float32 PCM from the mic at 128-frame intervals,

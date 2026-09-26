@@ -19,13 +19,13 @@ fs.mkdirSync(dataDest, { recursive: true });
 // Map of source file (relative to repo root) -> { destFile (rel to docsDest), title, description, slug }
 const fileMap = {
   'README.md': {
-    dest: 'index.md',
+    dest: 'index.mdx',
     title: 'Overview',
     description: 'Pure-Go bindings for Moonshine on-device STT, streaming TTS, text embeddings, and voice agent cascade.',
     sitePath: '/moonshine-go/',
   },
   'BENCHMARKS.md': {
-    dest: 'benchmarks.md',
+    dest: 'benchmarks.mdx',
     title: 'Benchmarks & Latency',
     description: 'Empirical latency waterfalls, throughput, and memory profiles for Moonshine in Go.',
     sitePath: '/moonshine-go/benchmarks/',
@@ -174,20 +174,29 @@ for (const [srcRel, meta] of Object.entries(fileMap)) {
     return `[${text}](${ghUrl})`;
   });
 
-  // Inject frontmatter
-  const frontmatter = `---
-title: "${meta.title.replace(/"/g, '\\"')}"
-description: "${meta.description.replace(/"/g, '\\"')}"
----
-
-`;
-
   // Remove existing top H1 if it duplicates title in frontmatter
   let cleanContent = content;
   if (cleanContent.startsWith('# ')) {
     const firstLineEnd = cleanContent.indexOf('\n');
     cleanContent = cleanContent.slice(firstLineEnd + 1).trimStart();
   }
+
+  let extraImports = '';
+  if (meta.dest === 'index.mdx') {
+    extraImports = "\nimport AudioShowcase from '../../components/AudioShowcase.astro';\n";
+    cleanContent = cleanContent.replace('## Contents', '## Live Audio Demos\n\n<AudioShowcase />\n\n## Contents');
+  } else if (meta.dest === 'benchmarks.mdx') {
+    extraImports = "\nimport BenchmarkCharts from '../../components/BenchmarkCharts.astro';\n";
+    cleanContent = cleanContent.replace('## 2. In-Process Micro-Benchmarks', '## Visual Performance Profile\n\n<BenchmarkCharts />\n\n## 2. In-Process Micro-Benchmarks');
+  }
+
+  // Inject frontmatter
+  const frontmatter = `---
+title: "${meta.title.replace(/"/g, '\\"')}"
+description: "${meta.description.replace(/"/g, '\\"')}"
+---
+${extraImports}
+`;
 
   const destFull = path.join(docsDest, meta.dest);
   fs.writeFileSync(destFull, frontmatter + cleanContent, 'utf-8');

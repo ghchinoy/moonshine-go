@@ -1,0 +1,102 @@
+---
+// Static SVG benchmark charts from BENCHMARKS.md empirical data
+---
+
+<div class="benchmark-charts">
+  <div class="chart-container">
+    <h4>Time-to-First-Audio (TTFA) Latency Comparison (Lower is Better)</h4>
+    <svg viewBox="0 0 600 220" class="chart-svg" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background & Grid -->
+      <rect width="600" height="220" fill="var(--sl-color-gray-6)" rx="8" />
+      
+      <!-- Axis lines -->
+      <line x1="160" y1="20" x2="160" y2="180" stroke="var(--sl-color-gray-5)" stroke-width="2" />
+      <line x1="160" y1="180" x2="560" y2="180" stroke="var(--sl-color-gray-5)" stroke-width="2" />
+      
+      <!-- Scale marks -->
+      <text x="160" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">0ms</text>
+      <text x="260" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">500ms</text>
+      <text x="360" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">1000ms</text>
+      <text x="460" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">1500ms</text>
+      <text x="560" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">2000ms</text>
+
+      <!-- Grid lines -->
+      <line x1="260" y1="20" x2="260" y2="180" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="360" y1="20" x2="360" y2="180" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="460" y1="20" x2="460" y2="180" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="560" y1="20" x2="560" y2="180" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+
+      <!-- Kokoro One-shot: 2034ms -->
+      <text x="150" y="52" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Kokoro One-Shot</text>
+      <rect x="160" y="38" width="395" height="20" fill="#ef4444" rx="4" />
+      <text x="565" y="53" fill="var(--sl-color-white)" font-size="11" font-weight="600">2,034ms</text>
+
+      <!-- Kokoro Streaming: 191ms -->
+      <text x="150" y="82" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Kokoro Streaming</text>
+      <rect x="160" y="68" width="38" height="20" fill="#22c55e" rx="4" />
+      <text x="208" y="83" fill="#86efac" font-size="11" font-weight="600">191ms (10.6x faster)</text>
+
+      <!-- Piper One-shot: 221ms -->
+      <text x="150" y="127" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Piper One-Shot</text>
+      <rect x="160" y="113" width="44" height="20" fill="#f97316" rx="4" />
+      <text x="214" y="128" fill="var(--sl-color-white)" font-size="11" font-weight="600">221ms</text>
+
+      <!-- Piper Streaming: 44ms -->
+      <text x="150" y="157" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Piper Streaming</text>
+      <rect x="160" y="143" width="12" height="20" fill="#3b82f6" rx="4" />
+      <text x="182" y="158" fill="#93c5fd" font-size="11" font-weight="600">44ms (5.0x faster)</text>
+    </svg>
+  </div>
+
+  <div class="chart-container">
+    <h4>Speech-to-Text Throughput (Apple M5, CPU-Only, Higher is Better)</h4>
+    <svg viewBox="0 0 600 170" class="chart-svg" xmlns="http://www.w3.org/2000/svg">
+      <rect width="600" height="170" fill="var(--sl-color-gray-6)" rx="8" />
+      
+      <line x1="180" y1="20" x2="180" y2="130" stroke="var(--sl-color-gray-5)" stroke-width="2" />
+      <line x1="180" y1="130" x2="560" y2="130" stroke="var(--sl-color-gray-5)" stroke-width="2" />
+      
+      <text x="180" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">0x</text>
+      <text x="275" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">20x</text>
+      <text x="370" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">40x</text>
+      <text x="465" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">60x</text>
+      <text x="560" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">80x</text>
+
+      <line x1="275" y1="20" x2="275" y2="130" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="370" y1="20" x2="370" y2="130" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="465" y1="20" x2="465" y2="130" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="560" y1="20" x2="560" y2="130" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+
+      <!-- Batch Transcribe: 71.3x Realtime -->
+      <text x="170" y="57" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Batch In-Process</text>
+      <rect x="180" y="40" width="338" height="26" fill="#6366f1" rx="4" />
+      <text x="528" y="57" fill="#c7d2fe" font-size="11" font-weight="600">71.3x (RTF 0.014)</text>
+
+      <!-- Streaming Session: 12.9x Realtime -->
+      <text x="170" y="102" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Streaming Session</text>
+      <rect x="180" y="85" width="61" height="26" fill="#10b981" rx="4" />
+      <text x="251" y="102" fill="#a7f3d0" font-size="11" font-weight="600">12.9x (RTF 0.078)</text>
+    </svg>
+  </div>
+</div>
+
+<style>
+  .benchmark-charts {
+    margin: 1.5rem 0;
+  }
+  .chart-container {
+    margin-bottom: 1.75rem;
+  }
+  .chart-container h4 {
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--sl-color-white);
+  }
+  .chart-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+  }
+</style>

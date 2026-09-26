@@ -22,25 +22,27 @@ A Tier 1/2 external Go agent demonstrating Moonshine v0.1.2's runtime domain cus
 
 ## Architecture
 
-```
-mic → moonshine serve → WebSocket (TranscriptEvent JSON) → this program
-                                                                  │
-                                             serveapi.AgentRunner
-                                                                  │
-                                              agentflow.HandlerAdapter
-                                                                  │
-                                              agentflow.AgentFlow
-                                              ├── "switch to cloud" ──> session.set_keyterms (K8s/Ceph/etcd)
-                                              ├── "switch to medical" ──> session.set_keyterms (Atorvastatin...)
-                                              ├── "load context" ──> session.set_context (passage text)
-                                              ├── "clear domain" ──> session.set_keyterms ([])
-                                              └── "stop/resume listening" ──> session.pause/resume
-                                                                  │
-                                                           ActionRequest
-                                                                  │
-                                                    WebSocket (back to sidecar)
-                                                                  │
-                                                    Transcriber.SetKeyterms / SetContext
+```mermaid
+flowchart TD
+    Mic[Microphone Input] --> Serve[moonshine serve]
+    Serve -->|WebSocket TranscriptEvent| Runner[serveapi.AgentRunner]
+    Runner --> Adapter[agentflow.HandlerAdapter]
+    Adapter --> Flow[agentflow.AgentFlow]
+
+    Flow -->|"switch to cloud"| K8s[session.set_keyterms: K8s, Ceph, etcd]
+    Flow -->|"switch to medical"| Med[session.set_keyterms: Atorvastatin, ECG]
+    Flow -->|"load context"| Ctx[session.set_context: passage text]
+    Flow -->|"clear domain"| Clr[session.set_keyterms: empty]
+    Flow -->|"stop/resume"| Ctrl[session.pause / session.resume]
+
+    K8s --> Action[WebSocket ActionRequest JSON]
+    Med --> Action
+    Ctx --> Action
+    Clr --> Action
+    Ctrl --> Action
+
+    Action -->|Mid-stream bias update| Serve
+    Serve --> Biased[Next tokens dynamically biased in real time]
 ```
 
 ## Run it
