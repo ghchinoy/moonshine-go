@@ -20,9 +20,29 @@ fs.mkdirSync(dataDest, { recursive: true });
 const fileMap = {
   'README.md': {
     dest: 'index.mdx',
-    title: 'Overview',
-    description: 'Pure-Go bindings for Moonshine on-device STT, streaming TTS, text embeddings, and voice agent cascade.',
+    title: 'moonshine-go',
+    description: 'Fast on-device Speech-to-Text, streaming Text-to-Speech, and text embeddings for Go voice agents.',
     sitePath: '/moonshine-go/',
+    hero: {
+      tagline: 'Fast on-device Speech-to-Text, streaming Text-to-Speech, and text embeddings for Go voice agents.',
+      actions: [
+        { text: '5-Minute Quickstart', link: '/moonshine-go/guides/quickstart/', icon: 'right-arrow', variant: 'primary' },
+        { text: 'Browse 13 Samples', link: '/moonshine-go/samples/', icon: 'external', variant: 'secondary' },
+        { text: 'View on GitHub', link: 'https://github.com/ghchinoy/moonshine-go', icon: 'github', variant: 'minimal' },
+      ],
+    },
+  },
+  'docs/quickstart.md': {
+    dest: 'guides/quickstart.md',
+    title: '5-Minute Quickstart',
+    description: 'Get your first local speech-to-text transcript in 5 minutes.',
+    sitePath: '/moonshine-go/guides/quickstart/',
+  },
+  'docs/MISSION.md': {
+    dest: 'guides/why-moonshine-go.md',
+    title: 'Why moonshine-go',
+    description: 'The architectural thesis of local voice agents and the return of the classic cascade.',
+    sitePath: '/moonshine-go/guides/why-moonshine-go/',
   },
   'BENCHMARKS.md': {
     dest: 'benchmarks.mdx',
@@ -47,6 +67,12 @@ const fileMap = {
     title: 'Hosting & Remote Clients',
     description: 'Network architecture, remote audio streaming, and deployment guidelines.',
     sitePath: '/moonshine-go/guides/hosting/',
+  },
+  'docs/troubleshooting.md': {
+    dest: 'guides/troubleshooting.md',
+    title: 'Troubleshooting Guide',
+    description: 'Common setup, build, and runtime issues and verified resolutions.',
+    sitePath: '/moonshine-go/guides/troubleshooting/',
   },
   'docs/bundling-libmoonshine.md': {
     dest: 'guides/bundling-libmoonshine.md',
@@ -199,10 +225,26 @@ for (const [srcRel, meta] of Object.entries(fileMap)) {
   }
 
   // Inject frontmatter
-  const frontmatter = `---
+  let frontmatter = `---
 title: "${meta.title.replace(/"/g, '\\"')}"
 description: "${meta.description.replace(/"/g, '\\"')}"
----
+`;
+
+  if (meta.hero) {
+    frontmatter += `hero:
+  tagline: "${meta.hero.tagline}"
+  actions:
+`;
+    for (const act of meta.hero.actions) {
+      frontmatter += `    - text: "${act.text}"
+      link: "${act.link}"
+      icon: "${act.icon}"
+      variant: "${act.variant}"
+`;
+    }
+  }
+
+  frontmatter += `---
 ${extraImports}
 `;
 

@@ -1,0 +1,125 @@
+# Quickstart — First Transcript in 5 Minutes
+
+This guide walks you through setting up `moonshine-go`, building the CLI, downloading a speech-to-text model, and transcribing your first audio file.
+
+## 1. Prerequisites
+
+- **Go 1.25+**
+- **Git**
+- On macOS: Xcode Command Line Tools (`xcode-select --install`) and CMake (`brew install cmake`)
+- On Linux: Standard build tools (`build-essential`)
+
+## 2. Clone the Repository & Stage `libmoonshine`
+
+Clone `moonshine-go`:
+
+```sh
+git clone https://github.com/ghchinoy/moonshine-go.git
+cd moonshine-go
+```
+
+`moonshine-go` communicates with the native `libmoonshine` C engine via pure Go bindings. You need `libmoonshine` and its ONNX Runtime dependencies staged into `.moonshine/lib/`:
+
+### Option A: Linux Prebuilt Binaries (Fastest)
+
+On Linux (x86_64 or arm64), fetch precompiled libraries directly from GitHub releases:
+
+```sh
+make fetchlib
+```
+
+This stages `libmoonshine.so` and `libonnxruntime.so.1` into `.moonshine/lib/`.
+
+### Option B: Build from Source (macOS & Custom Builds)
+
+On macOS or systems without prebuilt release binaries, build `libmoonshine` from the upstream C++ source:
+
+```sh
+# Clone moonshine C++ engine (with Git LFS for model runtimes)
+git clone https://github.com/moonshine-ai/moonshine.git ~/projects/github/moonshine
+git -C ~/projects/github/moonshine lfs pull
+
+# Build and stage libmoonshine into .moonshine/lib:
+make buildlib MOONSHINE_SRC=~/projects/github/moonshine
+```
+
+### Point your environment to the library:
+
+```sh
+export MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib"
+```
+
+## 3. Build the CLI & Verify Prerequisites
+
+Compile the `moonshine` CLI:
+
+```sh
+make build
+```
+
+Run `moonshine doctor` to confirm that build tools, dynamic libraries, and model directories are ready:
+
+```sh
+./bin/moonshine doctor
+```
+
+All essential checks should report green. If any item shows a warning, `doctor` provides the exact fix command.
+
+## 4. Download a Speech-to-Text Model
+
+Download the default lightweight English model (`tiny`, ~150MB):
+
+```sh
+./bin/moonshine setup --arch tiny
+```
+
+Verify downloaded models:
+
+```sh
+./bin/moonshine models
+```
+
+## 5. Transcribe Your First Audio File
+
+Download a sample public-domain speech clip (*A Tale of Two Cities*, 16kHz mono WAV):
+
+```sh
+curl -sLO https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/two_cities_16k.wav
+```
+
+Transcribe the audio:
+
+```sh
+./bin/moonshine transcribe two_cities_16k.wav
+```
+
+Output:
+
+```text
+[  0.99s] It was the best of times, it was the worst of times.
+[  4.80s] It was the age of wisdom,
+[  6.43s] It was the age of foolishness.
+[  8.58s] It was the epoch of belief.
+[ 10.56s] It was the epoch of incredulity.
+[ 13.22s] It was a season of light.
+[ 14.91s] It was a season of darkness.
+--------------------------------------------------
+stats: load=142ms decode=32ms infer=99ms audio=44.4s rtf=71.3x
+```
+
+## Where to Go Next
+
+Now that you have a working transcription pipeline:
+
+1. **Live Microphone Transcription:**
+   Download the low-latency streaming model and start the interactive terminal UI:
+   ```sh
+   ./bin/moonshine setup --arch tiny-streaming
+   ./bin/moonshine live --arch tiny-streaming
+   ```
+2. **Build an Offline Voice Agent:**
+   Read the **[AgentFlow Tutorial](../samples/TUTORIAL.md)** to create a conversational voice bot using Go, or explore the **[Samples Catalog](../samples/)**.
+3. **Embed Moonshine in Your Go Applications:**
+   Use `pkg/moonshine` directly in your application with zero daemon dependency — see **[samples/go-embedded](../samples/go-embedded/)**.
+4. **Troubleshooting:**
+   If you hit missing library errors or compilation issues, see the **[Troubleshooting Guide](troubleshooting.md)**.
