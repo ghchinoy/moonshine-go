@@ -32,20 +32,29 @@ type ServerConfig struct {
 	IncludeAudio       bool
 	PollInterval       time.Duration
 	FinalizationPolicy session.FinalizationPolicy
+	DefaultWakePhrases []string
 }
 
 // LiveSessionControl implements SessionControl for a live serve session.
 type LiveSessionControl struct {
-	mu     sync.Mutex
-	paused bool
-	cancel context.CancelFunc
+	mu          sync.RWMutex
+	paused      bool
+	passthrough []string
+	cancel      context.CancelFunc
 }
 
-// Pause pauses the live session transcription.
+// Pause pauses the live session transcription with full capture mute.
 func (s *LiveSessionControl) Pause(ctx context.Context) error {
+	return s.PauseWith(ctx, nil)
+}
+
+// PauseWith pauses live transcription, optionally keeping the capture stream active in standby mode
+// if passthrough wake phrases are supplied.
+func (s *LiveSessionControl) PauseWith(ctx context.Context, passthrough []string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.paused = true
+	s.passthrough = append([]string(nil), passthrough...)
 	return nil
 }
 
@@ -54,6 +63,7 @@ func (s *LiveSessionControl) Resume(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.paused = false
+	s.passthrough = nil
 	return nil
 }
 
@@ -67,11 +77,29 @@ func (s *LiveSessionControl) Stop(ctx context.Context) error {
 	return nil
 }
 
-// IsPaused reports whether the session is currently paused.
+// IsPaused reports whether the session is currently paused or in standby.
 func (s *LiveSessionControl) IsPaused() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.paused
+}
+
+// MuteCapture reports whether the audio input driver should physically mute audio capture.
+// Returns true only when paused with no wake phrases (hard privacy mute).
+func (s *LiveSessionControl) MuteCapture() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.paused && len(s.passthrough) == 0
+}
+
+// PassthroughPhrases returns a copy of the active wake phrases while in standby mode.
+func (s *LiveSessionControl) PassthroughPhrases() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if !s.paused {
+		return nil
+	}
+	return append([]string(nil), s.passthrough...)
 }
 
 // Server assembles and runs the moonshine serve sidecar daemon components.
@@ -132,11 +160,14 @@ func (s *Server) Run(ctx context.Context) error {
 	// Barge-in guard: if AudioSource supports SetMutedFunc (e.g. *audio.MicCapture)
 	if muter, ok := s.cfg.AudioSource.(interface{ SetMutedFunc(f func() bool) }); ok {
 		muter.SetMutedFunc(func() bool {
-			return speaker.Speaking() || s.sessCtrl.IsPaused()
+			return speaker.Speaking() || s.sessCtrl.MuteCapture()
 		})
 	}
 
 	s.dispatcher = NewDispatcher(speaker, s.hub, s.sessCtrl, s.cfg.AllowActions)
+	if len(s.cfg.DefaultWakePhrases) > 0 {
+		s.dispatcher.SetDefaultWakePhrases(s.cfg.DefaultWakePhrases)
+	}
 	if s.cfg.Transcriber != nil {
 		s.dispatcher.SetContextSetter(s.cfg.Transcriber)
 	}
@@ -212,7 +243,8 @@ func (s *Server) Run(ctx context.Context) error {
 		sess = liveSess
 	}
 
-	go s.hub.IngestWithAudio(ctx, sess.Updates(), s.cfg.IncludeAudio)
+	filteredUpdates := filterStandbyUpdates(ctx, sess.Updates(), s.sessCtrl, s.hub)
+	go s.hub.IngestWithAudio(ctx, filteredUpdates, s.cfg.IncludeAudio)
 	go sess.Run(ctx)
 
 	<-ctx.Done()

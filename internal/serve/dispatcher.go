@@ -59,11 +59,12 @@ type Handler func(ctx context.Context, req event.ActionRequest) event.ActionResu
 //
 // Dispatcher is safe for concurrent use.
 type Dispatcher struct {
-	speaker       Speaker
-	publisher     Publisher
-	session       SessionControl
-	contextSetter ContextSetter
-	allowActions  bool
+	speaker            Speaker
+	publisher          Publisher
+	session            SessionControl
+	contextSetter      ContextSetter
+	allowActions       bool
+	defaultWakePhrases []string
 
 	mu     sync.RWMutex
 	custom map[string]Handler
@@ -99,6 +100,14 @@ func (d *Dispatcher) SetContextSetter(cs ContextSetter) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.contextSetter = cs
+}
+
+// SetDefaultWakePhrases configures the fallback wake phrases for session.pause
+// when an action request omits specific passthrough phrases.
+func (d *Dispatcher) SetDefaultWakePhrases(phrases []string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.defaultWakePhrases = append([]string(nil), phrases...)
 }
 
 // RegisterVerb adds (or replaces) a handler for verb. Intended for other
@@ -187,7 +196,29 @@ func (d *Dispatcher) handleSessionControl(ctx context.Context, req event.ActionR
 	var err error
 	switch req.Verb {
 	case "session.pause":
-		err = d.session.Pause(ctx)
+		var passthrough []string
+		explicitEmpty := false
+		if len(req.Args) > 0 && string(req.Args) != "null" {
+			var args event.PauseArgs
+			if err := json.Unmarshal(req.Args, &args); err == nil {
+				passthrough = args.Passthrough
+				if args.Passthrough != nil && len(args.Passthrough) == 0 {
+					explicitEmpty = true
+				}
+			}
+		}
+		if len(passthrough) == 0 && !explicitEmpty {
+			d.mu.RLock()
+			passthrough = append([]string(nil), d.defaultWakePhrases...)
+			d.mu.RUnlock()
+		}
+		if withControl, ok := d.session.(interface {
+			PauseWith(ctx context.Context, passthrough []string) error
+		}); ok && len(passthrough) > 0 {
+			err = withControl.PauseWith(ctx, passthrough)
+		} else {
+			err = d.session.Pause(ctx)
+		}
 	case "session.resume":
 		err = d.session.Resume(ctx)
 	case "session.stop":

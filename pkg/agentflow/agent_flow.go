@@ -60,6 +60,7 @@ type AgentFlow struct {
 	activeTriggerPhrase string
 	pendingContinuation chan pendingAnswer
 	isSpeaking          bool
+	resumePhrases       []string
 
 	settleWaiters []*SettleSignal
 }
@@ -81,6 +82,7 @@ func New() *AgentFlow {
 		wantsSpeech:       true,
 		triggerThreshold:  defaultTriggerThreshold,
 		matcher:           NewPhraseMatcher(nil),
+		resumePhrases:     []string{"resume listening", "start listening"},
 	}
 
 	// Built-in flow-scoped globals.
@@ -203,6 +205,15 @@ func (af *AgentFlow) EmitAction(req serveapi.ActionRequest) (serveapi.ActionResu
 		return serveapi.ActionResult{}, fmt.Errorf("agentflow: no ActionSink configured")
 	}
 	return sink.Dispatch(context.Background(), req)
+}
+
+// ResumePhrases configures the wake phrases passed to Dialog.PauseListening for voice resumption.
+// Default: ["resume listening", "start listening"].
+func (af *AgentFlow) ResumePhrases(phrases ...string) *AgentFlow {
+	af.mu.Lock()
+	defer af.mu.Unlock()
+	af.resumePhrases = append([]string(nil), phrases...)
+	return af
 }
 
 // SpeakWith overrides the default speech synthesizer with a custom speak function.

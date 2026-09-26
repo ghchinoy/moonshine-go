@@ -27,6 +27,7 @@ type (
 	SetKeytermsArgs = serveapi.SetKeytermsArgs
 	SetContextArgs  = serveapi.SetContextArgs
 	TTSAudioEvent   = serveapi.TTSAudioEvent
+	PauseArgs       = serveapi.PauseArgs
 )
 
 // DisplayArgs is the Args payload for the "display" verb: a DisplayCard to

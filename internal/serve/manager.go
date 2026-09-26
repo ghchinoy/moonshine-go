@@ -99,6 +99,7 @@ type SessionManagerConfig struct {
 	IncludeAudio       bool
 	Agent              AgentHandler
 	FinalizationPolicy session.FinalizationPolicy
+	DefaultWakePhrases []string
 }
 
 // SessionManager manages per-connection serve sessions, enforcing a maximum
@@ -202,11 +203,14 @@ func (m *SessionManager) CreateSession(ctx context.Context, source serveapi.Audi
 
 	if muter, ok := source.(interface{ SetMutedFunc(f func() bool) }); ok {
 		muter.SetMutedFunc(func() bool {
-			return scopedSpk.Speaking() || sessCtrl.IsPaused()
+			return scopedSpk.Speaking() || sessCtrl.MuteCapture()
 		})
 	}
 
 	dispatcher := NewDispatcher(scopedSpk, hub, sessCtrl, m.cfg.AllowActions)
+	if len(m.cfg.DefaultWakePhrases) > 0 {
+		dispatcher.SetDefaultWakePhrases(m.cfg.DefaultWakePhrases)
+	}
 	if m.cfg.Transcriber != nil {
 		dispatcher.SetContextSetter(m.cfg.Transcriber)
 	}
@@ -224,7 +228,8 @@ func (m *SessionManager) CreateSession(ctx context.Context, source serveapi.Audi
 		liveSess = &noopLiveSession{updates: make(chan session.Update)}
 	}
 
-	go hub.IngestWithAudio(sessCtx, liveSess.Updates(), m.cfg.IncludeAudio)
+	filteredUpdates := filterStandbyUpdates(sessCtx, liveSess.Updates(), sessCtrl, hub)
+	go hub.IngestWithAudio(sessCtx, filteredUpdates, m.cfg.IncludeAudio)
 	go liveSess.Run(sessCtx)
 
 	if m.cfg.Agent != nil {

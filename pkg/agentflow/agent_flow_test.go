@@ -2,6 +2,7 @@ package agentflow_test
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"testing"
@@ -352,4 +353,87 @@ func TestAgentFlow_Dialog_SayStream_SentenceChunking(t *testing.T) {
 	if len(sentences) < 2 {
 		t.Errorf("expected at least 2 sentences chunked, got %d: %v", len(sentences), sentences)
 	}
+}
+
+func TestDialog_PauseListening_Options(t *testing.T) {
+	var dispatched []serveapi.ActionRequest
+	var mu sync.Mutex
+
+	sink := serveapi.ActionSinkFunc(func(ctx context.Context, req serveapi.ActionRequest) (serveapi.ActionResult, error) {
+		mu.Lock()
+		dispatched = append(dispatched, req)
+		mu.Unlock()
+		return serveapi.ActionResult{ID: req.ID, OK: true}, nil
+	})
+
+	// 1. Default PauseListening -> standby with default phrases
+	af1 := agentflow.New().ActionSink(sink)
+	af1.SpeakWith(func(text string) error { return nil })
+	af1.ListenFor("pause default", func(d *agentflow.Dialog) error {
+		_, err := d.PauseListening()
+		return err
+	})
+	s1 := af1.RegisterSettle()
+	af1.HandleUtterance("pause default")
+	_ = s1.Wait(context.Background())
+
+	mu.Lock()
+	if len(dispatched) != 1 || dispatched[0].Verb != "session.pause" {
+		t.Fatalf("expected 1 session.pause action, got %v", dispatched)
+	}
+	var args1 serveapi.PauseArgs
+	_ = json.Unmarshal(dispatched[0].Args, &args1)
+	if len(args1.Passthrough) != 2 || args1.Passthrough[0] != "resume listening" || args1.Passthrough[1] != "start listening" {
+		t.Errorf("expected default resume phrases, got %v", args1.Passthrough)
+	}
+	dispatched = nil
+	mu.Unlock()
+
+	// 2. PauseListening with WithHardMute() -> no passthrough
+	af2 := agentflow.New().ActionSink(sink)
+	af2.SpeakWith(func(text string) error { return nil })
+	af2.ListenFor("pause hard", func(d *agentflow.Dialog) error {
+		_, err := d.PauseListening(agentflow.WithHardMute())
+		return err
+	})
+	s2 := af2.RegisterSettle()
+	af2.HandleUtterance("pause hard")
+	_ = s2.Wait(context.Background())
+
+	mu.Lock()
+	if len(dispatched) != 1 || dispatched[0].Verb != "session.pause" {
+		t.Fatalf("expected 1 session.pause action, got %v", dispatched)
+	}
+	if len(dispatched[0].Args) > 0 && string(dispatched[0].Args) != "null" {
+		var args2 serveapi.PauseArgs
+		_ = json.Unmarshal(dispatched[0].Args, &args2)
+		if len(args2.Passthrough) > 0 {
+			t.Errorf("expected empty passthrough with WithHardMute, got %v", args2.Passthrough)
+		}
+	}
+	dispatched = nil
+	mu.Unlock()
+
+	// 3. Custom ResumePhrases on AgentFlow
+	af3 := agentflow.New().ActionSink(sink)
+	af3.ResumePhrases("wake up", "computer wake")
+	af3.SpeakWith(func(text string) error { return nil })
+	af3.ListenFor("pause custom", func(d *agentflow.Dialog) error {
+		_, err := d.PauseListening()
+		return err
+	})
+	s3 := af3.RegisterSettle()
+	af3.HandleUtterance("pause custom")
+	_ = s3.Wait(context.Background())
+
+	mu.Lock()
+	if len(dispatched) != 1 || dispatched[0].Verb != "session.pause" {
+		t.Fatalf("expected 1 session.pause action, got %v", dispatched)
+	}
+	var args3 serveapi.PauseArgs
+	_ = json.Unmarshal(dispatched[0].Args, &args3)
+	if len(args3.Passthrough) != 2 || args3.Passthrough[0] != "wake up" || args3.Passthrough[1] != "computer wake" {
+		t.Errorf("expected custom resume phrases, got %v", args3.Passthrough)
+	}
+	mu.Unlock()
 }

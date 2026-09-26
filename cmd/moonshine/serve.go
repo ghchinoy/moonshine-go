@@ -37,6 +37,7 @@ var (
 	serveTTSG2PRoot                  string
 	serveTTSPlayLocal                bool
 	serveIncludeAudio                bool
+	serveWakePhrases                 string
 	serveLanguage                    string
 	serveArch                        string
 	serveProviders                   string
@@ -82,9 +83,10 @@ func init() {
 	serveCmd.Flags().BoolVar(&serveAllowActions, "allow-actions", false, "Gate enabling mutating actions (speak, session control, run_command)")
 	serveCmd.Flags().StringVar(&serveTTSVoice, "tts-voice", "", "Default voice override for TTS speaker")
 	serveCmd.Flags().StringVar(&serveTTSLanguage, "tts-language", "en_us", "TTS speaker language")
-	serveCmd.Flags().StringVar(&serveTTSG2PRoot, "g2p-root", "", "Directory holding kokoro/, <lang>/piper-voices/, etc. (default: derived from moonshine.src_dir)")
+	serveCmd.Flags().StringVar(&serveTTSG2PRoot, "g2p-root", "", "Directory holding kokoro/, <lang>/piper-voices/, etc. (default: derived from config, moonshine.src_dir, or downloaded voices; see 'moonshine doctor')")
 	serveCmd.Flags().BoolVar(&serveTTSPlayLocal, "tts-play-local", true, "Play synthesized TTS audio on local server speaker (defaults to true for --audio-source local, false for --audio-source remote)")
 	serveCmd.Flags().BoolVar(&serveIncludeAudio, "include-audio", false, "Include raw PCM audio_data []float32 in transcript event frames")
+	serveCmd.Flags().StringVar(&serveWakePhrases, "wake-phrases", "", "Comma-separated wake phrases to resume from standby during session.pause (e.g. 'resume listening,start listening'; default: none/hard-mute)")
 	_ = viper.BindPFlag("tts.g2p_root", serveCmd.Flags().Lookup("g2p-root"))
 	serveCmd.Flags().StringVar(&serveLanguage, "language", "en", "STT model language")
 	serveCmd.Flags().StringVar(&serveArch, "arch", "tiny-streaming", "STT model architecture (tiny-streaming, small-streaming, medium-streaming)")
@@ -238,6 +240,15 @@ func runServe(cmd *cobra.Command, args []string) error {
 	var sessMgr *serve.SessionManager
 	var audioFmt serve.AudioFormat
 
+	var defaultWakePhrases []string
+	if serveWakePhrases != "" {
+		for _, p := range strings.Split(serveWakePhrases, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				defaultWakePhrases = append(defaultWakePhrases, p)
+			}
+		}
+	}
+
 	if remoteSource != nil {
 		audioFmt = serve.AudioFormat{
 			SampleRate: serveRemoteAudioRate,
@@ -253,6 +264,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 			IncludeAudio:       serveIncludeAudio,
 			Agent:              agentHandler,
 			FinalizationPolicy: finalizationPolicy,
+			DefaultWakePhrases: defaultWakePhrases,
 		})
 		defer sessMgr.Close()
 	}
@@ -290,6 +302,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		IncludeAudio:       serveIncludeAudio,
 		PollInterval:       servePollInterval,
 		FinalizationPolicy: finalizationPolicy,
+		DefaultWakePhrases: defaultWakePhrases,
 	})
 	if err != nil {
 		return err
@@ -304,6 +317,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Fprintf(os.Stderr, "  transports:    %s\n", serveTransport)
 		fmt.Fprintf(os.Stderr, "  allow-actions: %v\n", serveAllowActions)
+		if len(defaultWakePhrases) > 0 {
+			fmt.Fprintf(os.Stderr, "  wake-phrases:  %s\n", strings.Join(defaultWakePhrases, ", "))
+		}
 		fmt.Fprintf(os.Stderr, "  include-audio: %v\n", serveIncludeAudio)
 		fmt.Fprintf(os.Stderr, "  agent:         %s\n", serveAgent)
 		fmt.Fprintln(os.Stderr, muted("press Ctrl-C to stop"))

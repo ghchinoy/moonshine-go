@@ -158,3 +158,12 @@ type SetContextArgs struct {
 // DisplayArgs is the Args payload for the "display" verb: a DisplayCard to fan
 // out to subscribers.
 type DisplayArgs = DisplayCard
+
+// PauseArgs is the optional Args payload for the "session.pause" verb.
+// When Passthrough contains wake phrases (e.g. ["resume listening", "start listening"]),
+// the microphone remains active in software standby mode: normal transcripts are
+// suppressed, and speech matching any of the phrases automatically resumes the session.
+// When omitted or empty, session.pause activates a full hardware/driver-level capture mute.
+type PauseArgs struct {
+	Passthrough []string `json:"passthrough,omitempty"`
+}
