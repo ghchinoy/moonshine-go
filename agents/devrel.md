@@ -5,9 +5,10 @@ Operational context, documentation standards, and sample development guidelines 
 ## Scope & Ownership
 
 - **`samples/`**: Runnable Tier 0/1/2 reference applications, sample READMEs, `samples/CONTRIBUTING.md`, `samples/GUIDE.md`, and `samples/TUTORIAL.md`.
-- **Documentation Site (`site/`)**: Astro 7 + Starlight static documentation site, component injectors, and styling.
-- **User-Facing Documentation & Instructions**: All developer documentation (`docs/quickstart.md`, `docs/troubleshooting.md`, `docs/user-guide.md`, `docs/hosting.md`, `docs/MISSION.md`), root `README.md`, tutorials, and CLI help text wording.
-  - Note: Core agent proposes updates to user-facing documentation and help text via reviewable pull requests rather than direct commits to main.
+- **Sample Verification Tooling**: `scripts/verify-samples.sh` (running compilation, vet, format, unit test suites, and pure-Go build checks across all samples).
+- **Documentation Site (`site/`)**: Astro 7 + Starlight static documentation site, component injectors, content synchronization (`scripts/sync-content.mjs`), and styling.
+- **User-Facing Documentation & Instructions**: All developer documentation under `docs/` (`quickstart.md`, `troubleshooting.md`, `user-guide.md`, `hosting.md`, `MISSION.md`, `hardware-acceleration.md`, `bundling-libmoonshine.md`, `testing-with-container.md`, `faq.md`, `why-moonshine-go.md`), root `README.md`, tutorials, and CLI help text wording.
+  - Note: Core agent owns `docs/RELEASING.md`, `CHANGELOG.md`, `BENCHMARKS.md`, `Makefile`, and core scripts; Core proposes updates to user-facing documentation and help text via reviewable pull requests rather than direct commits to `main`.
 
 ---
 
@@ -49,9 +50,25 @@ The documentation website is deployed to GitHub Pages at [https://ghchinoy.githu
 
 ---
 
-## Sample Authoring Standards
+## Sample Authoring & Verification Standards
 
-- **Live Verification Rule:** A sample is not done until it has been run against a real `moonshine serve` process, not just compiled.
+- **True Live Verification Rule:** A sample is not done until it has been run against a real `moonshine serve` process and its changed behavior has been exercised end-to-end (not just compiled or connected via WebSocket handshake). Verification can use physical microphone audio or remote audio streaming (`--audio-source remote`) with generated test WAV clips. Always capture and include verbatim, timestamped stdout logs demonstrating state transitions in PR descriptions or comments.
+- **Sample Unit Tests (`*_test.go`):** All Go samples with control handling, gating, or state management must provide unit test suites covering their state transitions. `scripts/verify-samples.sh` automatically runs `go test ./...` across every sample directory in CI.
 - **Sample Rating Tables:** Every sample under `samples/` must include a self-reported `Sample Rating` table formatted per `samples/CONTRIBUTING.md`. The sync script parses these tables into `site/src/data/samples.json` to generate the interactive catalog at `/moonshine-go/samples/`.
 - **Wire Contract Audit on Server Changes:** When `internal/serve` event payloads or emission sequences change (e.g. streaming TTS changing `TTSAudioEvent` from 1 chunk to multiple sequential chunks), audit client samples (such as `browser-cascade-faq/app.js`) to ensure gapless queueing and timeline scheduling.
+- **Client Standby vs. Hardware Capture Mute:** In `moonshine serve`, dispatching a raw `session.pause` action activates a hardware capture-level privacy mute (`AudioSource.SetMutedFunc`), which prevents microphone audio from leaving the device driver. Because audio capture is completely muted, the engine cannot transcribe incoming audio chunks, making voice-driven resumption impossible over the wire. Samples must adopt client-side `SessionState` and line gating (`pausedAgentHandler`) so the microphone remains streaming while speech dialogue is gated, allowing voice unpause (or keyboard Enter fallback) at all times until daemon wake-phrase passthrough (#qc70 / #xdme) lands.
 - **Worktree Synchronization via Git:** When working across multiple worktrees (e.g. `moonshine-go` and `moonshine-go-samples`), synchronize branches exclusively via git (`git fetch`, `git pull --ff-only`, `git checkout`). Never copy files or run `rsync` between worktrees; doing so copies build artifacts (`node_modules`, binaries) and dirties worktree tracking.
+
+---
+
+## Operational Lessons & Gotchas for DevRel
+
+- **Pre-Planning Toolchain & Dependency Checks:** Before proposing plans or choosing toolchains, verify currently installed versions (`node -v`, `npm view <pkg> version`, `go version`). For example, verify Starlight peer dependencies before assuming older Astro majors.
+- **Isolated CLI Output Measurement Recipe:** When measuring CLI error messages, doctor output, or defaults in isolation, isolate the config file and model directory without overriding `$HOME`:
+  ```sh
+  XDG_CONFIG_HOME=$(mktemp -d) MOONSHINE_SRC="" ./bin/moonshine ... --model-dir $(mktemp -d)
+  ```
+  Overriding `$HOME` redirects `GOPATH` and causes Go to populate read-only module cache directories under `/tmp` that trigger permission errors during cleanup.
+- **TTS Barge-In Guard Delay in Live Testing:** The server TTS speaker activates a barge-in guard that mutes microphone capture during playback. When scripting automated acoustic live tests (e.g. via `afplay`), allow adequate delay (3-10s depending on utterance length) after a spoken response before playing the next command, or initial syllables will be clipped by the barge-in guard.
+- **Asynchronous AgentFlow Execution:** `agentflow` evaluates and dispatches conversation flows (`flow.When`) asynchronously in goroutines (`go af.runFlow`). In unit tests, synchronize with action sinks using short polling loops rather than asserting immediate synchronous execution.
+- **Phonetic Variants in Acoustic Recognition:** Synthetic TTS audio (e.g. Kokoro) for certain phrases can be phonetically ambiguous to small acoustic models (e.g. "resume listening" transcribing as "Reason listening." or "Breezoom listening." on `tiny-streaming`). Always test command triggers empirically against the active architecture and include robust synonyms (e.g. "start listening", "unpause") or phonetic aliases.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Verifies all samples under samples/ by running language-appropriate static
-# checks (go build, go vet, gofmt, CGO_ENABLED=0 checks for embedding samples,
+# and test checks (go build, go vet, go test, gofmt, CGO_ENABLED=0 checks for embedding samples,
 # and python3 -m py_compile).
 #
 # Usage:
@@ -94,7 +94,16 @@ check_go_sample() {
     failed=1
   fi
 
-  # 4. CGO_ENABLED=0 check for pure Go embedding / client samples
+  # 4. go test (runs unit tests for samples that define *_test.go files)
+  if (cd "${dir}" && go test ./... >/dev/null 2>&1); then
+    log_pass "go test ./..."
+  else
+    log_fail "go test ./... failed"
+    (cd "${dir}" && go test -v ./...) || true
+    failed=1
+  fi
+
+  # 5. CGO_ENABLED=0 check for pure Go embedding / client samples
   # All samples in this repo except desktop-app (which uses Wails/cgo GUI bindings)
   # must compile cleanly with CGO_ENABLED=0.
   if [[ "${name}" != "desktop-app" ]]; then
