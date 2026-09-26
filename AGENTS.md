@@ -26,7 +26,7 @@ Two dedicated agent personae coordinate development in this repository. Detailed
 | Persona | Primary Ownership | Progressive Disclosure Guide |
 |---|---|---|
 | **Core Agent (`moonshine-go-core`)** | `pkg/moonshine`, `cmd/moonshine`, `internal/`, `bench/`, `BENCHMARKS.md`, `Makefile`, releases, upstream sync | **[agents/core.md](agents/core.md)** |
-| **DevRel Agent (`moonshine-go-dev`)** | `samples/`, documentation site (`site/`), tutorials, onboarding (`docs/quickstart.md`, `docs/troubleshooting.md`, `docs/MISSION.md`) | **[agents/devrel.md](agents/devrel.md)** |
+| **DevRel Agent (`moonshine-go-dev`)** | `samples/`, documentation site (`site/`), tutorials, user-facing documentation (`docs/`, `README.md`, CLI help wording) | **[agents/devrel.md](agents/devrel.md)** |
 
 > **Trigger Rule for Coding Agents:**
 > - **Before reading or modifying `pkg/moonshine/`, `cmd/moonshine/`, `internal/`, `bench/`, or release tooling:** Read **[agents/core.md](agents/core.md)** for C ABI rules, `resolveG2PRoot()` precedence, streaming TTS cancellation gotchas, upstream synchronization routines, and semver release guidelines.

@@ -6,8 +6,8 @@ Operational context, documentation standards, and sample development guidelines 
 
 - **`samples/`**: Runnable Tier 0/1/2 reference applications, sample READMEs, `samples/CONTRIBUTING.md`, `samples/GUIDE.md`, and `samples/TUTORIAL.md`.
 - **Documentation Site (`site/`)**: Astro 7 + Starlight static documentation site, component injectors, and styling.
-- **Onboarding Guides**: `docs/quickstart.md`, `docs/troubleshooting.md`, `docs/MISSION.md`, and developer UX workflows.
-- **Shared Docs**: Proposes updates to `README.md`, `docs/user-guide.md`, and `docs/hosting.md` via reviewable pull requests.
+- **User-Facing Documentation & Instructions**: All developer documentation (`docs/quickstart.md`, `docs/troubleshooting.md`, `docs/user-guide.md`, `docs/hosting.md`, `docs/MISSION.md`), root `README.md`, tutorials, and CLI help text wording.
+  - Note: Core agent proposes updates to user-facing documentation and help text via reviewable pull requests rather than direct commits to main.
 
 ---
 
