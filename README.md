@@ -4,7 +4,7 @@ This repository provides a Go client, command-line tool, and pure-Go bindings fo
 (STT + TTS), built directly on `libmoonshine`'s C API rather than
 reimplementing its model pipeline. Try live on-device WebAssembly demos in your browser at [moonshine.ai](https://moonshine.ai), or browse documentation and sample walkthroughs on the [documentation site](https://ghchinoy.github.io/moonshine-go/).
 
-<img width="1152" height="784" alt="Image" src="https://github.com/user-attachments/assets/46d0d6bf-eeb5-4c2b-9ac8-3c3b0bfa3643" />
+<img width="1152" height="784" alt="moonshine-go live transcription demo" src="https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/images/msgo.gif" />
 
 - `pkg/moonshine` -- a public pure-Go binding (no cgo needed to *build* it) that
   dlopens `libmoonshine.{dylib,so}` at runtime via
