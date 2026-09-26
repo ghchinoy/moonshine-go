@@ -298,7 +298,7 @@ go test -tags moonshinesmoke ./pkg/moonshine/... -v
 ## Project layout
 
 ```
-pkg/moonshine/        purego bindings over moonshine-c-api.h (STT, TTS, model download manifests)
+pkg/moonshine/        purego bindings over moonshine-c-api.h (STT, TTS, text embeddings, model manifests)
 internal/audio/       WAV decode/resample + mic capture (cgo, via malgo)
 internal/gcsfetch/    gs:// URI download for `transcribe`
 internal/session/     live streaming session orchestration (TTFT/latency stats)

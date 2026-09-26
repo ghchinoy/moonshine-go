@@ -171,6 +171,14 @@ var (
 	fnGetSTTDependencies         func(language string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
 	fnGetTTSDependencies         func(languages string, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
 	fnGetDiarizationDependencies func(outJSON *unsafe.Pointer) int32
+	fnGetEmbeddingDependencies   func(modelName *byte, options *cOption, optionsCount uint64, outJSON *unsafe.Pointer) int32
+
+	fnCreateEmbeddingModel           func(modelPath string, modelArch uint32, modelVariant *byte) int32
+	fnCreateEmbeddingModelFromMemory func(modelArch uint32, modelVariant *byte, filenames unsafe.Pointer, filenamesCount uint64, memory unsafe.Pointer, memorySizes unsafe.Pointer, options *cOption, optionsCount uint64, version int32) int32
+	fnFreeEmbeddingModel             func(handle int32)
+	fnCalculateEmbedding             func(handle int32, sentence string, outEmbedding *unsafe.Pointer, outEmbeddingSize *uint64, modelName *byte) int32
+	fnFreeEmbedding                  func(ptr unsafe.Pointer)
+	fnCalculateEmbeddingDistance     func(handle int32, embeddingA *float32, embeddingB *float32, embeddingSize uint64, outSimilarity *float32) int32
 
 	fnFreeBuffer func(ptr unsafe.Pointer)
 )
@@ -214,6 +222,14 @@ func registerSymbols(h uintptr) {
 	reg(&fnGetSTTDependencies, "moonshine_get_stt_dependencies")
 	reg(&fnGetTTSDependencies, "moonshine_get_tts_dependencies")
 	reg(&fnGetDiarizationDependencies, "moonshine_get_diarization_dependencies")
+	reg(&fnGetEmbeddingDependencies, "moonshine_get_embedding_dependencies")
+
+	reg(&fnCreateEmbeddingModel, "moonshine_create_embedding_model")
+	reg(&fnCreateEmbeddingModelFromMemory, "moonshine_create_embedding_model_from_memory")
+	reg(&fnFreeEmbeddingModel, "moonshine_free_embedding_model")
+	reg(&fnCalculateEmbedding, "moonshine_calculate_embedding")
+	reg(&fnFreeEmbedding, "moonshine_free_embedding")
+	reg(&fnCalculateEmbeddingDistance, "moonshine_calculate_embedding_distance")
 
 	reg(&fnFreeBuffer, "moonshine_free_buffer")
 }
@@ -239,5 +255,12 @@ func Version() (int32, error) {
 func freeC(p unsafe.Pointer) {
 	if p != nil && fnFreeBuffer != nil {
 		fnFreeBuffer(p)
+	}
+}
+
+// freeEmbedding releases an embedding vector allocated by moonshine_calculate_embedding.
+func freeEmbedding(p unsafe.Pointer) {
+	if p != nil && fnFreeEmbedding != nil {
+		fnFreeEmbedding(p)
 	}
 }
