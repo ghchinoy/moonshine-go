@@ -1,37 +1,36 @@
 # moonshine-go
 
-This repository provides a Go client, command-line tool, and pure-Go bindings for the [Moonshine voice library](https://github.com/moonshine-ai/moonshine)
-(STT + TTS), built directly on `libmoonshine`'s C API rather than
-reimplementing its model pipeline. Try live on-device WebAssembly demos in your browser at [moonshine.ai](https://moonshine.ai), or browse documentation and sample walkthroughs on the [documentation site](https://ghchinoy.github.io/moonshine-go/).
+On-device Speech-to-Text (STT), streaming Text-to-Speech (TTS), and text embeddings for Go, built on the [Moonshine voice library](https://github.com/moonshine-ai/moonshine).
+
+Try live WebAssembly demos in your browser at [moonshine.ai](https://moonshine.ai), or explore the interactive [documentation site](https://ghchinoy.github.io/moonshine-go/).
 
 <img width="1152" height="784" alt="moonshine-go live transcription demo" src="https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/images/msgo.gif" />
 
-- `pkg/moonshine` -- a public pure-Go binding (no cgo needed to *build* it) that
-  dlopens `libmoonshine.{dylib,so}` at runtime via
-  [`ebitengine/purego`](https://github.com/ebitengine/purego) and calls
-  directly into its exported C functions. This is the same integration point
-  moonshine's own Python bindings use (`ctypes.CDLL` over `moonshine-c-api.h`).
-- `cmd/moonshine` -- a cobra/viper CLI: `setup`, `transcribe`, `live`, `serve`, `tts`, `models`.
-- `pkg/serveapi` -- a public, Go-native extension surface for `moonshine
-  serve`'s agent/RAG/audio-source interfaces (`CGO_ENABLED=0`-buildable, no
-  `internal/` imports). See [samples/](samples/) for real programs built on
-  it.
+### Start Here
 
-The `cmd/moonshine` CLI is built from source against a local `libmoonshine` shared library (below); there is no Go-only `go install` path for the CLI binary since it requires native shared libraries at runtime. However, the public Go packages (`pkg/moonshine`, `pkg/serveapi`, `pkg/servepb`) are ordinary Go packages buildable with `CGO_ENABLED=0` for direct in-process embedding in your own Go applications (see [samples/go-embedded](samples/go-embedded/); for production application bundling, macOS `.app` code-signing, and Windows/Linux packaging, see [docs/bundling-libmoonshine.md](docs/bundling-libmoonshine.md)).
+- **First transcript in 5 minutes:** Follow the **[Quickstart Guide](docs/quickstart.md)** to install the CLI and transcribe an audio file.
+- **Build an offline voice agent:** Walk through the **[AgentFlow Tutorial](samples/TUTORIAL.md)** or browse the **[13 Runnable Samples](samples/)**.
+- **Embed directly in your Go app:** Call in-process STT and streaming TTS without a daemon — see **[samples/go-embedded](samples/go-embedded/)** and the [GoDoc API reference](https://pkg.go.dev/github.com/ghchinoy/moonshine-go/pkg/moonshine).
 
-**Mission:** fast local Moonshine STT + Go make the classic
-speech → STT → LLM → TTS → speech *cascade* viable again -- and with it, the
-control, observability, and privacy a single speech-to-speech model gives up.
-See [docs/MISSION.md](docs/MISSION.md).
+### How It Works
+
+- `pkg/moonshine`: Public, pure-Go bindings (`CGO_ENABLED=0` to build) that dynamically load `libmoonshine` at runtime via [`ebitengine/purego`](https://github.com/ebitengine/purego) and call exported C functions directly.
+- `cmd/moonshine`: A complete CLI providing `setup`, `transcribe`, `live`, `serve`, `tts`, and `models` subcommands.
+- `pkg/serveapi`: A pure-Go extension interface for `moonshine serve`'s agent, RAG, and remote audio streams (stdlib only, zero internal dependencies).
+- `pkg/agentflow`: A fluent Go dialog DSL for building voice conversational flows with keyword and semantic embedding phrase matching.
+
+Why the classic voice cascade? Fast local transcription and speech synthesis make the pipeline — speech to text, language model, speech synthesis — viable on edge hardware while preserving privacy, observability, and deterministic control. See [Why moonshine-go](docs/MISSION.md).
 
 ## Contents
 
+- [Quickstart (5 Minutes)](docs/quickstart.md)
 - [Documentation & Samples Site](https://ghchinoy.github.io/moonshine-go/)
 - [Prerequisites](#prerequisites)
 - [Build libmoonshine](#build-libmoonshine)
 - [Build and use the CLI](#build-and-use-the-cli)
 - [Configuration](#configuration)
 - [Verifying the bindings](#verifying-the-bindings)
+- [Troubleshooting](docs/troubleshooting.md)
 - [Project layout](#project-layout)
 - [BENCHMARKS.md](BENCHMARKS.md) -- empirical concurrency scaling, load capacity, and in-process inference benchmarks for `moonshine serve` and `pkg/moonshine`.
 - [Docs](#docs)
@@ -54,16 +53,16 @@ credentials) in one shot, with specific fix commands for anything missing.
 
 ## Build libmoonshine
 
-### Option A: Fetch prebuilt release binaries (Linux)
+### Option A: Fetch prebuilt release binaries (Linux x86_64 / arm64)
 
-On Linux (x86_64 / arm64), you can fetch prebuilt shared libraries directly from official GitHub releases without compiling from source or pulling the C++ checkout:
+On Linux, fetch prebuilt shared libraries directly from GitHub releases without compiling from source:
 
 ```sh
 make fetchlib
 # or: ./scripts/fetch-libmoonshine.sh
 ```
 
-This downloads `libmoonshine.so` and `libonnxruntime.so.1` for the pinned release tag (see `MOONSHINE_RELEASE_TAG`) into `.moonshine/lib/`.
+This downloads `libmoonshine.so` and `libonnxruntime.so.1` for the pinned release tag (see `MOONSHINE_RELEASE_TAG`) into `.moonshine/lib/`. (Precompiled macOS arm64 release binaries are tracked in `#n4jc`; macOS currently uses Option B below).
 
 ### Option B: Build from source
 

@@ -22,6 +22,8 @@ export default defineConfig({
           label: 'Getting Started',
           items: [
             { label: 'Overview', slug: 'index' },
+            { label: '5-Minute Quickstart', slug: 'guides/quickstart' },
+            { label: 'Why moonshine-go', slug: 'guides/why-moonshine-go' },
             { label: 'Hardware Acceleration', slug: 'guides/hardware-acceleration' },
             { label: 'Bundling libmoonshine', slug: 'guides/bundling-libmoonshine' },
             { label: 'FAQ', slug: 'guides/faq' },
@@ -33,6 +35,7 @@ export default defineConfig({
             { label: 'User Guide & CLI', slug: 'guides/user-guide' },
             { label: 'Hosting & Deployment', slug: 'guides/hosting' },
             { label: 'Testing with Docker', slug: 'guides/testing-with-container' },
+            { label: 'Troubleshooting Guide', slug: 'guides/troubleshooting' },
           ],
         },
         {
