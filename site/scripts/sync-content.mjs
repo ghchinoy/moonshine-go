@@ -148,8 +148,8 @@ for (const [srcRel, meta] of Object.entries(fileMap)) {
 
     // Validate target exists
     if (!fs.existsSync(targetAbs)) {
-      console.warn(`[sync] Warning: Link target does not exist: ${srcRel} -> ${url} (resolved: ${targetRel})`);
-      // Do not fail immediately on minor anchor/untracked links, but fallback to GitHub link
+      console.error(`[sync] ERROR: Link target does not exist: ${srcRel} -> ${url} (resolved: ${targetRel})`);
+      errors++;
     }
 
     // Check if target matches one of the published site docs
@@ -184,9 +184,17 @@ for (const [srcRel, meta] of Object.entries(fileMap)) {
   let extraImports = '';
   if (meta.dest === 'index.mdx') {
     extraImports = "\nimport AudioShowcase from '../../components/AudioShowcase.astro';\n";
+    if (!cleanContent.includes('## Contents')) {
+      console.error(`[sync] ERROR: Anchor heading '## Contents' not found in ${srcRel} for AudioShowcase injection`);
+      errors++;
+    }
     cleanContent = cleanContent.replace('## Contents', '## Live Audio Demos\n\n<AudioShowcase />\n\n## Contents');
   } else if (meta.dest === 'benchmarks.mdx') {
     extraImports = "\nimport BenchmarkCharts from '../../components/BenchmarkCharts.astro';\n";
+    if (!cleanContent.includes('## 2. In-Process Micro-Benchmarks')) {
+      console.error(`[sync] ERROR: Anchor heading '## 2. In-Process Micro-Benchmarks' not found in ${srcRel} for BenchmarkCharts injection`);
+      errors++;
+    }
     cleanContent = cleanContent.replace('## 2. In-Process Micro-Benchmarks', '## Visual Performance Profile\n\n<BenchmarkCharts />\n\n## 2. In-Process Micro-Benchmarks');
   }
 
