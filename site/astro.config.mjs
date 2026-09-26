@@ -17,6 +17,9 @@ export default defineConfig({
           href: 'https://github.com/ghchinoy/moonshine-go',
         },
       ],
+      components: {
+        Head: './src/components/CustomHead.astro',
+      },
       sidebar: [
         {
           label: 'Getting Started',
