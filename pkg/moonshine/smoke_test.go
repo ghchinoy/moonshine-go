@@ -11,7 +11,10 @@ import (
 	"context"
 	"encoding/binary"
 	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/ghchinoy/moonshine-go/pkg/agentflow"
 )
 
 // readPCM16MonoWAV is a minimal, dependency-free WAV reader for smoke-test
@@ -423,4 +426,133 @@ func TestSmokeDomainCustomization(t *testing.T) {
 	if err := stream.Stop(); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
+}
+
+func TestSmokeEmbeddingModel(t *testing.T) {
+	libDir := os.Getenv("MOONSHINE_LIB_DIR")
+	if libDir == "" {
+		t.Skip("set MOONSHINE_LIB_DIR to run this smoke test")
+	}
+	if os.Getenv("MOONSHINE_SMOKE_EMBEDDING") == "" {
+		t.Skip("set MOONSHINE_SMOKE_EMBEDDING=1 to run embedding smoke test (downloads Gemma-300M)")
+	}
+	if err := Load(libDir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	manifest, err := GetEmbeddingDependencies(DefaultEmbeddingModelName, Option{Name: "variant", Value: "q4"})
+	if err != nil {
+		t.Fatalf("GetEmbeddingDependencies: %v", err)
+	}
+	if len(manifest.Groups) == 0 {
+		t.Fatal("expected at least one dependency group in embedding manifest")
+	}
+
+	cacheRoot := t.TempDir()
+	if cacheDir, err := os.UserCacheDir(); err == nil {
+		shared := filepath.Join(cacheDir, "moonshine_voice")
+		if _, err := os.Stat(shared); err == nil {
+			cacheRoot = shared
+		}
+	}
+
+	if err := Download(context.Background(), manifest, cacheRoot, false); err != nil {
+		t.Fatalf("Download: %v", err)
+	}
+	modelDir, err := PrimaryModelDir(cacheRoot, manifest)
+	if err != nil {
+		t.Fatalf("PrimaryModelDir: %v", err)
+	}
+
+	model, err := NewEmbeddingModel(modelDir, EmbeddingModelArchGemma300M, "q4")
+	if err != nil {
+		t.Fatalf("NewEmbeddingModel: %v", err)
+	}
+	defer model.Close()
+
+	// Embed two semantically similar sentences and one unrelated sentence
+	emb1, err := model.CalculateEmbedding("Turn on the living room lights")
+	if err != nil {
+		t.Fatalf("CalculateEmbedding 1: %v", err)
+	}
+	emb2, err := model.CalculateEmbedding("Switch on the lights in the living room")
+	if err != nil {
+		t.Fatalf("CalculateEmbedding 2: %v", err)
+	}
+	emb3, err := model.CalculateEmbedding("What is the recipe for chocolate cake?")
+	if err != nil {
+		t.Fatalf("CalculateEmbedding 3: %v", err)
+	}
+
+	if len(emb1) == 0 || len(emb2) == 0 || len(emb3) == 0 {
+		t.Fatalf("expected non-empty embeddings, got %d, %d, %d", len(emb1), len(emb2), len(emb3))
+	}
+	t.Logf("Computed embedding vector length: %d floats", len(emb1))
+
+	// Distance (cosine similarity in [-1, 1])
+	simSimilar, err := model.Distance(emb1, emb2)
+	if err != nil {
+		t.Fatalf("Distance(similar): %v", err)
+	}
+	simUnrelated, err := model.Distance(emb1, emb3)
+	if err != nil {
+		t.Fatalf("Distance(unrelated): %v", err)
+	}
+
+	t.Logf("Cosine similarity(lights, lights): %.4f", simSimilar)
+	t.Logf("Cosine similarity(lights, cake):   %.4f", simUnrelated)
+
+	if simSimilar <= simUnrelated {
+		t.Errorf("expected similar sentences (%.4f) to have higher similarity than unrelated (%.4f)",
+			simSimilar, simUnrelated)
+	}
+
+	// Verify compatibility with agentflow PhraseMatcher
+	matcher := agentflow.NewPhraseMatcher(model)
+	groups := []agentflow.PhraseGroup{
+		{Key: "lights", Phrases: []string{"turn on the lights", "illuminate the room"}},
+		{Key: "weather", Phrases: []string{"what's the forecast", "is it raining"}},
+	}
+	matched := matcher.Match("please switch on the lights", groups, 0.5)
+	if matched != "lights" {
+		t.Errorf("matcher.Match = %q, want %q", matched, "lights")
+	}
+	t.Logf("agentflow.PhraseMatcher with EmbeddingModel matched: %q", matched)
+
+	// Test from-memory construction (moonshine-go-xm8)
+	modelBytes, err := os.ReadFile(filepath.Join(modelDir, "model_q4.ort"))
+	if err != nil {
+		t.Fatalf("reading model_q4.ort: %v", err)
+	}
+	tokBytes, err := os.ReadFile(filepath.Join(modelDir, "tokenizer.bin"))
+	if err != nil {
+		t.Fatalf("reading tokenizer.bin: %v", err)
+	}
+	memModel, err := NewEmbeddingModelFromMemory(
+		EmbeddingModelArchGemma300M, "q4",
+		map[string][]byte{
+			"model_q4.ort":  modelBytes,
+			"tokenizer.bin": tokBytes,
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewEmbeddingModelFromMemory: %v", err)
+	}
+	defer memModel.Close()
+
+	memEmb, err := memModel.CalculateEmbedding("Turn on the living room lights")
+	if err != nil {
+		t.Fatalf("CalculateEmbedding (from memory): %v", err)
+	}
+	if len(memEmb) != 768 {
+		t.Fatalf("expected 768 floats from in-memory model, got %d", len(memEmb))
+	}
+	simMem, err := memModel.Distance(emb1, memEmb)
+	if err != nil {
+		t.Fatalf("Distance(file, mem): %v", err)
+	}
+	if simMem < 0.999 {
+		t.Errorf("expected file and in-memory embeddings to be identical, got sim=%.4f", simMem)
+	}
+	t.Logf("In-memory embedding verified (sim with file model = %.4f)", simMem)
 }
