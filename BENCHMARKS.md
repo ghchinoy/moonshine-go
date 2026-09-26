@@ -12,10 +12,12 @@ Before reporting latency numbers, we run a **concurrency correctness gate** (`Te
 
 ### Phase 0 Results
 
-- **Thread-Safety & Cross-Contamination:** **PASSED (100%)**. Across $K \in \{2, 4, 8, 16\}$ concurrent streams running simultaneously against a single shared `Transcriber` handle with distinct audio inputs (*Two Cities* vs. *Samuel Beckett*), **zero cross-talk or transcript interleaving occurred**.
+- **Thread-Safety & Cross-Contamination:** **PASSED (100%)**. Across $K \in \{2, 4, 8, 16\}$ concurrent streams running simultaneously against a single shared `Transcriber` handle with distinct audio inputs (*Two Cities* vs. *Samuel Beckett*), **zero cross-talk or transcript interleaving occurred** at the acoustic model and decoder layers.
 - **Contention Profile:** ONNX Runtime CPU execution on a single transcriber handle runs sequentially per model instance. Across 1 to 8 concurrent streams, the **aggregate Real-Time Factor (RTF) remains fixed at ~0.065** (~15.4× realtime across all streams combined). Wall-clock duration per stream scales linearly with stream count ($2.93\text{s}$ for 1 stream, $5.82\text{s}$ for 2 streams, $22.71\text{s}$ for 8 streams of 44.4s audio).
 
-> **Architectural Takeaway:** A single `Transcriber` instance is completely thread-safe for concurrent multi-stream applications. For max throughput on high-core server CPUs, instantiate a **pool of `Transcriber` handles** (1 per CPU core or NUMA node) to scale inference fully parallel across hardware.
+> **Architectural Takeaway:** A single `Transcriber` instance is thread-safe for concurrent multi-stream applications. For max throughput on high-core server CPUs, instantiate a **pool of `Transcriber` handles** (1 per CPU core or NUMA node) to scale inference fully parallel across hardware.
+
+> **Important Operational Caveat (Upstream #229 — Concurrent VAD State):** While the acoustic transformer and decoders are fully isolated across streams, the underlying Moonshine C++ library currently instantiates a single process-wide static Silero VAD instance ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)). Silero VAD maintains recurrent neural network state (`_state`, `_context`) across audio chunk evaluations. When multiple streams ingest live speech *simultaneously* in small interleaved chunks within the same process, the shared recurrent state can corrupt speech boundary detection on quieter streams or delay line finalization. For multi-channel production deployments with concurrent live talkers, run **one `moonshine serve` process per stream** (process-level isolation) until upstream isolates VAD state per stream.
 
 ---
 

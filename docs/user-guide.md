@@ -507,6 +507,7 @@ When `--allow-actions` is enabled, connected WebSocket and gRPC subscribers can 
 - **Barge-in Guard:** Microphone input is automatically muted while TTS is speaking to prevent the sidecar from transcribing its own voice.
 - **Action Security:** Mutating actions (`speak`, `session.pause/resume/stop`, `run_command`) require `--allow-actions`. `run_command` is disabled by default.
 - **Remote Audio Streaming:** When streaming audio from external clients via `--audio-source remote`, pace chunks at 1x real-time (50–100ms frames) and append ~1.5s trailing silence for VAD completion. See [Remote Audio Client Guidelines in docs/hosting.md](hosting.md#remote-audio-client-guidelines-chunking-pacing--endpointing) and [samples/go-stream-audio](../samples/go-stream-audio/).
+- **Concurrent Streaming Isolation:** In multi-session mode (`--audio-source remote --max-sessions N`), each connection receives an isolated `Stream` and event hub. Note that due to an upstream C++ limitation ([moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)), the underlying Silero VAD layer shares recurrent state process-wide; for production setups with multiple simultaneous live talkers, deploy one `moonshine serve` process per stream.
 
 ## tts
 
