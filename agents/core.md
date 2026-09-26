@@ -13,6 +13,7 @@ Operational context, architectural invariants, and engineering standards for cod
   - `internal/tui`: Terminal UI.
 - **Benchmarking & Tooling**: `bench/`, `BENCHMARKS.md`, `Makefile`, and `scripts/`.
 - **Releases & Governance**: `CHANGELOG.md`, `docs/RELEASING.md`, `MOONSHINE_RELEASE_TAG`, and upstream synchronization with `~/projects/github/moonshine`.
+- **User-Facing Documentation**: User guides (`docs/`), root `README.md`, tutorials, and CLI help text wording are owned by DevRel (`moonshine-go-dev`). Propose updates via reviewable pull requests rather than direct commits to `main`.
 
 ---
 

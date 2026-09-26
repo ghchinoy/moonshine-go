@@ -129,11 +129,12 @@ go build: cgo is required for gen2brain/malgo: C compiler "clang" or "gcc" not f
 **Symptom:**
 Running `moonshine doctor` reports:
 ```text
-[ SKIP ] TTS voice assets (--g2p-root)      tts.g2p_root not set -- only needed for `moonshine tts`; set moonshine.src_dir or pass --g2p-root (see 'moonshine tts --help')
+  [SKIP] TTS voice assets (--g2p-root)      tts.g2p_root not set -- only needed for `moonshine tts`; run `moonshine setup --tts <voice>` to download voices, set moonshine.src_dir, or pass --g2p-root (see 'moonshine tts --help')
 ```
-or running `moonshine tts` without `--g2p-root` set reports:
+or running `moonshine tts` without downloaded voices or `--g2p-root` fails with:
 ```text
-Error: tts.g2p_root not set -- only needed for `moonshine tts`; set moonshine.src_dir or pass --g2p-root (see 'moonshine tts --help')
+Failed to create TTS synthesizer: FileInformation::load: cannot open .../kokoro/config.json
+Error: moonshine: create_tts_synthesizer_from_files: Unknown error (code -1)
 ```
 
 **Cause:**

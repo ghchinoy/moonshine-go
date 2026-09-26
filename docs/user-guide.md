@@ -817,10 +817,7 @@ en_us
 ```
 
 **Caveat**: `found` only checks that a file exists at the expected path --
-**not** that it's valid content. An unpulled Git LFS pointer stub (a few
-hundred bytes of text) still counts as "found." If synthesis fails with an
-error mentioning a "Git LFS pointer stub," that's this -- go pull the actual
-file (above), then retry.
+**not** that it's valid content. If you are pointing at an upstream checkout that has not populated voice weights or contains stale Git LFS pointer stubs, it may still report `found`. Run `moonshine setup --tts <voice>` (or `./scripts/fetch-voice-assets.sh tts` in the upstream checkout) to download valid model weights, then retry.
 
 ## config
 
