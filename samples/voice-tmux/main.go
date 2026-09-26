@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -91,13 +92,17 @@ func main() {
 	}
 
 	// 3. Assemble composite handlers: controlHandler runs first, dictationHandler falls back
+	sessState := &SessionState{}
+
 	ctrlH := &controlHandler{
 		tmux:         tmux,
+		state:        sessState,
 		speakConfirm: *speakConfirm,
 		debug:        *debug,
 	}
 	dictH := &dictationHandler{
 		tmux:          tmux,
+		state:         sessState,
 		minConfidence: float32(*minConfidence),
 		speakConfirm:  *speakConfirm,
 		raw:           *raw,
@@ -107,6 +112,19 @@ func main() {
 
 	composite := serveapi.NewCompositeHandler(ctrlH, dictH)
 	runner := serveapi.NewAgentRunner(composite, sink)
+
+	// Keyboard unpause listener on terminal stdin
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			if sessState.IsPaused() {
+				sessState.SetPaused(false)
+				fmt.Printf("[%s] [control] keyboard unpause: session resumed (listening enabled)\n", ts())
+			} else {
+				fmt.Printf("[%s] [status] voice-tmux is listening (say 'git status', 'run it', or 'stop listening')\n", ts())
+			}
+		}
+	}()
 
 	events := make(chan serveapi.TranscriptEvent, 16)
 

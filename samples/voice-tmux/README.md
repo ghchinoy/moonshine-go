@@ -67,8 +67,8 @@ flowchart TD
 | **"split down"** | `tmux split-window -v` | Splits the current window into stacked panes |
 | **"next window"** / **"prev window"** | `tmux next-window` / `previous-window` | Cycles through active tmux windows |
 | **"scroll up"** / **"scroll down"** | `tmux copy-mode -u` / `PageDown` | Enters copy-mode and scrolls history |
-| **"stop listening"** / **"pause listening"** | `session.pause` ActionRequest | Pauses sidecar STT ingestion |
-| **"resume listening"** / **"start listening"** | `session.resume` ActionRequest | Resumes sidecar STT ingestion |
+| **"stop listening"** / **"pause listening"** | Client-side pause | Ignores dictation and commands until unpaused |
+| **"resume listening"** / **"start listening"** | Client-side resume | Resumes listening for shell commands |
 
 ---
 
@@ -82,6 +82,7 @@ A voice-to-shell bridge must never execute unintended commands in a live shell:
 4. **Dry-Run Mode (`-dry-run`):** Prints tmux commands to stdout without executing them, allowing you to test voice recognition safely.
 5. **Confidence Gating (`-min-confidence`):** Evaluates `line.MeanConfidence()` (default 0.50). Transcripts below the threshold are discarded with a log message.
 6. **Voice Confirmation (`-speak-confirm`):** Emits a `speak` ActionRequest through sidecar TTS, announcing *"Running"* when executing a command, or *"Please repeat"* when confidence is low.
+7. **Voice & Keyboard Resume:** In `moonshine serve`, the server-side `session.pause` action mutes the microphone at the audio driver level (`internal/serve/server.go`). Because mic input is silenced, the speech model cannot transcribe *"resume listening"*, making server-side voice unpause impossible. To allow natural voice-driven resumption, `voice-tmux` manages pause state client-side: local transcription continues, but all shell typing is discarded until you say *"resume listening"*. You can also press `Enter` in the `voice-tmux` terminal window at any time to resume.
 
 ---
 

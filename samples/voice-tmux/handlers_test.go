@@ -9,7 +9,8 @@ import (
 
 func TestControlHandlerVerbs(t *testing.T) {
 	tmux := &TmuxClient{DryRun: true}
-	ctrl := &controlHandler{tmux: tmux, debug: true}
+	state := &SessionState{}
+	ctrl := &controlHandler{tmux: tmux, state: state, debug: true}
 
 	tests := []struct {
 		input string
@@ -29,10 +30,10 @@ func TestControlHandlerVerbs(t *testing.T) {
 		{"previous window", "none"},
 		{"scroll up", "none"},
 		{"scroll down", "none"},
-		{"stop listening", "session.pause"},
-		{"pause listening", "session.pause"},
-		{"resume listening", "session.resume"},
-		{"start listening", "session.resume"},
+		{"stop listening", "none"},
+		{"pause listening", "none"},
+		{"resume listening", "none"},
+		{"start listening", "none"},
 	}
 
 	for _, tt := range tests {
@@ -44,6 +45,61 @@ func TestControlHandlerVerbs(t *testing.T) {
 		if actions[0].Verb != tt.want {
 			t.Errorf("input %q: got verb %q, want %q", tt.input, actions[0].Verb, tt.want)
 		}
+	}
+}
+
+func TestSessionPauseResumeFlow(t *testing.T) {
+	tmux := &TmuxClient{DryRun: true}
+	state := &SessionState{}
+	ctrl := &controlHandler{tmux: tmux, state: state}
+	dict := &dictationHandler{tmux: tmux, state: state, enableAliases: true}
+	composite := serveapi.NewCompositeHandler(ctrl, dict)
+
+	ctx := context.Background()
+
+	// 1. Initial state: not paused. Dictation works.
+	if state.IsPaused() {
+		t.Fatal("expected initially unpaused")
+	}
+	actions := composite.OnFinalizedLine(ctx, serveapi.Line{Text: "git status"})
+	if len(actions) != 0 {
+		t.Errorf("expected empty actions for dictation, got %#v", actions)
+	}
+
+	// 2. Pause session via voice
+	actions = composite.OnFinalizedLine(ctx, serveapi.Line{Text: "pause listening"})
+	if !state.IsPaused() {
+		t.Fatal("expected state to be paused after 'pause listening'")
+	}
+	if len(actions) == 0 || actions[0].Verb != "none" {
+		t.Errorf("expected sentinel 'none' action, got %#v", actions)
+	}
+
+	// 3. While paused: dictation is ignored
+	actions = composite.OnFinalizedLine(ctx, serveapi.Line{Text: "git status"})
+	if len(actions) == 0 || actions[0].Verb != "none" {
+		t.Errorf("expected controlHandler to intercept while paused with sentinel 'none', got %#v", actions)
+	}
+
+	// 4. While paused: control command is ignored
+	actions = composite.OnFinalizedLine(ctx, serveapi.Line{Text: "split right"})
+	if len(actions) == 0 || actions[0].Verb != "none" {
+		t.Errorf("expected controlHandler to intercept while paused with sentinel 'none', got %#v", actions)
+	}
+
+	// 5. Resume listening via voice
+	actions = composite.OnFinalizedLine(ctx, serveapi.Line{Text: "resume listening"})
+	if state.IsPaused() {
+		t.Fatal("expected state to be unpaused after 'resume listening'")
+	}
+	if len(actions) == 0 || actions[0].Verb != "none" {
+		t.Errorf("expected sentinel 'none' action, got %#v", actions)
+	}
+
+	// 6. After resume: dictation works again
+	actions = composite.OnFinalizedLine(ctx, serveapi.Line{Text: "git status"})
+	if len(actions) != 0 {
+		t.Errorf("expected empty actions for dictation after resume, got %#v", actions)
 	}
 }
 
