@@ -197,6 +197,12 @@ runner.Run(ctx, events)
   `session.set_context` ActionRequests, dynamically switching keyterm sets
   (Cloud, Clinical, Financial) and extracting terms from free-form context
   passages mid-stream with zero model reloads.
+- [voice-tmux](voice-tmux/) — voice-controlled terminal automation via tmux. Bridges
+  live transcripts to `tmux send-keys` using a hybrid model: fast-path control verbs
+  (`run it`, `interrupt`, `clear`, `new window`, `split right`, `scroll up`, `stop listening`)
+  matched first via `serveapi.CompositeHandler`, with literal text dictation as the fallback.
+  Includes strict safety controls (dictation never auto-executes; `-dry-run`,
+  `-min-confidence` gating, and `-speak-confirm`).
 - [browser-listen](browser-listen/) — a static HTML+JS page:
   `getUserMedia` + `AudioWorklet` captures mic audio in the browser and
   streams it to a remote `moonshine serve` via `--audio-source remote`,

@@ -43,6 +43,7 @@ Every sample in `samples/` self-reports its rating schema in its own `README.md`
 | **[go-cascade-faq](go-cascade-faq/)** | Tier 1 | 3/5 | Medium | Control, Observability, Privacy, Composability | Flagship Go offline RAG voice agent | 4/5 |
 | **[go-domain-customization](go-domain-customization/)** | Tier 1 / Tier 2 | 3/5 | Low | Control, Composability, Observability, Privacy | Dynamic keyterm biasing & passage context extraction | 5/5 |
 | **[python-agent](python-agent/)** | Tier 1 | 2/5 | Low | Control, Composability, Observability | Voice command agent with time & pause/resume (Python) | 3/5 |
+| **[voice-tmux](voice-tmux/)** | Tier 2 | 3/5 | Medium | Control, Observability, Composability | Voice-driven terminal/tmux control (Developer Tooling) | 5/5 |
 | **[go-bulk-analysis](go-bulk-analysis/)** | Tier 2 | 3/5 | Medium | Observability, Composability, Privacy | Batch audio corpus transcription & LLM report synthesis | 5/5 |
 | **[go-embedded](go-embedded/)** | Native / in-process | 2/5 | Medium | Privacy, Composability | Direct in-process STT & streaming TTS synthesis (no daemon) | 5/5 |
 | **[mcp-transcribe](mcp-transcribe/)** | Native / in-process | 3/5 | Medium | Composability, Privacy | Embedded MCP server exposing in-process STT tool | 5/5 |
@@ -59,7 +60,7 @@ Every sample in `samples/` self-reports its rating schema in its own `README.md`
 | **Financial Services & Contact Centers** | `grpc-listen` / `go-cascade-faq` | Live agent-assist whisper prompts, trade execution voice confirmation, disclosure logging | Regulatory recordkeeping requires timestamped line events. Money-moving actions require deterministic confirmation, not probabilistic tool calls. |
 | **Industrial IoT & Field Logistics** | `go-cascade-faq` | Hands-free equipment inspection, voice work-orders, safety checklist read-back | Air-gapped deployment functions reliably on remote oil rigs or factory floors without internet connectivity. |
 | **E-Commerce & Kiosks** | `browser-cascade-faq` | Zero-install customer support voice kiosk in browser or tablet | Runs directly in web browsers with Web Audio TTS playback and zero client-side installation. |
-| **Developer Tooling & Sysadmin** | `go-bulk-analysis` / `python-agent` | Voice-driven terminal/tmux control, automated meeting archive indexing, system command execution | Fast-path intent interception allows instant execution ("interrupt", "run command") with logged tool arguments and safety gating. |
+| **Developer Tooling & Sysadmin** | `voice-tmux` / `go-bulk-analysis` / `python-agent` | Voice-driven terminal/tmux control, automated meeting archive indexing, system command execution | Fast-path intent interception allows instant execution ("interrupt", "run command") with logged tool arguments and safety gating. |
 
 ---
 

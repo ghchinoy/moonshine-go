@@ -68,6 +68,7 @@ export default defineConfig({
               label: 'Tier 2 & Native In-Process',
               collapsed: true,
               items: [
+                { label: 'voice-tmux (terminal control)', slug: 'samples/voice-tmux' },
                 { label: 'go-domain-customization', slug: 'samples/go-domain-customization' },
                 { label: 'go-bulk-analysis', slug: 'samples/go-bulk-analysis' },
                 { label: 'go-embedded (in-process STT & TTS)', slug: 'samples/go-embedded' },
