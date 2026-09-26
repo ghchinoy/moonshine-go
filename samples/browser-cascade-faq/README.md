@@ -74,6 +74,9 @@ Ask about **mission**, **cascade**, **privacy**, **control**,
    - Each tab runs an independent session with its own isolated transcript stream and TTS audio output.
 4. Open `http://localhost:8080` in **Tab 3** and click **Connect** -> status displays `error connecting` / `disconnected (code 1008: serve: max session limit reached)`. The server enforces the session limit and rejects connection #3 cleanly.
 
+> **Operational Note on Simultaneous Live Speech (Upstream #229):**
+> While `SessionManager` cleanly isolates Go-side sessions (transcripts, event hubs, and action dispatchers), the underlying Moonshine C++ library currently shares a single static Silero VAD instance across all streams in a process ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)). Verifying connection limits and serialized speaking across tabs works cleanly; however, speaking simultaneously into multiple live microphones can corrupt recurrent VAD state and cause dropped lines or delayed finalization. For production deployments with multiple concurrent live microphones, run one `moonshine serve` process per stream (e.g. one container per client channel). See [docs/hosting.md](../../docs/hosting.md#sessions--one-per-connection-via---max-sessions).
+
 ## How it works
 
 ```
@@ -124,23 +127,34 @@ Server ──▶ {"kind":"tts_audio", "payload":{"state":"end"}}  (or "interrupt
 
 ### Gapless Web Audio Scheduling Pattern
 
-Because chunks arrive progressively over WebSocket, calling `source.start()` immediately without time coordinates causes all chunks to play concurrently at `audioCtx.currentTime`, resulting in garbled, overlapping sound.
+Because chunks arrive progressively over WebSocket, calling `source.start()` immediately without time coordinates causes all chunks to play concurrently at `audioCtx.currentTime`, resulting in garbled, overlapping sound. Additionally, using a dedicated playback context at the hardware default sample rate (rather than sharing the 16kHz microphone context) preserves full 24kHz acoustic fidelity without Nyquist cutoff at 8kHz.
 
-The standard browser pattern tracks a `nextPlayTime` cursor on the `AudioContext` timeline:
+The standard browser pattern tracks a `nextPlayTime` cursor on the `playbackCtx` timeline:
 ```javascript
+let playbackCtx = null;
 let nextPlayTime = 0;
 const activeSources = new Set();
 
+function getPlaybackContext() {
+  if (!playbackCtx) {
+    // Native device rate (e.g. 44.1kHz or 48kHz) avoids 8kHz Nyquist cutoff on 24kHz TTS
+    playbackCtx = new AudioContext();
+  }
+  if (playbackCtx.state === "suspended") playbackCtx.resume();
+  return playbackCtx;
+}
+
 function playChunk(samples, sampleRate) {
-  const buffer = audioCtx.createBuffer(1, samples.length, sampleRate);
+  const pCtx = getPlaybackContext();
+  const buffer = pCtx.createBuffer(1, samples.length, sampleRate);
   buffer.getChannelData(0).set(samples);
 
-  const source = audioCtx.createBufferSource();
+  const source = pCtx.createBufferSource();
   source.buffer = buffer;
-  source.connect(audioCtx.destination);
+  source.connect(pCtx.destination);
 
   // Schedule chunk to start precisely when the prior chunk finishes
-  const startAt = Math.max(audioCtx.currentTime, nextPlayTime);
+  const startAt = Math.max(pCtx.currentTime, nextPlayTime);
   source.start(startAt);
   nextPlayTime = startAt + buffer.duration;
 
@@ -153,7 +167,7 @@ function stopAllAudio() {
     try { src.stop(); } catch (_) {}
   }
   activeSources.clear();
-  nextPlayTime = audioCtx.currentTime;
+  if (playbackCtx) nextPlayTime = playbackCtx.currentTime;
 }
 ```
 

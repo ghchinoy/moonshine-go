@@ -107,7 +107,8 @@ go run . -addr ws://localhost:8765/ws -debug
 
 The FAQ answers are six short entries pulled straight from `docs/MISSION.md`, wired up via `flow.ListenFor` in `newAgentFlow()` in `main.go`.
 
-`pkg/agentflow` uses `PhraseMatcher` to evaluate utterances against trigger phrases (see the official interactive [AgentFlow explainer](https://moonshine.ai/agent-flow/)). Without a native embedding model loaded (see open task `moonshine-go-tpg`), `PhraseMatcher` operates on case-insensitive substring matching. Once native `EmbeddingModel` C API bindings land, `pkg/agentflow` automatically gains cosine-similarity vector matching without any code changes in this sample.
+`pkg/agentflow` uses `PhraseMatcher` to evaluate utterances against trigger phrases (see the official interactive [AgentFlow explainer](https://moonshine.ai/agent-flow/)).
+By default, `PhraseMatcher` performs case-insensitive substring matching. In `v0.10.0+`, `pkg/moonshine.EmbeddingModel` provides pure-Go embeddings (Gemma-300M) satisfying `agentflow.EmbeddingBackend`. Passing an embedding backend via `flow.SetEmbeddingBackend(embeddingModel)` upgrades trigger evaluation to cosine-similarity vector matching, allowing semantic paraphrases (e.g., "what's your data privacy stance?" matching "privacy") to trigger FAQ responses seamlessly.
 
 ## Alternative pattern: deterministic regex fast-paths (`IntentMatcher`)
 

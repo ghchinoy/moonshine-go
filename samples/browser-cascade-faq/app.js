@@ -20,7 +20,8 @@ const transcriptEl = document.getElementById("transcript");
 const logEl = document.getElementById("agentLog");
 
 let ws = null;
-let audioCtx = null;
+let audioCtx = null;      // Mic capture context (16kHz for AudioWorklet)
+let playbackCtx = null;  // Output playback context (native device rate for high-fidelity TTS)
 let workletNode = null;
 let micStream = null;
 const seenFinalized = new Set();
@@ -169,16 +170,29 @@ function handleTranscriptPayload(payload) {
   renderTranscript(interim ? interim.text : "");
 }
 
+function getPlaybackContext() {
+  if (!playbackCtx) {
+    // Leave sampleRate unspecified so Web Audio runs at the device's
+    // native hardware rate (typically 44.1kHz or 48kHz). This ensures 24kHz
+    // Kokoro/Piper TTS is rendered with full harmonic fidelity without
+    // 8kHz Nyquist cutoff from a 16kHz context.
+    playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (playbackCtx.state === "suspended") {
+    playbackCtx.resume();
+  }
+  return playbackCtx;
+}
+
 function handleTTSAudioPayload(payload) {
   // TTSAudioEvent stream: state "start" -> N x "chunk" -> "end" / "interrupted".
   const state = payload.state || "chunk";
 
   if (state === "start") {
     appendLog(`[agent] TTS playback started: "${payload.text || ""}"`, "agent-act");
-    // Anchor the gapless playback schedule to the current audio clock at start of utterance.
-    if (audioCtx) {
-      nextPlayTime = audioCtx.currentTime;
-    }
+    // Anchor the gapless playback schedule to the current playback clock at start of utterance.
+    const pCtx = getPlaybackContext();
+    nextPlayTime = pCtx.currentTime;
     return;
   }
   if (state === "end") {
@@ -204,24 +218,22 @@ function handleActionResultPayload(payload) {
 }
 
 function playPCMFloat32(samples, sampleRate) {
-  if (!audioCtx) {
-    audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
-  }
+  const pCtx = getPlaybackContext();
 
-  const buffer = audioCtx.createBuffer(1, samples.length, sampleRate);
+  const buffer = pCtx.createBuffer(1, samples.length, sampleRate);
   const channelData = buffer.getChannelData(0);
   for (let i = 0; i < samples.length; i++) {
     channelData[i] = samples[i];
   }
 
-  const source = audioCtx.createBufferSource();
+  const source = pCtx.createBufferSource();
   source.buffer = buffer;
-  source.connect(audioCtx.destination);
+  source.connect(pCtx.destination);
 
   // Schedule this chunk to start exactly when the previous chunk ends.
   // Never schedule in the past (clamp to currentTime) so the first chunk
   // of a stream or after an idle period begins immediately.
-  const startAt = Math.max(audioCtx.currentTime, nextPlayTime);
+  const startAt = Math.max(pCtx.currentTime, nextPlayTime);
   source.start(startAt);
   nextPlayTime = startAt + buffer.duration;
 
@@ -240,8 +252,8 @@ function stopScheduledAudio() {
     }
   }
   activeSources.clear();
-  if (audioCtx) {
-    nextPlayTime = audioCtx.currentTime;
+  if (playbackCtx) {
+    nextPlayTime = playbackCtx.currentTime;
   }
 }
 
@@ -292,6 +304,10 @@ function connect() {
 function disconnect() {
   stopCapture();
   stopScheduledAudio();
+  if (playbackCtx) {
+    playbackCtx.close();
+    playbackCtx = null;
+  }
   if (ws) {
     ws.close();
     ws = null;
@@ -310,6 +326,9 @@ async function startCapture() {
 
   if (!audioCtx) {
     audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+  }
+  if (audioCtx.state === "suspended") {
+    await audioCtx.resume();
   }
   await audioCtx.audioWorklet.addModule("worklet.js");
 
@@ -338,6 +357,10 @@ function stopCapture() {
   if (micStream) {
     micStream.getTracks().forEach((t) => t.stop());
     micStream = null;
+  }
+  if (audioCtx) {
+    audioCtx.close();
+    audioCtx = null;
   }
   startBtn.disabled = ws ? false : true;
   stopBtn.disabled = true;
