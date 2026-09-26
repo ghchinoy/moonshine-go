@@ -76,36 +76,59 @@ func TestDictationHandlerConfidenceGating(t *testing.T) {
 
 func TestNormalizeDictation(t *testing.T) {
 	tests := []struct {
-		input string
-		raw   bool
-		want  string
+		input         string
+		raw           bool
+		enableAliases bool
+		want          string
 	}{
 		// Punctuation stripping + initial lowercasing
-		{"Git status.", false, "git status"},
-		{"List dash la.", false, "list dash la"},
-		{"Docker compose up!", false, "docker compose up"},
-		{"Where is the file?", false, "where is the file"},
-		{"Make test;", false, "make test"},
-		{"Echo hello,", false, "echo hello"},
+		{"Git status.", false, true, "git status"},
+		{"List dash la.", false, true, "list dash la"},
+		{"Docker compose up!", false, true, "docker compose up"},
+		{"Where is the file?", false, true, "where is the file"},
+		{"Make test;", false, true, "make test"},
+		{"Echo hello,", false, true, "echo hello"},
+
+		// Command prefix aliases (get -> git, cubectal -> kubectl, nnmm -> npm)
+		{"Get status.", false, true, "git status"},
+		{"Get commit -m 'init'.", false, true, "git commit -m 'init'"},
+		{"Get diff HEAD.", false, true, "git diff HEAD"},
+		{"Cubectal get pods.", false, true, "kubectl get pods"},
+		{"Cube control get nodes.", false, true, "kubectl get nodes"},
+		{"Cube cuddle logs.", false, true, "kubectl logs"},
+		{"NNMM install express.", false, true, "npm install express"},
+		{"Nmm run build.", false, true, "npm run build"},
+
+		// Aliases only match at start of line
+		{"I want to get status.", false, true, "i want to get status"},
+		{"Please get commit info.", false, true, "please get commit info"},
+
+		// Non-git words starting with 'get' are untouched
+		{"Get a cup of coffee.", false, true, "get a cup of coffee"},
+		{"Get ready.", false, true, "get ready"},
+
+		// Aliases disabled (enableAliases = false)
+		{"Get status.", false, false, "get status"},
+		{"Cubectal get pods.", false, false, "cubectal get pods"},
 
 		// Acronym preservation
-		{"NPM install express.", false, "NPM install express"},
-		{"K8S get pods.", false, "K8S get pods"},
-		{"AWS s3 ls.", false, "AWS s3 ls"},
+		{"NPM install express.", false, true, "NPM install express"},
+		{"K8S get pods.", false, true, "K8S get pods"},
+		{"AWS s3 ls.", false, true, "AWS s3 ls"},
 
 		// Raw mode (preserves formatting and trailing punctuation)
-		{"Git status.", true, "Git status."},
-		{"Hello, world!", true, "Hello, world!"},
+		{"Git status.", true, true, "Git status."},
+		{"Hello, world!", true, true, "Hello, world!"},
 
 		// Empty/whitespace cases
-		{"   ", false, ""},
-		{"...", false, ""},
+		{"   ", false, true, ""},
+		{"...", false, true, ""},
 	}
 
 	for _, tt := range tests {
-		got := normalizeDictation(tt.input, tt.raw)
+		got := normalizeDictation(tt.input, tt.raw, tt.enableAliases, false)
 		if got != tt.want {
-			t.Errorf("normalizeDictation(%q, %v) = %q, want %q", tt.input, tt.raw, got, tt.want)
+			t.Errorf("normalizeDictation(%q, %v, %v) = %q, want %q", tt.input, tt.raw, tt.enableAliases, got, tt.want)
 		}
 	}
 }

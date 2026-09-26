@@ -112,8 +112,11 @@ In the second pane (`voice:0.1`), start the voice daemon with actions enabled:
 ```sh
 cd ../.. # repo root
 export MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib"
-./bin/moonshine serve --transport ws --addr :8765 --allow-actions --agent external
+./bin/moonshine serve --transport ws --addr :8765 --allow-actions --agent external --arch small-streaming
 ```
+
+> **Why `--agent external`?** Tells the daemon *not* to run its own built-in LLM or dialog rules, ensuring only `voice-tmux` interprets and executes actions on transcripts.  
+> **Why `--arch small-streaming`?** Provides significantly higher vocabulary precision for technical commands than `tiny` while maintaining real-time streaming latency.
 
 ### 4. Run `voice-tmux` (Pane 2)
 
@@ -138,14 +141,61 @@ go run . -target "voice:0.0"
 4. Say: `"clear"` → Clears the screen.
 5. Say: `"stop listening"` → Pauses transcription until you say `"resume listening"`.
 
+---
+
+## Recognition Accuracy, Keyterms & Command Aliases
+
+General-purpose acoustic models are trained on conversational speech corpora where words like *"git"*, *"npm"*, and *"kubectl"* are rare compared to common English words (*"get"*, *"cube"*). To provide a reliable terminal experience, `voice-tmux` applies a two-layer mitigation:
+
+### 1. Automatic Keyterm Biasing (`session.set_keyterms`)
+On startup, `voice-tmux` sends an ActionRequest to `moonshine serve` applying logit bonuses to common CLI tools:
+`git`, `npm`, `kubectl`, `docker`, `grep`, `sudo`, `ls`, `cd`, `make`, `cargo`, `pnpm`, `yarn`, `cat`, `echo`, `ssh`.
+- Customize via `-keyterms "git,docker,make..."`
+- Disable via `-no-keyterms`
+
+*(Note: Keyterm biasing requires a streaming model such as `small-streaming` or `tiny-streaming`; static models like `tiny` and `base` do not support runtime logit biasing).*
+
+### 2. Command Prefix Alias Table
+Because conversational priors for *"get"* remain very strong even with keyterms, `voice-tmux` inspects the **leading command word** of each line:
+- `get status` / `commit` / `diff` / `push` / `pull` / `add` → `git <cmd>`
+- `cubectal` / `cube control` / `cube cuddle` → `kubectl`
+- `nnmm` / `nmm` / `and pm` → `npm`
+
+Rewrites are logged explicitly:
+`[alias] "Get status" -> "git status"`
+
+Safety guarantee: Aliases **only match at the start of a command line**. Saying *"I want to get coffee"* or *"Please get commit history"* is left completely untouched.
+- Disable prefix rewriting via `-no-aliases`
+- Disable all formatting/normalization via `-raw`
+
+### Empirical Recognition Across Architectures
+
+| Spoken Phrase | `tiny` (static) | `tiny-streaming` | `small-streaming` (with aliases) |
+|---|---|---|---|
+| **"git status"** | `Get status.` | `Get status.` | `git status` |
+| **"git commit"** | `Get commit.` | `Get commit.` | `git commit` |
+| **"npm install"** | `And an mm install.` | `NMM install.` | `npm install` |
+| **"kubectl get pods"** | `Q-Bictile Get Pods` | `Cubectal get pods.` | `kubectl get pods` |
+
+---
+
 ### Optional Flags
 
 ```sh
 # Dry run mode (print commands, do not execute):
 go run . -dry-run
 
-# Target a specific pane or window:
+# Target a specific pane or window (required unless -dry-run):
 go run . -target "voice:0.0"
+
+# Disable command prefix acoustic alias rewriting:
+go run . -target "voice:0.0" -no-aliases
+
+# Custom keyterm biasing list:
+go run . -target "voice:0.0" -keyterms "git,terraform,ansible,make"
+
+# Disable automatic keyterm registration:
+go run . -target "voice:0.0" -no-keyterms
 
 # Preserve unnormalized punctuation and uppercase prose:
 go run . -target "voice:0.0" -raw

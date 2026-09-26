@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +32,9 @@ func main() {
 	addr := flag.String("addr", "ws://localhost:8765/ws", "moonshine serve WebSocket URL")
 	target := flag.String("target", "", "target tmux pane (e.g. 'mysession:0.0' or '0.0') -- required unless -dry-run is set")
 	raw := flag.Bool("raw", false, "disable dictation normalization (preserve punctuation and uppercase formatting)")
+	noAliases := flag.Bool("no-aliases", false, "disable command prefix acoustic alias rewriting (e.g. 'get status' -> 'git status')")
+	keyterms := flag.String("keyterms", "git,npm,kubectl,docker,grep,sudo,ls,cd,make,cargo,pnpm,yarn,cat,echo,ssh", "comma-separated developer command terms to bias on the sidecar (streaming models only)")
+	noKeyterms := flag.Bool("no-keyterms", false, "disable automatic session keyterm biasing")
 	dryRun := flag.Bool("dry-run", false, "print tmux commands without executing them")
 	speakConfirm := flag.Bool("speak-confirm", false, "speak audio feedback via sidecar TTS on run and low confidence")
 	minConfidence := flag.Float64("min-confidence", 0.50, "minimum mean confidence score (0.0-1.0) required to type into shell")
@@ -58,6 +62,34 @@ func main() {
 
 	sink := newWSActionSink(conn)
 
+	// Send command keyterms to sidecar if enabled
+	if !*noKeyterms && *keyterms != "" {
+		terms := strings.Split(*keyterms, ",")
+		var cleanedTerms []string
+		for _, t := range terms {
+			if trimmed := strings.TrimSpace(t); trimmed != "" {
+				cleanedTerms = append(cleanedTerms, trimmed)
+			}
+		}
+		if len(cleanedTerms) > 0 {
+			args, _ := json.Marshal(serveapi.SetKeytermsArgs{Keyterms: cleanedTerms})
+			res, err := sink.Dispatch(ctx, serveapi.ActionRequest{
+				Verb: "session.set_keyterms",
+				Args: args,
+			})
+			if err == nil && res.OK {
+				fmt.Printf("[%s] [voice-tmux] Keyterm biasing registered (%d terms): %s\n",
+					ts(), len(cleanedTerms), strings.Join(cleanedTerms, ", "))
+			} else if res.Err != "" {
+				if strings.Contains(res.Err, "not set") {
+					fmt.Printf("[%s] [voice-tmux] Note: sidecar actions disabled; start serve with --allow-actions to enable keyterms & TTS\n", ts())
+				} else {
+					fmt.Printf("[%s] [voice-tmux] Note: keyterm biasing not supported by active STT model (%s); use --arch small-streaming for keyterms\n", ts(), res.Err)
+				}
+			}
+		}
+	}
+
 	// 3. Assemble composite handlers: controlHandler runs first, dictationHandler falls back
 	ctrlH := &controlHandler{
 		tmux:         tmux,
@@ -69,6 +101,7 @@ func main() {
 		minConfidence: float32(*minConfidence),
 		speakConfirm:  *speakConfirm,
 		raw:           *raw,
+		enableAliases: !*noAliases,
 		debug:         *debug,
 	}
 
