@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.11.0] - 2026-09-26
+
+### Added
+- **Direct Voice Model Downloads (`moonshine setup --tts`)**: Added `--tts <voice>` and `--tts-language` flags to `moonshine setup` (supporting single voices, comma-separated lists, and `--tts all` for Kokoro and Piper voices) to download voice models and G2P assets directly from the upstream CDN into the local cache (`#wyop`).
+- **Wake-Phrase Standby in `session.pause` & `--wake-phrases` Flag**: Added wake-phrase standby mode to `session.pause` (`PauseArgs{Passthrough: [...]}`) and daemon flag `--wake-phrases`. While in standby, microphone audio remains active while ambient speech is filtered; speaking a designated wake phrase automatically unpauses the session and broadcasts a `DisplayCard{Kind: "session", Title: "Listening Resumed"}` event (#qc70).
+- **New Runnable Sample (`samples/voice-tmux`)**: Added voice-controlled terminal automation sample integrating `moonshine serve` with `tmux` for hands-free command execution, voice-driven unpause, command word keyterm biasing, and strict safety controls (`#avc`, `#avc.13`).
+- **Astro 7 + Starlight Documentation Website**: Scaffolded and deployed modern documentation website to GitHub Pages ([ghchinoy.github.io/moonshine-go](https://ghchinoy.github.io/moonshine-go/)) with content sync, GCS audio showcase, and SVG benchmark charts (`#d898`).
+- **Interactive Diagram Lightbox**: Added full-screen pan/zoom lightbox for all Mermaid architecture diagrams on the documentation site (`#pyya`).
+- **Progressive Disclosure in `AGENTS.md`**: Restructured agent operational instructions into a lean 68-line root document with focused path-triggered guides in `agents/core.md` and `agents/devrel.md` (#47).
+
+### Changed
+- **`pkg/agentflow` Standby-by-Default Pause**: Updated `Dialog.PauseListening()` to default to software standby mode using the flow's registered resume phrases (`["resume listening", "start listening"]`) to allow natural voice resumption. Added `agentflow.WithHardMute()` option for callers requiring a full hardware capture mute.
+- **`tts.g2p_root` Precedence**: Implemented 4-tier precedence in `cmd/moonshine` (`resolveG2PRoot()`), automatically falling back to downloaded voices under `model.dir` when `moonshine.src_dir` and explicit flags are unset, without mutating `config.yaml`.
+
+### Fixed
+- **CLI Flag Usage Polish**: Updated `--g2p-root` usage strings in `tts` and `serve` commands to reflect the downloaded voices cache fallback (`#kswq`).
+- **TTS Playback AudioContext Sample Rate**: Updated browser samples (`browser-cascade-faq`) to match native 24kHz float32 payload rate, preventing resampling pitch distortion (`#b62`).
+- **Documentation Accuracy**: Replaced obsolete Git LFS voice asset instructions with `setup --tts <voice>` guidance across all guides and troubleshooting sections (`#5hab`).
+
+---
+
 ## [v0.10.0] - 2026-09-26
 
 ### Added
