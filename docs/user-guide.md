@@ -781,36 +781,28 @@ moonshine config set moonshine.src_dir ~/projects/github/moonshine
 
 `--g2p-root` then defaults to `<moonshine.src_dir>/core/moonshine-tts/data` automatically (see [config](#config) below). `MOONSHINE_SRC` -- the same env var `make buildlib` reads -- works too and takes priority over the config file; `--g2p-root` itself still overrides both if you pass it explicitly.
 
-### Fetching voice assets via Git LFS
+### Managing Voice Assets (setup --tts vs fetch scripts)
 
-Both Kokoro and Piper ship their model weights inside the moonshine repo
-itself as Git LFS objects -- nothing is downloaded from Hugging Face or
-elsewhere at runtime, you just need to pull the specific paths you want.
-
-**Piper** (one voice, English):
+The fastest and recommended way to fetch voice assets is using `moonshine setup --tts`:
 
 ```sh
-git -C ~/projects/github/moonshine lfs pull \
-  -I "core/moonshine-tts/data/en_us/piper-voices/en_US-amy-low.onnx,core/moonshine-tts/data/en_us/piper-voices/en_US-amy-low.onnx.json,core/moonshine-tts/data/en_us/g2p-config.json,core/moonshine-tts/data/en_us/dict_filtered_heteronyms.tsv,core/moonshine-tts/data/en_us/oov/model.onnx,core/moonshine-tts/data/en_us/oov/onnx-config.json"
+# Download Kokoro voice:
+moonshine setup --tts kokoro_af_heart
+
+# Download Piper voice:
+moonshine setup --tts piper_en_US-amy-low
 ```
 
-(English G2P needs the `g2p-config.json`/`dict_filtered_heteronyms.tsv`/`oov/*`
-files in addition to the voice itself; other languages have their own
-equivalent set under `core/moonshine-tts/data/<lang>/`.)
-
-**Kokoro** (shared model + config, plus per-voice style files which are
-small enough not to be LFS-tracked and are usually already real files in
-your checkout):
+If you maintain a local clone of the upstream C++ `moonshine` repository, you can alternatively populate its `core/moonshine-tts/data` directory using the upstream helper script:
 
 ```sh
-git -C ~/projects/github/moonshine lfs pull \
-  -I "core/moonshine-tts/data/kokoro/model.onnx,core/moonshine-tts/data/kokoro/config.json"
+cd ~/projects/github/moonshine
+./scripts/fetch-voice-assets.sh tts
 ```
 
-`model.onnx` is ~92MB (the 8-bit quantized [onnx-community/Kokoro-82M-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-ONNX)
-export) -- see `core/moonshine-tts/data/kokoro/README.md` in the moonshine
-checkout for full provenance and how to rebuild it from source if you ever
-need a different quantization.
+*(Note: Upstream Moonshine no longer stores neural voice models as Git LFS pointers; voice models are fetched directly from the official CDN at `download.moonshine.ai/tts/`).*
+
+`model.onnx` for Kokoro is ~92MB (the 8-bit quantized [onnx-community/Kokoro-82M-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-ONNX) export) -- see `core/moonshine-tts/data/kokoro/README.md` in the moonshine checkout for full provenance.
 
 `--list-voices` output looks like:
 
@@ -957,16 +949,6 @@ Microphone, then try again.
 default for documented reasons, CoreML is opt-in and has known issues with
 some archs on the vendored onnxruntime build.
 
-**TTS: `English G2P: in-memory g2p-config.json is a Git LFS pointer stub`**
-(or the same for `model.onnx`/a `.onnx.json` file) -- you pointed
-`--g2p-root` at a moonshine checkout where the relevant language's G2P/voice
-files haven't been `git lfs pull`-ed yet. See [tts](#tts) above for exactly
-which files each engine needs; note that `--list-voices` reporting a voice
-as `found` does **not** guarantee its files are pulled -- it only checks
-that something exists at the expected path.
+**TTS: `in-memory g2p-config.json is a Git LFS pointer stub` or missing voice files** -- the simplest resolution is to run `moonshine setup --tts <voice>` (or `moonshine setup --tts all`) to download the verified voice assets directly into your cache without needing an upstream checkout. If you pointed `--g2p-root` at a local C++ checkout, run `./scripts/fetch-voice-assets.sh tts` in that repository to populate real weights. Note that `--list-voices` reporting a voice as `found` only checks that a file exists at the expected path, not that it contains valid model weights.
 
-**TTS: nothing happens / `--g2p-root` seems ignored** -- if you haven't set
-`moonshine.src_dir` (`moonshine config set moonshine.src_dir ...`) or
-`$MOONSHINE_SRC`, `tts.g2p_root` has no default and you must pass
-`--g2p-root` explicitly every time. Run `moonshine config list` to see what
-`tts.g2p_root` is currently resolving to.
+**TTS: nothing happens / `--g2p-root` seems ignored** -- when resolving voice assets, `moonshine` checks locations in a 4-tier precedence order: (1) explicit `--g2p-root` flag, (2) `tts.g2p_root` in `config.yaml`, (3) `moonshine.src_dir`, and (4) downloaded voice assets under `model.dir` (`<model.dir>/download.moonshine.ai/tts`). Run `moonshine config list` or `moonshine doctor` to see where `tts.g2p_root` is currently resolving.
