@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/ghchinoy/moonshine-go/pkg/serveapi"
 )
@@ -162,12 +163,45 @@ func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line
 	}
 }
 
+// normalizeDictation formats spoken speech text for terminal input:
+//   - If raw is true, leaves text untouched.
+//   - Trims surrounding whitespace.
+//   - Strips trailing sentence punctuation (. ? ! , ;).
+//   - Lowercases the initial character UNLESS the second character is also uppercase
+//     (e.g., "Git status." -> "git status", but "NPM test" -> "NPM test").
+func normalizeDictation(text string, raw bool) string {
+	text = strings.TrimSpace(text)
+	if raw || text == "" {
+		return text
+	}
+
+	// 1. Strip trailing punctuation
+	text = strings.TrimRight(text, ".?!,;")
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+
+	// 2. Lowercase leading character unless followed by another uppercase letter or digit (acronym check)
+	runes := []rune(text)
+	if len(runes) > 0 && unicode.IsUpper(runes[0]) {
+		isAcronym := len(runes) > 1 && (unicode.IsUpper(runes[1]) || unicode.IsDigit(runes[1]))
+		if !isAcronym {
+			runes[0] = unicode.ToLower(runes[0])
+			text = string(runes)
+		}
+	}
+
+	return text
+}
+
 // dictationHandler types finalized speech literally into the target tmux pane.
 // SAFETY: Never appends Enter or executes commands automatically.
 type dictationHandler struct {
 	tmux          *TmuxClient
 	minConfidence float32
 	speakConfirm  bool
+	raw           bool
 	debug         bool
 }
 
@@ -188,13 +222,18 @@ func (d *dictationHandler) OnFinalizedLine(ctx context.Context, line serveapi.Li
 		return nil
 	}
 
-	if d.debug {
-		fmt.Printf("[%s] [debug] dictation: typing %q (conf: %.0f%%)\n", ts(), text, conf*100)
+	normalized := normalizeDictation(text, d.raw)
+	if normalized == "" {
+		return nil
 	}
-	fmt.Printf("[%s] [type] %s (conf: %.0f%%)\n", ts(), text, conf*100)
+
+	if d.debug {
+		fmt.Printf("[%s] [debug] dictation: raw=%q -> typed=%q (conf: %.0f%%)\n", ts(), text, normalized, conf*100)
+	}
+	fmt.Printf("[%s] [type] %s (conf: %.0f%%)\n", ts(), normalized, conf*100)
 
 	// Send literal text with trailing space for seamless word chaining
-	if err := d.tmux.SendLiteral(text + " "); err != nil {
+	if err := d.tmux.SendLiteral(normalized + " "); err != nil {
 		fmt.Printf("[%s] [error] tmux send-literal: %v\n", ts(), err)
 	}
 

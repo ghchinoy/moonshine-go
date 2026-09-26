@@ -29,7 +29,8 @@ type envelope struct {
 
 func main() {
 	addr := flag.String("addr", "ws://localhost:8765/ws", "moonshine serve WebSocket URL")
-	target := flag.String("target", "", "tmux target pane or window (default: active)")
+	target := flag.String("target", "", "target tmux pane (e.g. 'mysession:0.0' or '0.0') -- required unless -dry-run is set")
+	raw := flag.Bool("raw", false, "disable dictation normalization (preserve punctuation and uppercase formatting)")
 	dryRun := flag.Bool("dry-run", false, "print tmux commands without executing them")
 	speakConfirm := flag.Bool("speak-confirm", false, "speak audio feedback via sidecar TTS on run and low confidence")
 	minConfidence := flag.Float64("min-confidence", 0.50, "minimum mean confidence score (0.0-1.0) required to type into shell")
@@ -39,7 +40,8 @@ func main() {
 	// 1. Verify tmux preflight
 	tmux, err := NewTmuxClient(*target, *dryRun)
 	if err != nil {
-		log.Fatalf("[voice-tmux] tmux preflight failed: %v", err)
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -66,6 +68,7 @@ func main() {
 		tmux:          tmux,
 		minConfidence: float32(*minConfidence),
 		speakConfirm:  *speakConfirm,
+		raw:           *raw,
 		debug:         *debug,
 	}
 

@@ -13,7 +13,22 @@ type TmuxClient struct {
 	DryRun bool
 }
 
-// NewTmuxClient creates a new TmuxClient after verifying tmux is available.
+// ListPanes returns active tmux panes formatted as "session:window.pane (command)".
+func ListPanes() ([]string, error) {
+	out, err := exec.Command("tmux", "list-panes", "-a", "-F", "#{session_name}:#{window_index}.#{pane_index} (#{pane_current_command})").Output()
+	if err != nil {
+		return nil, err
+	}
+	var panes []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			panes = append(panes, trimmed)
+		}
+	}
+	return panes, nil
+}
+
+// NewTmuxClient creates a new TmuxClient after verifying tmux is available and target pane exists.
 func NewTmuxClient(target string, dryRun bool) (*TmuxClient, error) {
 	tmuxPath, err := exec.LookPath("tmux")
 	if err != nil {
@@ -30,6 +45,37 @@ func NewTmuxClient(target string, dryRun bool) (*TmuxClient, error) {
 		cmd := exec.Command(tmuxPath, "has-session")
 		if err := cmd.Run(); err != nil {
 			return nil, fmt.Errorf("no active tmux session found: please start a tmux session ('tmux new' or 'tmux') before running voice-tmux")
+		}
+
+		panes, _ := ListPanes()
+
+		if target == "" {
+			var sb strings.Builder
+			sb.WriteString("-target flag is required to prevent accidentally sending keystrokes into an unintended window/pane.\n")
+			if len(panes) > 0 {
+				sb.WriteString("Available tmux panes:\n")
+				for _, p := range panes {
+					sb.WriteString(fmt.Sprintf("  - %s\n", p))
+				}
+				targetSuggestion := strings.Split(panes[0], " ")[0]
+				sb.WriteString(fmt.Sprintf("Example usage: go run . -target %q\n", targetSuggestion))
+			}
+			sb.WriteString("(Use -dry-run to test voice commands safely without sending keystrokes to a live shell).")
+			return nil, fmt.Errorf("%s", sb.String())
+		}
+
+		// Verify target pane exists
+		checkCmd := exec.Command(tmuxPath, "list-panes", "-t", target)
+		if err := checkCmd.Run(); err != nil {
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("target pane %q not found in active tmux sessions.\n", target))
+			if len(panes) > 0 {
+				sb.WriteString("Available tmux panes:\n")
+				for _, p := range panes {
+					sb.WriteString(fmt.Sprintf("  - %s\n", p))
+				}
+			}
+			return nil, fmt.Errorf("%s", sb.String())
 		}
 	}
 
