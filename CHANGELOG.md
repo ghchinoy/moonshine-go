@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.11.1] - 2026-09-26
+
+### Fixed
+- **Permanent Ambient Speech Redaction in Standby Mode**: Fixed P1 privacy bug (`#0ruq`) where speech finalized during standby mode leaked to WebSocket/gRPC subscribers and agents in `TranscriptEvent.Lines` upon wake-phrase resumption and subsequent updates. Implemented permanent line suppression and redaction in `internal/serve/standby.go` (`filterStandbyUpdates`, `redactUpdate`), guaranteed same-poll isolation (ambient speech finalized alongside a wake phrase is redacted while the wake phrase passes), and ensured terminal `Done` and `Err` events are delivered even when paused.
+
+---
+
 ## [v0.11.0] - 2026-09-26
 
 ### Added
