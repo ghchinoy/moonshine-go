@@ -71,11 +71,13 @@ func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line
 				fmt.Printf("[%s] [debug] control matched: resume listening (unpaused)\n", ts())
 			}
 			fmt.Printf("[%s] [control] session resumed (listening enabled)\n", ts())
+			var actions []serveapi.ActionRequest
 			if c.speakConfirm {
 				args, _ := json.Marshal(serveapi.SpeakArgs{Text: "Listening resumed."})
-				return []serveapi.ActionRequest{{Verb: "speak", Args: args}}
+				actions = append(actions, serveapi.ActionRequest{Verb: "speak", Args: args})
 			}
-			return []serveapi.ActionRequest{{Verb: "none"}}
+			actions = append(actions, serveapi.ActionRequest{Verb: "session.resume"})
+			return actions
 		}
 
 		if c.debug {
@@ -95,18 +97,23 @@ func (c *controlHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line
 		if c.debug {
 			fmt.Printf("[%s] [debug] control matched: stop listening (paused)\n", ts())
 		}
-		fmt.Printf("[%s] [control] session paused (say 'resume listening' or press Enter in this terminal to resume)\n", ts())
+		fmt.Printf("[%s] [control] session paused (say 'start listening' or press Enter in this terminal to resume)\n", ts())
+		var actions []serveapi.ActionRequest
 		if c.speakConfirm {
 			args, _ := json.Marshal(serveapi.SpeakArgs{Text: "Listening paused."})
-			return []serveapi.ActionRequest{{Verb: "speak", Args: args}}
+			actions = append(actions, serveapi.ActionRequest{Verb: "speak", Args: args})
 		}
-		return []serveapi.ActionRequest{{Verb: "none"}}
+		pauseArgs, _ := json.Marshal(serveapi.PauseArgs{
+			Passthrough: []string{"start listening", "resume listening"},
+		})
+		actions = append(actions, serveapi.ActionRequest{Verb: "session.pause", Args: pauseArgs})
+		return actions
 
 	case resumeRe.MatchString(text):
 		if c.debug {
 			fmt.Printf("[%s] [debug] already listening\n", ts())
 		}
-		return []serveapi.ActionRequest{{Verb: "none"}}
+		return []serveapi.ActionRequest{{Verb: "session.resume"}}
 
 	case runRe.MatchString(text):
 		if c.debug {
