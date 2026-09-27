@@ -526,7 +526,9 @@ When `--allow-actions` is enabled, connected WebSocket and gRPC subscribers can 
      - Interim transcript updates are suppressed so ambient speech is never published to subscribers.
      - Finalized utterances are tested against the configured wake phrases.
      - When a matching phrase is spoken (e.g. *"resume listening"*), the daemon automatically executes `session.resume`, broadcasts a `DisplayCard{Kind: "session", Title: "Listening Resumed"}` notification, and forwards the resume utterance.
-     - All other ambient speech is dropped.
+     - **Ambient Speech Redaction Guarantee:** Any speech or background conversation observed while paused (under either hard capture mute or software standby) is permanently redacted from the session transcript. Ambient lines are never emitted to subscribers or agents—neither during pause, on the resume update, nor in any subsequent update throughout the session.
+     - **Wake Phrase Forwarding:** The specific utterance containing the matching wake phrase is forwarded to subscribers and agent runners upon resumption, allowing agents to respond naturally to voice trigger phrases.
+     - **Terminal Lifecycle Delivery:** Terminal session updates (`Done: true`) and runtime errors (`Err`) are always delivered to subscribers even if the session was paused when termination occurred.
    - **AgentFlow Integration:** Calling `d.PauseListening()` in `pkg/agentflow` defaults to standby mode using the flow's registered resume phrases (`["resume listening", "start listening"]`). Call `d.PauseListening(agentflow.WithHardMute())` if a full hardware privacy mute is required.
 
 ### Key Invariants
