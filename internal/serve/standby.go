@@ -11,19 +11,26 @@ import (
 )
 
 // filterStandbyUpdates filters incoming session.Update events during paused/standby state.
-// When unpaused, all updates pass through unchanged.
-// When paused with no wake phrases (hard privacy mute), all updates are dropped.
-// When paused in standby mode (wake phrases active):
-//   - Interim updates are dropped so ambient conversation is never broadcast.
-//   - Finalized lines are matched against active wake phrases.
-//   - If a wake phrase matches, the session resumes via sessCtrl.Resume(),
-//     a DisplayCard notification is published, and the update is forwarded.
-//   - Non-matching finalized lines are dropped.
+//
+// Privacy guarantees:
+//   - Any line observed while paused (under either hard capture mute or software standby)
+//     is permanently suppressed and will never be broadcast in Transcript.Lines or FinalizedLines,
+//     neither during pause, on the resume update, nor in any subsequent update.
+//   - If an active wake phrase matches a newly finalized line in standby mode, that specific
+//     wake-phrase line is un-suppressed, the session is automatically resumed, and a DisplayCard
+//     notification is published. All ambient lines that finalized before or alongside the wake
+//     phrase remain strictly suppressed.
+//   - Terminal session events (u.Done) and errors (u.Err) are always forwarded to subscribers,
+//     even if the session was paused when termination occurred.
 func filterStandbyUpdates(ctx context.Context, in <-chan session.Update, sessCtrl *LiveSessionControl, hub *Hub) <-chan session.Update {
 	out := make(chan session.Update)
 
 	go func() {
 		defer close(out)
+
+		completedPriorToPause := make(map[uint64]struct{})
+		suppressed := make(map[uint64]struct{})
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -34,8 +41,15 @@ func filterStandbyUpdates(ctx context.Context, in <-chan session.Update, sessCtr
 				}
 
 				if !sessCtrl.IsPaused() {
+					for _, l := range u.Transcript.Lines {
+						if l.IsComplete {
+							if _, bad := suppressed[l.ID]; !bad {
+								completedPriorToPause[l.ID] = struct{}{}
+							}
+						}
+					}
 					select {
-					case out <- u:
+					case out <- redactUpdate(u, suppressed):
 					case <-ctx.Done():
 						return
 					}
@@ -43,45 +57,54 @@ func filterStandbyUpdates(ctx context.Context, in <-chan session.Update, sessCtr
 				}
 
 				// Session is paused.
-				if sessCtrl.MuteCapture() {
-					// Hard privacy mute: drop everything.
-					continue
-				}
-
-				// Standby mode: drop interim updates.
-				if !u.Done && len(u.FinalizedLines) == 0 {
-					continue
-				}
-
-				phrases := sessCtrl.PassthroughPhrases()
-				if len(phrases) == 0 {
-					continue
-				}
-
-				// Check finalized lines for a wake phrase match.
-				matchedPhrase := ""
-				finalizedMap := make(map[uint64]moonshine.Line)
+				// Record all lines seen while paused that were not completed prior to pause.
 				for _, l := range u.Transcript.Lines {
-					if l.IsComplete {
-						finalizedMap[l.ID] = l
+					if _, prior := completedPriorToPause[l.ID]; !prior {
+						suppressed[l.ID] = struct{}{}
 					}
 				}
 
-				for _, lt := range u.FinalizedLines {
-					if l, exists := finalizedMap[lt.ID]; exists {
-						if p, matched := matchWakePhrase(l.Text, phrases); matched {
-							matchedPhrase = p
-							break
+				// Hard privacy mute: drop audio/transcript updates, but forward terminal Done or Err.
+				if sessCtrl.MuteCapture() {
+					if u.Done || u.Err != nil {
+						select {
+						case out <- redactUpdate(u, suppressed):
+						case <-ctx.Done():
+							return
 						}
 					}
+					continue
 				}
 
-				// Also check all lines if FinalizedLines is empty but u.Done is true
-				if matchedPhrase == "" && u.Done {
+				// Standby mode: wake phrases may be active.
+				phrases := sessCtrl.PassthroughPhrases()
+				if len(phrases) == 0 {
+					if u.Done || u.Err != nil {
+						select {
+						case out <- redactUpdate(u, suppressed):
+						case <-ctx.Done():
+							return
+						}
+					}
+					continue
+				}
+
+				// Check newly finalized lines for a wake phrase match.
+				matchedPhrase := ""
+				var matchedLineID uint64
+				if len(u.FinalizedLines) > 0 {
+					finalizedMap := make(map[uint64]moonshine.Line, len(u.Transcript.Lines))
 					for _, l := range u.Transcript.Lines {
 						if l.IsComplete {
+							finalizedMap[l.ID] = l
+						}
+					}
+
+					for _, lt := range u.FinalizedLines {
+						if l, exists := finalizedMap[lt.ID]; exists {
 							if p, matched := matchWakePhrase(l.Text, phrases); matched {
 								matchedPhrase = p
+								matchedLineID = l.ID
 								break
 							}
 						}
@@ -89,6 +112,10 @@ func filterStandbyUpdates(ctx context.Context, in <-chan session.Update, sessCtr
 				}
 
 				if matchedPhrase != "" {
+					// Wake phrase matched! Un-suppress the wake phrase line and record it as completed.
+					delete(suppressed, matchedLineID)
+					completedPriorToPause[matchedLineID] = struct{}{}
+
 					_ = sessCtrl.Resume(ctx)
 					if hub != nil {
 						hub.Publish(event.DisplayCard{
@@ -98,7 +125,19 @@ func filterStandbyUpdates(ctx context.Context, in <-chan session.Update, sessCtr
 						})
 					}
 					select {
-					case out <- u:
+					case out <- redactUpdate(u, suppressed):
+					case <-ctx.Done():
+						return
+					}
+					continue
+				}
+
+				// No wake phrase matched.
+				// Drop normal interim and ambient finalized updates during standby,
+				// but forward terminal Done or Err updates.
+				if u.Done || u.Err != nil {
+					select {
+					case out <- redactUpdate(u, suppressed):
 					case <-ctx.Done():
 						return
 					}
@@ -107,6 +146,45 @@ func filterStandbyUpdates(ctx context.Context, in <-chan session.Update, sessCtr
 		}
 	}()
 
+	return out
+}
+
+func redactUpdate(u session.Update, suppressed map[uint64]struct{}) session.Update {
+	if len(suppressed) == 0 {
+		return u
+	}
+
+	linesChanged := false
+	var redactedLines []moonshine.Line
+	for _, l := range u.Transcript.Lines {
+		if _, bad := suppressed[l.ID]; bad {
+			linesChanged = true
+			continue
+		}
+		redactedLines = append(redactedLines, l)
+	}
+
+	finalizedChanged := false
+	var redactedFinalized []session.LineTiming
+	for _, lt := range u.FinalizedLines {
+		if _, bad := suppressed[lt.ID]; bad {
+			finalizedChanged = true
+			continue
+		}
+		redactedFinalized = append(redactedFinalized, lt)
+	}
+
+	if !linesChanged && !finalizedChanged {
+		return u
+	}
+
+	out := u
+	if linesChanged {
+		out.Transcript.Lines = redactedLines
+	}
+	if finalizedChanged {
+		out.FinalizedLines = redactedFinalized
+	}
 	return out
 }
 
