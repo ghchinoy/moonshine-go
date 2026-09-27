@@ -30,20 +30,13 @@ func (m *mockActionSink) getActions() []serveapi.ActionRequest {
 	return out
 }
 
-func TestDomainCustomizationPauseResume(t *testing.T) {
+func TestDomainCustomizationPauseStandbyActions(t *testing.T) {
 	sink := &mockActionSink{}
-	state := &SessionState{}
-	handler := newDomainAgentFlow(sink, state)
-	pausedHandler := &pausedAgentHandler{
-		inner: handler,
-		state: state,
-		debug: true,
-	}
-
+	handler := newDomainAgentFlow(sink)
 	ctx := context.Background()
 
-	// 1. Initially unpaused: domain switch works
-	pausedHandler.OnFinalizedLine(ctx, serveapi.Line{Text: "switch to cloud"})
+	// 1. Domain switch works
+	handler.OnFinalizedLine(ctx, serveapi.Line{Text: "switch to cloud"})
 	var foundCloud bool
 	for i := 0; i < 20; i++ {
 		time.Sleep(10 * time.Millisecond)
@@ -67,29 +60,43 @@ func TestDomainCustomizationPauseResume(t *testing.T) {
 		t.Fatal("expected session.set_keyterms with Kubernetes for 'switch to cloud'")
 	}
 
-	// 2. Pause the session via voice command
-	pausedHandler.OnFinalizedLine(ctx, serveapi.Line{Text: "stop listening"})
-	if !state.IsPaused() {
-		t.Fatal("expected session to be paused after 'stop listening'")
+	// 2. Pause the session: emits speak + session.pause with PauseArgs.Passthrough
+	handler.OnFinalizedLine(ctx, serveapi.Line{Text: "stop listening"})
+
+	actions := sink.getActions()
+	var pauseFound bool
+	for _, a := range actions {
+		if a.Verb == "session.pause" {
+			var args serveapi.PauseArgs
+			if err := json.Unmarshal(a.Args, &args); err == nil && len(args.Passthrough) > 0 {
+				if args.Passthrough[0] == "resume listening" && args.Passthrough[1] == "start listening" {
+					pauseFound = true
+					break
+				}
+			}
+		}
+	}
+	if !pauseFound {
+		t.Fatal("expected session.pause with PauseArgs containing resume listening / start listening")
 	}
 
-	// 3. While paused: domain switch attempt is ignored
-	actionCountBefore := len(sink.getActions())
-	pausedHandler.OnFinalizedLine(ctx, serveapi.Line{Text: "switch to medical"})
-	time.Sleep(50 * time.Millisecond)
-	actionCountAfter := len(sink.getActions())
-	if actionCountAfter != actionCountBefore {
-		t.Fatalf("expected no actions emitted while paused, got %d", actionCountAfter-actionCountBefore)
+	// 3. Resume the session: emits session.resume + speak confirmation
+	handler.OnFinalizedLine(ctx, serveapi.Line{Text: "start listening"})
+
+	actionsAfter := sink.getActions()
+	var resumeFound bool
+	for _, a := range actionsAfter {
+		if a.Verb == "session.resume" {
+			resumeFound = true
+			break
+		}
+	}
+	if !resumeFound {
+		t.Fatal("expected session.resume action")
 	}
 
-	// 4. Resume via voice command
-	pausedHandler.OnFinalizedLine(ctx, serveapi.Line{Text: "resume listening"})
-	if state.IsPaused() {
-		t.Fatal("expected session to be unpaused after 'resume listening'")
-	}
-
-	// 5. After unpause: domain switch works again
-	pausedHandler.OnFinalizedLine(ctx, serveapi.Line{Text: "switch to medical"})
+	// 4. Clinical domain switch after resume
+	handler.OnFinalizedLine(ctx, serveapi.Line{Text: "switch to clinical domain"})
 	var foundMedical bool
 	for i := 0; i < 20; i++ {
 		time.Sleep(10 * time.Millisecond)
@@ -110,6 +117,6 @@ func TestDomainCustomizationPauseResume(t *testing.T) {
 		}
 	}
 	if !foundMedical {
-		t.Fatal("expected session.set_keyterms with Atorvastatin after resume")
+		t.Fatal("expected session.set_keyterms with Atorvastatin for clinical domain switch")
 	}
 }

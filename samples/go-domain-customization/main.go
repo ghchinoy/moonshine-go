@@ -10,7 +10,7 @@
 //   - Voice triggers send free-form context text via session.set_context
 //     ActionRequests ("load context passage").
 //   - AgentFlow global handlers intercept "stop listening" / "resume listening"
-//     managing client-side pause/resume state with voice and keyboard Enter resumption.
+//     using d.PauseListening() / d.ResumeListening() for server standby mode.
 //
 // Usage:
 //
@@ -30,9 +30,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -74,25 +72,17 @@ func main() {
 
 	var ttftLogged bool
 
-	sessState := &SessionState{}
-	baseHandler := newDomainAgentFlow(sink, sessState)
-	agentHandler := &pausedAgentHandler{
-		inner: baseHandler,
-		state: sessState,
-		debug: debug,
-	}
+	agentHandler := newDomainAgentFlow(sink)
 	runner := serveapi.NewAgentRunner(agentHandler, sink)
 
-	// Keyboard unpause listener on terminal stdin
+	// Keyboard unpause listener on terminal stdin: dispatch session.resume to sidecar
 	go func() {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			if sessState.IsPaused() {
-				sessState.SetPaused(false)
-				fmt.Printf("[%s] [control] keyboard unpause: session resumed (listening enabled)\n", ts())
-			} else {
-				fmt.Printf("[%s] [status] listening (say 'switch to cloud', 'clear domain', or 'stop listening')\n", ts())
-			}
+			fmt.Printf("[%s] [control] keyboard unpause: sending session.resume\n", ts())
+			_, _ = sink.Dispatch(ctx, serveapi.ActionRequest{
+				Verb: "session.resume",
+			})
 		}
 	}()
 
@@ -156,68 +146,7 @@ func main() {
 	fmt.Println("\nstopped.")
 }
 
-// SessionState tracks client-side pause/resume state.
-type SessionState struct {
-	mu     sync.RWMutex
-	paused bool
-}
-
-func (s *SessionState) SetPaused(p bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.paused = p
-}
-
-func (s *SessionState) IsPaused() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.paused
-}
-
-var (
-	resumeRe = regexp.MustCompile(`(?i)^\s*(resume listening|start listening)\s*\.?\s*$`)
-)
-
-// pausedAgentHandler wraps an AgentHandler with client-side pause/resume state.
-// While paused, only resume phrases ("resume listening", "start listening") are
-// forwarded to unpause; all other utterances are dropped without triggering domain flows or TTS.
-type pausedAgentHandler struct {
-	inner serveapi.AgentHandler
-	state *SessionState
-	debug bool
-}
-
-func (p *pausedAgentHandler) OnFinalizedLine(ctx context.Context, line serveapi.Line) []serveapi.ActionRequest {
-	text := strings.TrimSpace(line.Text)
-	if text == "" {
-		return nil
-	}
-
-	if p.state != nil && p.state.IsPaused() {
-		if resumeRe.MatchString(text) {
-			p.state.SetPaused(false)
-			if p.debug {
-				fmt.Printf("[%s] [debug] control: matched \"resume listening\" (unpaused)\n", ts())
-			}
-			fmt.Printf("[%s] [control] session resumed (listening enabled)\n", ts())
-			if p.inner != nil {
-				return p.inner.OnFinalizedLine(ctx, line)
-			}
-			return nil
-		}
-		if p.debug {
-			fmt.Printf("[%s] [paused] ignored while paused: %q\n", ts(), text)
-		}
-		return nil
-	}
-
-	if p.inner != nil {
-		return p.inner.OnFinalizedLine(ctx, line)
-	}
-	return nil
-}
-
-func newDomainAgentFlow(sink serveapi.ActionSink, sessState *SessionState) serveapi.AgentHandler {
+func newDomainAgentFlow(sink serveapi.ActionSink) serveapi.AgentHandler {
 	flow := agentflow.New()
 	flow.ActionSink(sink)
 
@@ -227,38 +156,42 @@ func newDomainAgentFlow(sink serveapi.ActionSink, sessState *SessionState) serve
 		return err
 	})
 
-	// Global control commands: managed via client-side SessionState so the server
-	// audio capture stream remains active for voice-driven resumption.
+	// Global control commands: in v0.11.0+, Dialog.PauseListening() defaults to
+	// server-side standby with the flow's registered resume phrases, keeping the
+	// mic capture active while ambient speech is safely suppressed.
 	flow.Always("stop listening", func(d *agentflow.Dialog) error {
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"stop listening\"\n", ts())
 		}
-		fmt.Printf("[%s] [control] session paused (say 'resume listening' or press Enter in this terminal to resume)\n", ts())
-		if sessState != nil {
-			sessState.SetPaused(true)
+		fmt.Printf("[%s] [control] session paused (say 'start listening' or press Enter in this terminal to resume)\n", ts())
+		if err := d.Say("Listening paused."); err != nil {
+			return err
 		}
-		return d.Say("Listening paused.")
+		_, err := d.PauseListening()
+		return err
 	})
 
 	flow.Always("pause listening", func(d *agentflow.Dialog) error {
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"pause listening\"\n", ts())
 		}
-		fmt.Printf("[%s] [control] session paused (say 'resume listening' or press Enter in this terminal to resume)\n", ts())
-		if sessState != nil {
-			sessState.SetPaused(true)
+		fmt.Printf("[%s] [control] session paused (say 'start listening' or press Enter in this terminal to resume)\n", ts())
+		if err := d.Say("Listening paused."); err != nil {
+			return err
 		}
-		return d.Say("Listening paused.")
+		_, err := d.PauseListening()
+		return err
 	})
 
 	flow.Always("resume listening", func(d *agentflow.Dialog) error {
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"resume listening\"\n", ts())
 		}
-		if sessState != nil {
-			sessState.SetPaused(false)
-		}
 		fmt.Printf("[%s] [control] session resumed (listening enabled)\n", ts())
+		_, err := d.ResumeListening()
+		if err != nil {
+			return err
+		}
 		return d.Say("Listening resumed.")
 	})
 
@@ -266,10 +199,11 @@ func newDomainAgentFlow(sink serveapi.ActionSink, sessState *SessionState) serve
 		if debug {
 			fmt.Printf("[%s] [debug] control: matched \"start listening\"\n", ts())
 		}
-		if sessState != nil {
-			sessState.SetPaused(false)
-		}
 		fmt.Printf("[%s] [control] session resumed (listening enabled)\n", ts())
+		_, err := d.ResumeListening()
+		if err != nil {
+			return err
+		}
 		return d.Say("Listening resumed.")
 	})
 

@@ -120,6 +120,9 @@ func main() {
 			if sessState.IsPaused() {
 				sessState.SetPaused(false)
 				fmt.Printf("[%s] [control] keyboard unpause: session resumed (listening enabled)\n", ts())
+				_, _ = sink.Dispatch(ctx, serveapi.ActionRequest{
+					Verb: "session.resume",
+				})
 			} else {
 				fmt.Printf("[%s] [status] voice-tmux is listening (say 'git status', 'run it', or 'stop listening')\n", ts())
 			}

@@ -26,21 +26,22 @@ A Tier 1/2 external Go agent demonstrating Moonshine v0.1.2's runtime domain cus
 flowchart TD
     Mic[Microphone Input] --> Serve[moonshine serve]
     Serve -->|WebSocket TranscriptEvent| Runner[serveapi.AgentRunner]
-    Runner --> Gate[pausedAgentHandler]
-    Gate -->|Unpaused or Resume Trigger| Adapter[agentflow.HandlerAdapter]
-    Gate -.->|Drop while Paused| Discard[Discard Ambient Utterance]
+    Runner --> Adapter[agentflow.HandlerAdapter]
     Adapter --> Flow[agentflow.AgentFlow]
 
     Flow -->|"switch to cloud"| K8s[session.set_keyterms: K8s, Ceph, etcd]
     Flow -->|"switch to medical"| Med[session.set_keyterms: Atorvastatin, ECG]
     Flow -->|"load context"| Ctx[session.set_context: passage text]
     Flow -->|"clear domain"| Clr[session.set_keyterms: empty]
-    Flow -->|"stop/resume"| Ctrl[SessionState: Paused/Resumed]
+    Flow -->|"stop listening"| Pause[d.PauseListening: session.pause standby]
+    Flow -->|"start/resume"| Resume[d.ResumeListening: session.resume]
 
     K8s --> Action[WebSocket ActionRequest JSON]
     Med --> Action
     Ctx --> Action
     Clr --> Action
+    Pause --> Action
+    Resume --> Action
 
     Action -->|Mid-stream bias update| Serve
     Serve --> Biased[Next tokens dynamically biased in real time]
@@ -56,7 +57,7 @@ export MOONSHINE_LIB_DIR="$(pwd)/.moonshine/lib"
 ./bin/moonshine serve --transport ws --allow-actions --agent external
 ```
 
-`--allow-actions` is required so the sidecar permits `session.set_keyterms`, `session.set_context`, and `speak` actions.
+`--allow-actions` is required so the sidecar permits `session.set_keyterms`, `session.set_context`, `speak`, and `session.pause/resume` actions.
 
 In another terminal:
 
@@ -74,8 +75,8 @@ go run . -addr ws://localhost:8765/ws
 - **`"clear domain"`** / **`"reset vocabulary"`** — resets keyterm biasing to standard unbiased decoding.
 - **`"stop listening"`** / **`"resume listening"`** — pauses or resumes speech recognition (or press Enter in the terminal to resume).
 
-> **Note on Server `session.pause` vs Client Standby:**
-> Dispatching a raw `session.pause` action to `moonshine serve` activates a hardware capture-level privacy mute (`AudioSource.SetMutedFunc`), which prevents microphone audio from leaving the device driver. Because audio capture is completely muted, the engine cannot transcribe incoming audio chunks, making voice-driven resumption impossible over the wire. This sample uses client-side `SessionState` so the microphone remains active while domain flows are gated, allowing voice resumption (or keyboard Enter fallback) at all times. Once daemon wake-phrase passthrough (#qc70) lands, server-side pause will support native wake-phrase resumption directly.
+> **Note on Server `session.pause` Standby Modes (v0.11.0+):**
+> In `v0.11.0+`, calling `d.PauseListening()` in `pkg/agentflow` requests server-side standby mode (`session.pause` with `PauseArgs.Passthrough`), keeping the microphone active while suppressing ambient transcripts on the server. Speaking any registered wake phrase (e.g. *"start listening"*) or pressing Enter automatically unpauses the session. Call `d.PauseListening(agentflow.WithHardMute())` if a full hardware capture mute is required.
 
 Pass `-debug` to inspect match traces, poll latency, and WebSocket dispatch round trips:
 

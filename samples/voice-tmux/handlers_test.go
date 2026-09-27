@@ -30,13 +30,14 @@ func TestControlHandlerVerbs(t *testing.T) {
 		{"previous window", "none"},
 		{"scroll up", "none"},
 		{"scroll down", "none"},
-		{"stop listening", "none"},
-		{"pause listening", "none"},
-		{"resume listening", "none"},
-		{"start listening", "none"},
+		{"stop listening", "session.pause"},
+		{"pause listening", "session.pause"},
+		{"resume listening", "session.resume"},
+		{"start listening", "session.resume"},
 	}
 
 	for _, tt := range tests {
+		state.SetPaused(false)
 		actions := ctrl.OnFinalizedLine(context.Background(), serveapi.Line{Text: tt.input})
 		if len(actions) == 0 {
 			t.Errorf("input %q returned no actions, expected match", tt.input)
@@ -66,13 +67,13 @@ func TestSessionPauseResumeFlow(t *testing.T) {
 		t.Errorf("expected empty actions for dictation, got %#v", actions)
 	}
 
-	// 2. Pause session via voice
+	// 2. Pause session via voice: emits session.pause with passthrough wake phrases
 	actions = composite.OnFinalizedLine(ctx, serveapi.Line{Text: "pause listening"})
 	if !state.IsPaused() {
 		t.Fatal("expected state to be paused after 'pause listening'")
 	}
-	if len(actions) == 0 || actions[0].Verb != "none" {
-		t.Errorf("expected sentinel 'none' action, got %#v", actions)
+	if len(actions) == 0 || actions[len(actions)-1].Verb != "session.pause" {
+		t.Errorf("expected 'session.pause' action, got %#v", actions)
 	}
 
 	// 3. While paused: dictation is ignored
@@ -87,13 +88,13 @@ func TestSessionPauseResumeFlow(t *testing.T) {
 		t.Errorf("expected controlHandler to intercept while paused with sentinel 'none', got %#v", actions)
 	}
 
-	// 5. Resume listening via voice
+	// 5. Resume listening via voice: emits session.resume
 	actions = composite.OnFinalizedLine(ctx, serveapi.Line{Text: "resume listening"})
 	if state.IsPaused() {
 		t.Fatal("expected state to be unpaused after 'resume listening'")
 	}
-	if len(actions) == 0 || actions[0].Verb != "none" {
-		t.Errorf("expected sentinel 'none' action, got %#v", actions)
+	if len(actions) == 0 || actions[len(actions)-1].Verb != "session.resume" {
+		t.Errorf("expected 'session.resume' action, got %#v", actions)
 	}
 
 	// 6. After resume: dictation works again
