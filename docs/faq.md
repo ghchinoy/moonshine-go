@@ -108,3 +108,31 @@ Because ONNX Runtime model inference is thread-safe, all workers share a single 
 - **CPU execution provider** (default): Setting `--concurrency` up to the number of CPU cores (e.g. `-c 4` or `-c 8`) maximizes batch throughput when transcribing collections of files.
 - **CoreML execution provider** (macOS): CoreML hardware dispatch runs best with `--concurrency 1` or `2`. Higher concurrency on CoreML can cause driver queue contention.
 - **Memory footprint**: Workers share model parameters in memory (~100MB for `tiny`). Per-worker memory overhead is minimal (only the PCM audio buffer for the active file).
+
+## What languages are supported for STT and TTS, and why does `moonshine setup --language de` fail with `has no model_arch 0 (TINY)`?
+
+Moonshine supports **10 Speech-to-Text (STT) languages** (English, Spanish, German, Mandarin, Japanese, Korean, Vietnamese, Tagalog, Ukrainian, and Arabic) and **16 Text-to-Speech (TTS) languages** (English, Spanish, Arabic, German, French, Hindi, Italian, Japanese, Korean, Dutch, Portuguese, Russian, Turkish, Ukrainian, Vietnamese, and Mandarin).
+
+Because each STT language model is trained at dedicated sizes, **non-English languages support specific `--arch` values** -- and most non-English languages do not ship a `tiny` model (which is `moonshine setup` and `moonshine transcribe`'s default `--arch`). If you run `moonshine setup --language de` without `--arch`, `libmoonshine` reports `language "de" has no model_arch 0 (TINY); supported architectures: 4 (SMALL_STREAMING), 2 (TINY_STREAMING)`.
+
+Always pass a supported `--arch` for your target language:
+
+| Language | Code | Supported STT `--arch` Values | Example `setup` Command |
+|---|---|---|---|
+| **English** | `en` | `tiny`, `base`, `tiny-streaming`, `small-streaming`, `medium-streaming` | `moonshine setup --language en --arch tiny-streaming` |
+| **Spanish** | `es` | `base`, `tiny-streaming`, `small-streaming` | `moonshine setup --language es --arch small-streaming` |
+| **German** | `de` | `tiny-streaming`, `small-streaming` | `moonshine setup --language de --arch small-streaming` |
+| **Mandarin** | `zh` | `base`, `tiny-streaming` | `moonshine setup --language zh --arch base` |
+| **Japanese** | `ja` | `tiny`, `base`, `tiny-streaming`, `small-streaming` | `moonshine setup --language ja --arch small-streaming` |
+| **Korean** | `ko` | `tiny` | `moonshine setup --language ko --arch tiny` |
+| **Vietnamese** | `vi` | `base`, `tiny-streaming` | `moonshine setup --language vi --arch base` |
+| **Tagalog** | `tl` | `tiny-streaming` | `moonshine setup --language tl --arch tiny-streaming` |
+| **Ukrainian** | `uk` | `base` | `moonshine setup --language uk --arch base` |
+| **Arabic** | `ar` | `base`, `tiny-streaming` | `moonshine setup --language ar --arch base` |
+
+## Why is `Word.Confidence` / `Line.Confidence` always `1.0` (or `0` when `--word-timestamps` is off)?
+
+In `libmoonshine`'s C API (`moonshine-c-api.h`), confidence is a field on `struct transcript_word_t` (`Word.Confidence`); `struct transcript_line_t` has no separate C confidence field. In `pkg/moonshine`, `Line.Confidence` and `Line.MeanConfidence()` are computed in Go by averaging `Line.Words`.
+
+1. **When `--word-timestamps` is off (the default):** `Line.Words` is not populated by the C library, so `Line.Confidence` is `0` (and omitted from JSON output).
+2. **When `--word-timestamps` is on:** Upstream `core/word-alignment.cpp` currently hardcodes `tw.confidence = 1.0f` for every aligned word ([moonshine-ai/moonshine#230](https://github.com/moonshine-ai/moonshine/issues/230)). Once upstream routes decoder token probabilities into `align_words()`, `Word.Confidence`, `Line.Confidence`, `Line.MeanConfidence()`, and `Line.MinConfidence()` will automatically surface real per-word and per-line probabilities without any Go API changes.

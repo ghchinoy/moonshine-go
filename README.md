@@ -1,6 +1,6 @@
 # moonshine-go
 
-On-device Speech-to-Text (STT), streaming Text-to-Speech (TTS), and text embeddings for Go, built on the [Moonshine voice library](https://github.com/moonshine-ai/moonshine).
+On-device Speech-to-Text (STT) across 10 languages (English, Spanish, German, Mandarin, Japanese, Korean, Vietnamese, Tagalog, Ukrainian, and Arabic), streaming Text-to-Speech (TTS) across 16 languages, and text embeddings for Go, built on the [Moonshine voice library](https://github.com/moonshine-ai/moonshine).
 
 Try live WebAssembly demos in your browser at [moonshine.ai](https://moonshine.ai), or explore the interactive [documentation site](https://ghchinoy.github.io/moonshine-go/).
 
@@ -9,7 +9,7 @@ Try live WebAssembly demos in your browser at [moonshine.ai](https://moonshine.a
 ### Start Here
 
 - **First transcript in 5 minutes:** Follow the **[Quickstart Guide](docs/quickstart.md)** to install the CLI and transcribe an audio file.
-- **Build an offline voice agent:** Walk through the **[AgentFlow Tutorial](samples/TUTORIAL.md)** or browse the **[13 Runnable Samples](samples/)**.
+- **Build an offline voice agent:** Walk through the **[AgentFlow Tutorial](samples/TUTORIAL.md)** or browse the **[14 Runnable Samples](samples/)**.
 - **Embed directly in your Go app:** Call in-process STT and streaming TTS without a daemon — see **[samples/go-embedded](samples/go-embedded/)** and the [GoDoc API reference](https://pkg.go.dev/github.com/ghchinoy/moonshine-go/pkg/moonshine).
 
 ### How It Works
