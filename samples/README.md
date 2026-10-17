@@ -12,6 +12,8 @@ live transcripts over WebSocket or gRPC and executes inbound actions
 
 Looking for a step-by-step guided walkthrough? See **[TUTORIAL.md](TUTORIAL.md)** — *Build an Offline Voice Agent in 60 Minutes*.
 
+**Single-Command Quickstart Launcher:** Run `./samples/run.sh <sample> [args...]` (or `./samples/run.sh --list`) from the repo root to automatically start `moonshine serve` with the sample's required flags in the background, launch the sample, and clean up on exit.
+
 Want to add a sample? See [CONTRIBUTING.md](CONTRIBUTING.md) for
 conventions and the verification bar.
 
@@ -203,6 +205,13 @@ runner.Run(ctx, events)
   matched first via `serveapi.CompositeHandler`, with literal text dictation as the fallback.
   Includes strict safety controls (dictation never auto-executes; `-dry-run`,
   `-min-confidence` gating, and `-speak-confirm`).
+- [voice-mcp-assistant](voice-mcp-assistant/) — Tier 2 Gemini + MCP client voice
+  assistant. Connects `moonshine serve` transcripts to `gemini-3.5-flash-lite`
+  (or `gemini-3.8-flash` / `gemini-4-argon`) and dispatches function calls to
+  external stdio MCP tool servers (`mcp.CommandTransport`) for hands-free
+  workspace file and git inspection. Enforces read-only tool filtering by
+  default, workspace path sandboxing, and Gemini 3.5+/4 `ThoughtSignature`
+  replay across multi-round tool chains.
 - [browser-listen](browser-listen/) — a static HTML+JS page:
   `getUserMedia` + `AudioWorklet` captures mic audio in the browser and
   streams it to a remote `moonshine serve` via `--audio-source remote`,
