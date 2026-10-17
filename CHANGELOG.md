@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Gemini Model Default (`gemini-3.5-flash-lite`)**: Deprecated `gemini-2.5-flash` across `cmd/moonshine/serve.go` and `internal/serve/gemini.go` (`DefaultGeminiModel`). The sidecar daemon now defaults to `gemini-3.5-flash-lite` for lower voice-cascade latency, supports `gemini-3.8-flash` and `gemini-4-argon`, and actively rejects deprecated `gemini-2.*` / `gemini-1.*` model IDs with actionable guidance (#p9vn).
 
+### Fixed
+- **Gemini 3.5+/4 Tool Call ThoughtSignature Replay & Serialization**: Fixed P1 issue (`#cg7u`) in `internal/serve/gemini.go` (`RealGeminiClient.GenerateWithTools`) where Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, and Gemini 4 Argon returned `HTTP 400 INVALID_ARGUMENT` on multi-round tool calling due to missing `ThoughtSignature` replay. Raw candidate contents containing `part.ThoughtSignature` are now cached and replayed directly for model turns, tool response turns serialize into `FunctionResponse` user parts (handling both map and array result payloads), and `part.Thought` monologue is filtered out of spoken TTS responses.
+
 ---
 
 ## [v0.11.1] - 2026-09-26
