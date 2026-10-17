@@ -27,8 +27,10 @@
 //
 // Each [Line] emitted in [TranscriptEvent] carries per-word confidence scores
 // ([Word.Confidence]) and aggregate line confidence helpers ([Line.MeanConfidence]
-// and [Line.MinConfidence], values 0.0 to 1.0). Agents can use confidence scores
-// to route finalized lines down different execution paths:
+// and [Line.MinConfidence], values 0.0 to 1.0) when "word_timestamps" is enabled.
+// (Note: In upstream libmoonshine v0.1.5/v0.1.6, word-level confidence is currently
+// hardcoded to 1.0f by the native alignment layer; see moonshine-ai/moonshine#230).
+// Agents can use confidence scores to route finalized lines down different execution paths:
 //
 //   - High confidence (e.g. MeanConfidence >= 0.80): dispatch to fast-path,
 //     deterministic handlers like [CompositeHandler] or intent matchers.

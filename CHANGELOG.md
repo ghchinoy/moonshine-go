@@ -7,13 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [v0.12.0] - 2026-10-17
+
+### Added
+- **Tier 2 Voice MCP Assistant (`samples/voice-mcp-assistant`)**: Added voice coding assistant connecting `moonshine serve` to Gemini 3.5 Flash-Lite / 3.8 Flash / 4 Argon with an in-process Model Context Protocol (MCP) tool bridge, dynamic tool declaration, and voice speak-back (`#go8`, `#wsh`, `#cau`, `#63j`).
+- **Unified Sample Launcher (`samples/run.sh`)**: Added single-command quickstart runner across all 15 runnable samples with dependency checks and interactive menus (`#0pe`).
+- **Automated Upstream Drift Inspector (`make check-upstream`)**: Added `scripts/check-upstream.sh` and Makefile target to verify upstream `moonshine-ai/moonshine` release tags, prebuilt assets, commit drift, and `core/moonshine-c-api.h` ABI compatibility (`#jtyi.1`).
+- **Expanded STT Languages (German & Tagalog)**: Documented German (`de`) and Tagalog (`tl`) speech-to-text models across documentation and CLI flag options, bringing official STT support to 10 languages (`#yy96`).
+- **Empirical LLM Tool Latency Benchmarks**: Measured TTFT, single-turn, and multi-turn tool-call latencies for Gemini 3.5 Flash-Lite, 3.8 Flash, and 4 Argon (`#ybvs`).
 
 ### Changed
-- **Gemini Model Default (`gemini-3.5-flash-lite`)**: Deprecated `gemini-2.5-flash` across `cmd/moonshine/serve.go` and `internal/serve/gemini.go` (`DefaultGeminiModel`). The sidecar daemon now defaults to `gemini-3.5-flash-lite` for lower voice-cascade latency, supports `gemini-3.8-flash` and `gemini-4-argon`, and actively rejects deprecated `gemini-2.*` / `gemini-1.*` model IDs with actionable guidance (#p9vn).
+- **Gemini Model Default (`gemini-3.5-flash-lite`)**: Deprecated `gemini-2.5-flash` across `cmd/moonshine/serve.go` and `internal/serve/gemini.go` (`DefaultGeminiModel`). The sidecar daemon now defaults to `gemini-3.5-flash-lite` for lower voice-cascade latency, supports `gemini-3.8-flash` and `gemini-4-argon`, and actively rejects deprecated `gemini-2.*` / `gemini-1.*` model IDs with actionable guidance (`#p9vn`).
 
 ### Fixed
 - **Gemini 3.5+/4 Tool Call ThoughtSignature Replay & Serialization**: Fixed P1 issue (`#cg7u`) in `internal/serve/gemini.go` (`RealGeminiClient.GenerateWithTools`) where Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, and Gemini 4 Argon returned `HTTP 400 INVALID_ARGUMENT` on multi-round tool calling due to missing `ThoughtSignature` replay. Raw candidate contents containing `part.ThoughtSignature` are now cached and replayed directly for model turns, tool response turns serialize into `FunctionResponse` user parts (handling both map and array result payloads), and `part.Thought` monologue is filtered out of spoken TTS responses.
+- **Cross-Language Model Matching in `moonshine models`**: Fixed `cmd/moonshine/models.go` to prevent matching cached English model directories (`tiny-en`, `base-en`) when querying unsupported architectures on foreign languages (e.g. `de`, `tl`), and added `[unsupported]` badge display (`#etvg`).
+- **`Word.Confidence` Documentation & Caveats**: Replaced hand-typed confidence examples in user guides with measured outputs and documented upstream #230 caveat in Go doc comments across `pkg/moonshine/stt.go` and `pkg/serveapi/{doc.go,line.go}` (`#b74b`, `#6blf`).
 
 ---
 

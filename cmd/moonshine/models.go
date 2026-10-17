@@ -64,6 +64,7 @@ type modelStatus struct {
 	Streaming   bool   `json:"streaming"`
 	Description string `json:"description"`
 	Downloaded  bool   `json:"downloaded"`
+	Unsupported bool   `json:"unsupported,omitempty"`
 	Path        string `json:"path,omitempty"`
 	FileCount   int    `json:"file_count,omitempty"`
 }
@@ -137,11 +138,25 @@ func checkModelDownload(language string, modelRootDir string, status *modelStatu
 					return
 				}
 			}
+			return
 		}
+		// When moonshine is loaded, an error from GetSTTDependencies means this
+		// architecture is not supported upstream for the requested language.
+		status.Unsupported = true
+		return
+	}
+
+	if status.ArchID == moonshine.ModelArchBaseStreaming {
+		return
 	}
 
 	if modelRootDir == "" {
 		return
+	}
+
+	langCode := strings.ToLower(strings.TrimSpace(language))
+	if langCode == "" {
+		langCode = "en"
 	}
 
 	_ = filepath.Walk(modelRootDir, func(path string, info os.FileInfo, err error) error {
@@ -151,6 +166,20 @@ func checkModelDownload(language string, modelRootDir string, status *modelStatu
 		dirName := strings.ToLower(info.Name())
 		target := strings.ToLower(status.Name)
 		if strings.Contains(dirName, target) {
+			// Prevent matching another language's cache directory (e.g. tiny-en when language is "de")
+			if langCode == "en" || langCode == "english" {
+				if strings.Contains(dirName, "-") {
+					suffix := dirName[strings.LastIndex(dirName, "-")+1:]
+					if suffix != "en" && len(suffix) == 2 {
+						return nil
+					}
+				}
+			} else {
+				if !strings.Contains(dirName, "-"+langCode) && !strings.Contains(dirName, "_"+langCode) {
+					return nil
+				}
+			}
+
 			entries, err := os.ReadDir(path)
 			if err == nil && len(entries) > 0 {
 				hasORT := false
@@ -184,7 +213,9 @@ func printModelsTable(language, modelRootDir string, models []modelStatus) {
 		}
 
 		badge := styleMuted.Render("[not cached]")
-		if m.Downloaded {
+		if m.Unsupported {
+			badge = styleMuted.Render("[unsupported]")
+		} else if m.Downloaded {
 			badge = stylePass.Render("[downloaded]")
 		}
 

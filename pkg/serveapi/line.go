@@ -27,7 +27,12 @@ type Line struct {
 	LastLatencyMs       uint32        `json:"last_latency_ms"`
 	Words               []Word        `json:"words,omitempty"`
 	SpeakerSpans        []SpeakerSpan `json:"speaker_spans,omitempty"`
-	Confidence          float32       `json:"confidence,omitempty"`
+	// Confidence is the aggregate confidence score for this line (0.0 to 1.0).
+	// Because struct transcript_line_t in moonshine-c-api.h does not define a
+	// native line-level confidence field, Line.Confidence is derived in Go from
+	// the mean of Line.Words and remains 0.0 unless "word_timestamps" is enabled.
+	// See also [Line.MeanConfidence] and [Line.MinConfidence].
+	Confidence float32 `json:"confidence,omitempty"`
 }
 
 // SpeakerLabel returns a compact summary of which speaker(s) contributed to
@@ -70,7 +75,11 @@ func (l Line) WordTimingsSummary() string {
 }
 
 // MeanConfidence returns the average confidence score across Words (0.0 to 1.0).
-// Returns Confidence if Words is empty, or 0.0 if neither is populated.
+// Returns Confidence if Words is empty, or 0.0 if neither is populated (e.g. when
+// "word_timestamps" was not enabled).
+//
+// Note: In upstream libmoonshine v0.1.5/v0.1.6 (moonshine-ai/moonshine#230),
+// word confidence is currently hardcoded to 1.0f by the native alignment layer.
 func (l Line) MeanConfidence() float32 {
 	if len(l.Words) == 0 {
 		return l.Confidence
@@ -83,7 +92,11 @@ func (l Line) MeanConfidence() float32 {
 }
 
 // MinConfidence returns the lowest word confidence score in the line (0.0 to 1.0).
-// Returns Confidence if Words is empty, or 0.0 if neither is populated.
+// Returns Confidence if Words is empty, or 0.0 if neither is populated (e.g. when
+// "word_timestamps" was not enabled).
+//
+// Note: In upstream libmoonshine v0.1.5/v0.1.6 (moonshine-ai/moonshine#230),
+// word confidence is currently hardcoded to 1.0f by the native alignment layer.
 func (l Line) MinConfidence() float32 {
 	if len(l.Words) == 0 {
 		return l.Confidence
@@ -99,6 +112,10 @@ func (l Line) MinConfidence() float32 {
 
 // Word is a single word with timing information. Only populated when the
 // "word_timestamps" option is enabled on the transcriber.
+//
+// Note: In upstream libmoonshine v0.1.5/v0.1.6 (moonshine-ai/moonshine#230),
+// word-level confidence is currently hardcoded to 1.0f by the native alignment
+// layer until upstream routes token probabilities into align_words.
 type Word struct {
 	Text       string  `json:"text"`
 	Start      float32 `json:"start"`
