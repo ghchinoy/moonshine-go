@@ -113,24 +113,29 @@ Transcribes a local `.wav` audio file in-process and returns structured lines wi
 
 #### Example Response Output
 
+Measured output on `test-assets/beckett.wav` (`word_timestamps: true`, `arch: "tiny"`):
+
 ```json
 {
   "language": "en",
   "arch": "tiny",
   "lines": [
     {
-      "start_time": 0.0,
-      "duration": 2.5,
+      "start_time": 0.095999956,
+      "duration": 1.376,
       "speaker": "",
-      "text": "Hello world, transcribing audio locally with Moonshine.",
-      "mean_confidence": 0.96
+      "text": "Ever tried.",
+      "mean_confidence": 1,
+      "word_summary": "Ever@0.10 tried.@0.61"
     }
   ],
   "stats": {
-    "audio_duration_sec": 2.5,
-    "inference_ms": 42.0,
-    "real_time_factor": 59.5
+    "audio_duration_sec": 9.963375,
+    "inference_ms": 154.0,
+    "real_time_factor": 64.69724025974025
   },
   "note": "Audio is transcribed 100% locally in-process via pkg/moonshine. No raw audio data is uploaded or transmitted to external servers."
 }
 ```
+
+> **Note on `mean_confidence` ([moonshine-ai/moonshine#230](https://github.com/moonshine-ai/moonshine/issues/230)):** `Line.MeanConfidence()` is derived from `Line.Words` and is only populated when `word_timestamps: true` (otherwise `0`). Upstream `libmoonshine` v0.1.5–v0.1.6 currently hardcodes aligned word confidence to `1.0` until decoder token probabilities are wired into `align_words`.

@@ -96,12 +96,29 @@ moonshine setup --force                            # re-download even if present
 
 | Flag | Default | Notes |
 |---|---|---|
-| `--language` | `en` | Language code or English name, e.g. `en`, `Spanish` |
+| `--language` | `en` | STT language code or name (`en`, `es`, `de`, `zh`, `ja`, `ko`, `vi`, `tl`, `uk`, `ar`) |
 | `--arch` | `tiny` | `tiny`, `base`, `tiny-streaming`, `base-streaming`, `small-streaming`, `medium-streaming`, `none` |
 | `--tts` | `""` | Download TTS voice model(s): single voice ID (e.g. `kokoro_af_heart`, `piper_en_US-amy-low`), comma-separated list, or `all` |
 | `--tts-language` | `en_us` | Language for `--tts` voice assets (config key: `tts.language`) |
 | `--identify-speakers` | `false` | Also download speaker diarization models (`segmentation.ort` and `embedding.ort`) |
 | `--force` | `false` | Re-download even if files already exist |
+
+### Supported STT Languages & Architectures
+
+Moonshine supports 10 speech-to-text languages. Because language-specific models are trained at dedicated sizes, non-English languages support specific `--arch` values (notably, most non-English languages do not ship a `tiny` model, so pass an explicit `--arch` when running `setup`, `transcribe`, `live`, or `serve`):
+
+| Language | Code / Name | Supported `--arch` Values | Example `setup` Command |
+|---|---|---|---|
+| **English** | `en` / `english` | `tiny`, `base`, `tiny-streaming`, `small-streaming`, `medium-streaming` | `moonshine setup --language en --arch tiny-streaming` |
+| **Spanish** | `es` / `spanish` | `base`, `tiny-streaming`, `small-streaming` | `moonshine setup --language es --arch small-streaming` |
+| **German** | `de` / `german` | `tiny-streaming`, `small-streaming` | `moonshine setup --language de --arch small-streaming` |
+| **Mandarin** | `zh` / `chinese` | `base`, `tiny-streaming` | `moonshine setup --language zh --arch base` |
+| **Japanese** | `ja` / `japanese` | `tiny`, `base`, `tiny-streaming`, `small-streaming` | `moonshine setup --language ja --arch small-streaming` |
+| **Korean** | `ko` / `korean` | `tiny` | `moonshine setup --language ko --arch tiny` |
+| **Vietnamese** | `vi` / `vietnamese` | `base`, `tiny-streaming` | `moonshine setup --language vi --arch base` |
+| **Tagalog** | `tl` / `tagalog` | `tiny-streaming` | `moonshine setup --language tl --arch tiny-streaming` |
+| **Ukrainian** | `uk` / `ukrainian` | `base` | `moonshine setup --language uk --arch base` |
+| **Arabic** | `ar` / `arabic` | `base`, `tiny-streaming` | `moonshine setup --language ar --arch base` |
 
 Downloads land under `<model.dir>/<url-path>/`, e.g.
 `~/Library/Caches/moonshine_voice/download.moonshine.ai/model/tiny-en/quantized/tiny-en/`
@@ -265,47 +282,62 @@ moonshine --json transcribe audio_dir/ > batch_manifest.json
 
 #### Batch Manifest JSON Schema (`--json`)
 
-When running in batch mode with `--json`, `stdout` outputs a structured **Batch Manifest** containing aggregate statistics and per-file results:
+When running in batch mode with `--json` (here with `--word-timestamps` enabled across `beckett.wav` and `two_cities_16k.wav`), `stdout` outputs a structured **Batch Manifest** containing aggregate statistics and per-file results:
 
 ```json
 {
   "version": "1.0",
   "summary": {
-    "total_files": 3,
-    "successful_files": 3,
+    "total_files": 2,
+    "successful_files": 2,
     "failed_files": 0,
-    "total_audio_sec": 45.2,
-    "total_inference_ms": 1250.0,
-    "aggregate_rtf": 36.16,
+    "total_audio_sec": 54.3375,
+    "total_inference_ms": 1063.201,
+    "aggregate_rtf": 51.10745757387361,
     "confidence_summary": {
-      "mean": 0.92,
-      "min": 0.74,
-      "max": 0.98
+      "mean": 1,
+      "min": 1,
+      "max": 1
     }
   },
   "results": [
     {
-      "input": "audio_dir/file1.wav",
+      "input": "test-assets/beckett.wav",
       "status": "ok",
-      "error": "",
       "stats": {
-        "download_ms": 0,
-        "decode_ms": 12.5,
-        "inference_ms": 410.0,
-        "audio_duration_sec": 15.0,
-        "real_time_factor": 36.58,
-        "mean_confidence": 0.94
+        "decode_ms": 55.956,
+        "inference_ms": 154.236,
+        "audio_duration_sec": 9.963375,
+        "real_time_factor": 64.59824554578698,
+        "mean_confidence": 1
       },
       "lines": [
         {
-          "text": "it was the best of times",
-          "start_time": 0.0,
-          "duration": 2.5,
-          "last_latency_ms": 180,
-          "confidence": 0.95,
+          "text": "Ever tried.",
+          "start_time": 0.095999956,
+          "duration": 1.376,
+          "id": 10478199886575812571,
+          "is_complete": true,
+          "is_updated": true,
+          "is_new": true,
+          "has_text_changed": true,
+          "have_speakers_changed": false,
+          "last_latency_ms": 22,
           "words": [
-            { "word": "it", "start_time": 0.0, "end_time": 0.2, "confidence": 0.98 }
-          ]
+            {
+              "text": "Ever",
+              "start": 0.095999956,
+              "end": 0.612,
+              "confidence": 1
+            },
+            {
+              "text": "tried.",
+              "start": 0.612,
+              "end": 1.4474286,
+              "confidence": 1
+            }
+          ],
+          "confidence": 1
         }
       ]
     }
@@ -373,6 +405,9 @@ tracking across separate files/invocations. A single-speaker clip (like
 diarization is only interesting on audio with more than one speaker. (For a
 live demonstration of streaming STT + speaker diarization, see
 [moonshine.ai/meeting-notes](https://moonshine.ai/meeting-notes/).)
+
+> **Note on Word & Line Confidence Scores ([moonshine-ai/moonshine#230](https://github.com/moonshine-ai/moonshine/issues/230)):**
+> In `libmoonshine`, confidence is attached to `transcript_word_t` (`Word.Confidence`), and `Line.Confidence` / `Line.MeanConfidence()` are computed in Go by averaging `Line.Words`. Consequently, confidence fields are only populated when `--word-timestamps` (or `--identify-speakers`, which implies `--word-timestamps`) is enabled; when `--word-timestamps` is off, `Line.Confidence` is `0` and omitted from JSON. Furthermore, in upstream `libmoonshine` v0.1.5–v0.1.6, `core/word-alignment.cpp` currently hardcodes `tw.confidence = 1.0f` for every aligned word until upstream routes decoder token probabilities into `align_words`.
 
 `live` has the same two flags, plus tuning knobs for how often streaming
 diarization re-clusters -- see [live](#live) below.
@@ -484,7 +519,7 @@ moonshine serve --transport ws --agent external
 | `--grpc-addr` | `:9090` | Address for gRPC transport |
 | `--transport` | `ws` | Comma-separated transports: `ws`, `grpc`, or `ws,grpc` |
 | `--agent` | `external` | Agent mode: `external` (IPC subscribers control logic), `gemini` (built-in Gemini LLM agent), or `agentflow` (built-in in-process `pkg/agentflow` DSL agent) |
-| `--gemini-model` | `gemini-2.5-flash` | Gemini model ID for `--agent gemini` |
+| `--gemini-model` | `gemini-3.5-flash-lite` | Gemini model ID for `--agent gemini` (`gemini-3.5-flash-lite` or `gemini-3.8-flash`) |
 | `--allow-actions` | `false` | Gate enabling mutating actions (`speak`, `session control`, `run_command`) |
 | `--tts-voice` | (auto) | Default TTS voice override |
 | `--tts-language` | `en_us` | TTS speaker language |

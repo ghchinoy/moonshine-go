@@ -24,6 +24,7 @@ to extract themes, cited quotes, and cross-recording synthesis.
 2. **Citation primitives & confidence tracking** — preserves per-line timestamps
    (`Line.StartTime`), per-word timings (`Word.Start`/`End`), speaker labels
    (`Line.SpeakerSpans`), and mean confidence scores (`Line.MeanConfidence`).
+   *(Note: upstream [moonshine-ai/moonshine#230](https://github.com/moonshine-ai/moonshine/issues/230) currently hardcodes aligned word confidence to `1.0` when `--word-timestamps` is enabled; the confidence histogram and per-quote confidence citations automatically reflect real token probabilities once upstream lands #230.)*
 3. **Structured dual output**:
    - **`corpus_report.md`** — a primary human-readable Markdown report with a
      throughput summary table, LLM executive synthesis, thematic clusters,

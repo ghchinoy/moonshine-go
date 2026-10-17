@@ -24,7 +24,7 @@ any check `[FAIL]`s; `--json` gives `{"checks": [{"name", "status",
 
 | Flag              | Default             | Config key       | Notes |
 |-------------------|---------------------|-------------------|-------|
-| `--language`      | `en`                | `stt.language`    | Must match the language passed to `moonshine setup`. |
+| `--language`      | `en`                | `stt.language`    | One of: `en`, `es`, `de`, `zh`, `ja`, `ko`, `vi`, `tl`, `uk`, `ar`. Must match the language passed to `moonshine setup` (and a supported `--arch` for that language; see `docs/user-guide.md`). |
 | `--arch`           | `tiny`              | `stt.arch`        | One of: `tiny`, `base`, `tiny-streaming`, `base-streaming`, `small-streaming`, `medium-streaming`. Must match a model already downloaded via `moonshine setup --arch <arch>`. |
 | `--providers`      | `""` (CPU only)     | (none)            | Comma-separated ONNX Runtime execution providers, e.g. `CoreML,CPU` on macOS. Leave unset -- CPU is the only provider verified fast/correct for every arch (see `docs/hardware-acceleration.md`); CoreML has been measured slower or outright broken for some archs on the vendored onnxruntime build. |
 | `--with-audio`     | `false`             | (none)            | Include each line's raw per-line audio samples in `--json` output. Large; leave off unless the caller specifically needs raw samples. |
@@ -78,7 +78,7 @@ the currently effective value and its source.
   otherwise it's omitted/null.
 - `lines[].words` (`[{text, start, end, confidence}, ...]`) is only
   populated when `--word-timestamps` (or `--identify-speakers`, which
-  implies it) is passed.
+  implies it) is passed. Note: in upstream `libmoonshine` v0.1.5–v0.1.6 ([moonshine-ai/moonshine#230](https://github.com/moonshine-ai/moonshine/issues/230)), `confidence` is currently hardcoded to `1.0` until token probabilities are routed into `align_words`.
 - `lines[].speaker_spans` (`[{start_time, duration, speaker_id,
   speaker_index, start_char, end_char}, ...]`) is only populated when
   `--identify-speakers` is passed. `speaker_index` counts speakers in order
