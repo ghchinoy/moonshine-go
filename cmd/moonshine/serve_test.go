@@ -17,7 +17,7 @@ func TestServeCmd_Flags(t *testing.T) {
 		{"grpc-addr", "grpc-addr", ":9090"},
 		{"transport", "transport", "ws"},
 		{"agent", "agent", "external"},
-		{"gemini-model", "gemini-model", "gemini-2.5-flash"},
+		{"gemini-model", "gemini-model", "gemini-3.5-flash-lite"},
 		{"allow-actions", "allow-actions", "false"},
 		{"audio-source", "audio-source", "local"},
 		{"remote-audio-rate", "remote-audio-rate", "16000"},

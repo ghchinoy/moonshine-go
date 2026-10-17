@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Gemini Model Default (`gemini-3.5-flash-lite`)**: Deprecated `gemini-2.5-flash` across `cmd/moonshine/serve.go` and `internal/serve/gemini.go` (`DefaultGeminiModel`). The sidecar daemon now defaults to `gemini-3.5-flash-lite` for lower voice-cascade latency, supports `gemini-3.8-flash` and `gemini-4-argon`, and actively rejects deprecated `gemini-2.*` / `gemini-1.*` model IDs with actionable guidance (#p9vn).
+
+---
+
 ## [v0.11.1] - 2026-09-26
 
 ### Fixed

@@ -79,7 +79,7 @@ func init() {
 	serveCmd.Flags().IntVar(&serveRemoteAudioChannels, "remote-audio-channels", 1, "Remote audio channel count: 1 (mono) or 2 (stereo) (for --audio-source remote)")
 	serveCmd.Flags().IntVar(&serveMaxSessions, "max-sessions", 10, "Maximum concurrent sessions in remote audio mode")
 	serveCmd.Flags().StringVar(&serveAgent, "agent", "external", "Agent mode: external (subscribers handle logic via IPC), gemini (built-in Gemini LLM agent), or agentflow (built-in AgentFlow DSL agent)")
-	serveCmd.Flags().StringVar(&serveGeminiModel, "gemini-model", "gemini-2.5-flash", "Google Gemini model ID (for --agent gemini)")
+	serveCmd.Flags().StringVar(&serveGeminiModel, "gemini-model", serve.DefaultGeminiModel, "Google Gemini model ID (e.g. gemini-3.5-flash-lite, gemini-3.8-flash, gemini-4-argon; for --agent gemini)")
 	serveCmd.Flags().BoolVar(&serveAllowActions, "allow-actions", false, "Gate enabling mutating actions (speak, session control, run_command)")
 	serveCmd.Flags().StringVar(&serveTTSVoice, "tts-voice", "", "Default voice override for TTS speaker")
 	serveCmd.Flags().StringVar(&serveTTSLanguage, "tts-language", "en_us", "TTS speaker language")

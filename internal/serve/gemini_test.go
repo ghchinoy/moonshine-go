@@ -3,6 +3,7 @@ package serve_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/ghchinoy/moonshine-go/internal/serve"
@@ -124,4 +125,34 @@ func TestGeminiAgent_RunCommandGating(t *testing.T) {
 			t.Fatalf("expected run_command action when AllowRunCommand=true")
 		}
 	})
+}
+
+func TestNewRealGeminiClient_ModelValidation(t *testing.T) {
+	if serve.DefaultGeminiModel != "gemini-3.5-flash-lite" {
+		t.Errorf("DefaultGeminiModel = %q, want 'gemini-3.5-flash-lite'", serve.DefaultGeminiModel)
+	}
+
+	ctx := context.Background()
+
+	// 1. Deprecated models must be rejected immediately
+	deprecatedModels := []string{
+		"gemini-2.5-flash",
+		"gemini-2.0-flash",
+		"gemini-2.0-pro-exp",
+		"gemini-1.5-flash",
+		"gemini-1.5-pro",
+	}
+
+	for _, m := range deprecatedModels {
+		t.Run("reject_"+m, func(t *testing.T) {
+			_, err := serve.NewRealGeminiClient(ctx, m)
+			if err == nil {
+				t.Fatalf("expected error rejecting %q, got nil", m)
+			}
+			wantErrSubstring := "deprecated Gemini model"
+			if !strings.Contains(err.Error(), wantErrSubstring) {
+				t.Errorf("error %q does not contain %q", err.Error(), wantErrSubstring)
+			}
+		})
+	}
 }

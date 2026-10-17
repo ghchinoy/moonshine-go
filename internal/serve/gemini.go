@@ -177,6 +177,9 @@ func (g *GeminiAgent) OnFinalizedLine(ctx context.Context, line serveapi.Line) [
 	return actions
 }
 
+// DefaultGeminiModel is the default Google Gemini model used for voice cascades.
+const DefaultGeminiModel = "gemini-3.5-flash-lite"
+
 // RealGeminiClient wraps google.golang.org/genai.
 type RealGeminiClient struct {
 	client *genai.Client
@@ -185,15 +188,19 @@ type RealGeminiClient struct {
 
 // NewRealGeminiClient creates a RealGeminiClient using GEMINI_API_KEY / GOOGLE_API_KEY environment variables.
 func NewRealGeminiClient(ctx context.Context, model string) (*RealGeminiClient, error) {
+	if model == "" {
+		model = DefaultGeminiModel
+	}
+	if strings.HasPrefix(model, "gemini-2.") || strings.HasPrefix(model, "gemini-1.") {
+		return nil, fmt.Errorf("deprecated Gemini model %q: use %s, gemini-3.8-flash, or gemini-4-argon", model, DefaultGeminiModel)
+	}
+
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
 		apiKey = os.Getenv("GOOGLE_API_KEY")
 	}
 	if apiKey == "" {
 		return nil, fmt.Errorf("neither GEMINI_API_KEY nor GOOGLE_API_KEY is set")
-	}
-	if model == "" {
-		model = "gemini-2.5-flash"
 	}
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey})
