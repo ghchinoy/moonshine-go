@@ -519,7 +519,7 @@ moonshine serve --transport ws --agent external
 | `--grpc-addr` | `:9090` | Address for gRPC transport |
 | `--transport` | `ws` | Comma-separated transports: `ws`, `grpc`, or `ws,grpc` |
 | `--agent` | `external` | Agent mode: `external` (IPC subscribers control logic), `gemini` (built-in Gemini LLM agent), or `agentflow` (built-in in-process `pkg/agentflow` DSL agent) |
-| `--gemini-model` | `gemini-3.5-flash-lite` | Gemini model ID for `--agent gemini` (`gemini-3.5-flash-lite` or `gemini-3.8-flash`) |
+| `--gemini-model` | `gemini-3.5-flash-lite` | Gemini model ID for `--agent gemini` (`gemini-3.5-flash-lite`, `gemini-3.8-flash`, or `gemini-4-argon`) |
 | `--allow-actions` | `false` | Gate enabling mutating actions (`speak`, `session control`, `run_command`) |
 | `--tts-voice` | (auto) | Default TTS voice override |
 | `--tts-language` | `en_us` | TTS speaker language |

@@ -121,7 +121,7 @@ func main() {
 	flag.StringVar(&outJSONFlag, "out-json", "corpus_manifest.json", "Output path for the agent-friendly JSON manifest")
 	flag.BoolVar(&noLLMFlag, "no-llm", false, "Skip the Gemini LLM analysis pass (transcribe and compute stats only)")
 	flag.StringVar(&geminiKeyFlag, "gemini-key", "", "Gemini API key (defaults to GEMINI_API_KEY or GOOGLE_API_KEY env var)")
-	flag.StringVar(&geminiModelFlag, "gemini-model", "gemini-3.5-flash-lite", "Gemini model to use for analysis (e.g. gemini-3.5-flash-lite, gemini-3.8-flash)")
+	flag.StringVar(&geminiModelFlag, "gemini-model", "gemini-3.5-flash-lite", "Gemini model to use for analysis (e.g. gemini-3.5-flash-lite, gemini-3.8-flash, gemini-4-argon)")
 	flag.BoolVar(&wordTimestampsFlag, "word-timestamps", true, "Include word-level timestamps in transcription output")
 	flag.BoolVar(&identifySpeakersFlag, "identify-speakers", false, "Enable speaker diarization in transcription output")
 	flag.StringVar(&langFlag, "language", "en", "STT model language")
