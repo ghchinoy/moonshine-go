@@ -135,6 +135,10 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
+	if !noLLMFlag && (strings.HasPrefix(geminiModelFlag, "gemini-2.") || strings.HasPrefix(geminiModelFlag, "gemini-1.")) {
+		fmt.Fprintf(os.Stderr, "Error: deprecated Gemini model %q: use gemini-3.5-flash-lite, gemini-3.8-flash, or gemini-4-argon\n", geminiModelFlag)
+		os.Exit(1)
+	}
 
 	binaryPath := resolveBinary(binaryFlag)
 	if binaryPath == "" {

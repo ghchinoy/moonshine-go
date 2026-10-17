@@ -165,6 +165,19 @@ echo "      moonshine-go: Verifying All Samples         "
 echo "=================================================="
 echo ""
 
+# Verify shared samples/run.sh launcher syntax on Unix platforms
+if [[ -f "${SAMPLES_DIR}/run.sh" ]]; then
+  log_info "Verifying shared launcher: samples/run.sh"
+  if bash -n "${SAMPLES_DIR}/run.sh" >/dev/null 2>&1; then
+    log_pass "bash -n samples/run.sh"
+  else
+    log_fail "bash -n samples/run.sh failed"
+    FAILED_COUNT=$((FAILED_COUNT + 1))
+    FAILED_SAMPLES+=("samples/run.sh")
+  fi
+  echo ""
+fi
+
 for sample_path in "${SAMPLES_DIR}"/*; do
   if [[ ! -d "${sample_path}" ]]; then
     continue

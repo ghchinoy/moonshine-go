@@ -27,7 +27,7 @@ const fileMap = {
       tagline: 'Fast on-device Speech-to-Text (10 languages), streaming Text-to-Speech (16 languages), and text embeddings for Go voice agents.',
       actions: [
         { text: '5-Minute Quickstart', link: '/moonshine-go/guides/quickstart/', icon: 'right-arrow', variant: 'primary' },
-        { text: 'Browse 14 Samples', link: '/moonshine-go/samples/', icon: 'external', variant: 'secondary' },
+        { text: 'Browse 15 Samples', link: '/moonshine-go/samples/', icon: 'external', variant: 'secondary' },
         { text: 'View on GitHub', link: 'https://github.com/ghchinoy/moonshine-go', icon: 'github', variant: 'minimal' },
       ],
     },

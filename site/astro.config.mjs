@@ -72,6 +72,7 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { label: 'voice-tmux (terminal control)', slug: 'samples/voice-tmux' },
+                { label: 'voice-mcp-assistant (Gemini + MCP client)', slug: 'samples/voice-mcp-assistant' },
                 { label: 'go-domain-customization', slug: 'samples/go-domain-customization' },
                 { label: 'go-bulk-analysis', slug: 'samples/go-bulk-analysis' },
                 { label: 'go-embedded (in-process STT & TTS)', slug: 'samples/go-embedded' },

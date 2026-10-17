@@ -60,7 +60,7 @@ Every sample in `samples/` self-reports its rating schema in its own `README.md`
 | **Financial Services & Contact Centers** | `grpc-listen` / `go-cascade-faq` | Live agent-assist whisper prompts, trade execution voice confirmation, disclosure logging | Regulatory recordkeeping requires timestamped line events. Money-moving actions require deterministic confirmation, not probabilistic tool calls. |
 | **Industrial IoT & Field Logistics** | `go-cascade-faq` | Hands-free equipment inspection, voice work-orders, safety checklist read-back | Air-gapped deployment functions reliably on remote oil rigs or factory floors without internet connectivity. |
 | **E-Commerce & Kiosks** | `browser-cascade-faq` | Zero-install customer support voice kiosk in browser or tablet | Runs directly in web browsers with Web Audio TTS playback and zero client-side installation. |
-| **Developer Tooling & Sysadmin** | `voice-tmux` / `go-bulk-analysis` / `python-agent` | Voice-driven terminal/tmux control, automated meeting archive indexing, system command execution | Fast-path intent interception allows instant execution ("interrupt", "run command") with logged tool arguments and safety gating. |
+| **Developer Tooling & Sysadmin** | `voice-tmux` / `voice-mcp-assistant` / `go-bulk-analysis` | Voice-driven terminal/tmux control, hands-free MCP repo inspection, automated meeting archive indexing | Fast-path intent interception and read-only MCP tool sandboxing allow safe workspace inspection and command control. |
 
 ---
 
@@ -82,7 +82,7 @@ When building an agent on top of `moonshine serve`, developers choose from three
 |---|---|---|---|
 | **Fast-Path Regex (`IntentMatcher`)** | Zero-dependency regex rules compiled ahead of time; returns synchronous `ActionRequest`s (`session.pause`, `session.resume`, `session.stop`). | Sub-millisecond, 100% deterministic single-shot control actions with no model downloads or prompt turns. | `internal/serve/intent.go` |
 | **Voice Agent DSL (`pkg/agentflow`)** | Go-native voice agent framework ([AgentFlow](https://moonshine.ai/agent-flow/), `PhraseMatcher`, `Dialog`) supporting `Say`, `Ask`, `Confirm`, and `Choose` flows with fuzzy embedding matching. | Structured, multi-turn voice dialogs, prompt retries, confirmation flows, and interactive voice surveys. | `pkg/agentflow`, `samples/go-cascade-faq` (external IPC) & `moonshine serve --agent agentflow` (in-process) |
-| **Spoken LLM Agent (`GeminiAgent`)** | Streaming transcript line passed to a large language model (e.g. Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, or Gemini 4 Argon) with function calling / MCP tools. | Open-ended reasoning, unstructured Q&A, multi-step tool calls, and complex dialogs requiring general intelligence. | `internal/serve/gemini.go` & `samples/python-agent` |
+| **Spoken LLM Agent (`GeminiAgent` / MCP Client)** | Streaming transcript line passed to a large language model (e.g. Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, or Gemini 4 Argon) with function calling / stdio MCP tools. | Open-ended reasoning, unstructured Q&A, multi-step MCP tool calls, and complex dialogs requiring general intelligence. | `samples/voice-mcp-assistant`, `internal/serve/gemini.go` & `samples/python-agent` |
 
 ### Selection Decision Matrix
 
