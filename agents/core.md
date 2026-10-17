@@ -21,22 +21,24 @@ Operational context, architectural invariants, and engineering standards for cod
 
 When evaluating upstream releases in `~/projects/github/moonshine`:
 
-1. **Check Remote Branches & Tags:**
-   Run `git fetch upstream --tags`. Compare your local checkout against `upstream/main` and active `upstream/dev-v*` candidate branches. Ignore benign "would clobber" warnings on historical tags.
-2. **Inspect C API Header Diff:**
+1. **Automated Drift & Asset Check (`make check-upstream`):**
+   Run `make check-upstream` (or `make check-upstream TARGET_REF=dev-v*`). It automatically queries `moonshine-ai/moonshine` remote tags and active dev branches, compares commit logs, checks `core/moonshine-c-api.h` for ABI changes or version bumps, inspects release asset availability, and checks your local checkout status.
+2. **Check Remote Branches & Tags (Manual inspection if needed):**
+   Run `git fetch upstream --tags` in `~/projects/github/moonshine`. Compare your local checkout against `upstream/main` and active `upstream/dev-v*` candidate branches. Ignore benign "would clobber" warnings on historical tags.
+3. **Inspect C API Header Diff:**
    ```sh
    git diff <current_tag>..upstream/dev-v* -- core/moonshine-c-api.h
    ```
    If empty, `MOONSHINE_HEADER_VERSION` is unchanged and zero Go binding modifications are required.
-3. **Audit Active Issues & PRs:**
-   Review active upstream pull requests and issues for known crashes, races, or concurrency limitations (e.g. #223 transcriber destruction race, #229 concurrent Silero VAD state sharing).
-4. **Validate Prebuilt Assets:**
-   Only bump `MOONSHINE_RELEASE_TAG` on officially tagged releases. Validate archive contents, RPATH, and dynamic library presence using:
+4. **Audit Active Issues & PRs:**
+   Review active upstream pull requests and issues for known crashes, races, or concurrency limitations (e.g. #223 transcriber destruction race, #229 concurrent Silero VAD state sharing, #230 word-level confidence).
+5. **Validate Prebuilt Assets:**
+   Only bump `MOONSHINE_RELEASE_TAG` on officially tagged releases with published GitHub Release assets. Validate archive contents, RPATH, and dynamic library presence using:
    ```sh
    scripts/check-release-asset.sh linux-x86_64 <tag>
    scripts/check-release-asset.sh linux-arm64 <tag>
    ```
-5. **Empirical Verification Over Documentation:**
+6. **Empirical Verification Over Documentation:**
    When upstream capability descriptions seem ambiguous or conflict with observed behavior, probe C API behavior empirically with a minimal script rather than assuming older documentation is accurate.
 
 ---

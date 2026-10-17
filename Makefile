@@ -13,7 +13,7 @@ export CGO_ENABLED ?= 1
 # checkout (e.g. building from a source tarball with no .git directory).
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: all build buildlib fetchlib release-package clean test check-nocgo verify-samples smoke bench fmt fmt-fix vet lint proto site-sync site-build site-dev
+.PHONY: all build buildlib fetchlib release-package clean test check-nocgo verify-samples smoke bench fmt fmt-fix vet lint proto site-sync site-build site-dev check-upstream
 
 all: build
 
@@ -23,6 +23,10 @@ build: $(BIN_DIR)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
+
+## check-upstream: Check for upstream moonshine drift, release tags, and C API header compatibility.
+check-upstream:
+	./scripts/check-upstream.sh $(TARGET_REF)
 
 ## buildlib: Build libmoonshine from a local moonshine checkout into .moonshine/lib.
 ##           Usage: make buildlib MOONSHINE_SRC=~/projects/github/moonshine
