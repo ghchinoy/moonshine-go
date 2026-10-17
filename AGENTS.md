@@ -10,6 +10,7 @@ make buildlib MOONSHINE_SRC=~/projects/github/moonshine   # one-time native buil
 make build                                                 # go build -> bin/moonshine
 make test                                                  # go test ./... (no native deps)
 make smoke                                                 # exercises a real libmoonshine.dylib/.so
+make check-upstream                                        # verify upstream tag/asset/C-API drift
 ```
 
 `make smoke` additionally honors:
@@ -63,6 +64,7 @@ bd close <id> --reason "Done"         # Mark complete
 ```
 
 **Repository Gotchas:**
+- **Actor Identity (`BEADS_ACTOR`):** Export `BEADS_ACTOR=moonshine-go-core` (or `moonshine-go-dev`) in your environment. When your actor identity matches the assignee, `bd update --claim` and `bd close` work natively without needing `--force` for assignee mismatches.
+- **Schema Drift & Migrations:** If `bd` warns of schema skew or pending migrations on a remote-backed database, set `export BD_IGNORE_SCHEMA_SKEW=1` (and `BD_ALLOW_REMOTE_MIGRATE=1 bd migrate --force` if designated migrator on binary upgrades).
 - **Pre-commit hook auto-export gotcha:** The git hook auto-re-exports `.beads/issues.jsonl` upon commit (`export.auto: true`). If attempting `git rebase` / `git pull --rebase` immediately after committing, stage the auto-exported `.beads/issues.jsonl` and amend (`git add .beads/issues.jsonl && git commit --amend --no-edit`) before running the rebase.
-- **`bd close --force` for Role Mismatches:** The `bd` tracker requires `--force` when your active actor identity differs from the issue's assignee.
 - **Link Discovered Work:** Always link discovered bugs or tasks with `discovered-from:<parent-id>`.

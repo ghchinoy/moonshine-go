@@ -32,8 +32,8 @@ When evaluating upstream releases in `~/projects/github/moonshine`:
    If empty, `MOONSHINE_HEADER_VERSION` is unchanged and zero Go binding modifications are required.
 4. **Audit Active Issues & PRs:**
    Review active upstream pull requests and issues for known crashes, races, or concurrency limitations (e.g. #223 transcriber destruction race, #229 concurrent Silero VAD state sharing, #230 word-level confidence).
-5. **Validate Prebuilt Assets:**
-   Only bump `MOONSHINE_RELEASE_TAG` on officially tagged releases with published GitHub Release assets. Validate archive contents, RPATH, and dynamic library presence using:
+5. **Validate Prebuilt Assets (Git Tag Pushed ≠ Release Published):**
+   Only bump `MOONSHINE_RELEASE_TAG` on officially tagged releases with published GitHub Release assets. Upstream often pushes a git tag days before compiling and uploading release archives. Never bump the pin if `make check-upstream` or `scripts/check-release-asset.sh` returns HTTP 404 (assets missing). Validate archive contents, RPATH, and dynamic library presence using:
    ```sh
    scripts/check-release-asset.sh linux-x86_64 <tag>
    scripts/check-release-asset.sh linux-arm64 <tag>
@@ -60,6 +60,7 @@ Releases are published intentionally following [docs/RELEASING.md](../docs/RELEA
 - **Hand-Mirrored Struct Layouts (`ctypes.go`):** Struct layouts in `pkg/moonshine/ctypes.go` (`cTranscriptLine`, `cTTSChunk`, `cOption`, etc.) mirror `moonshine-c-api.h` exactly with explicit padding on 64-bit architectures. Re-verify offsets against C `offsetof`/`sizeof` before altering struct fields.
 - **Namespaced Model Storage:** Model downloads are namespaced under `GroupDir(root, group)` in `pkg/moonshine/download.go` (`<model.dir>/<url-path>/`) because different models share identical file stems (`encoder_model.ort`, `decoder_model_merged.ort`). Never flatten the directory layout.
 - **Vector Deallocation Convention:** Memory allocated by `moonshine_calculate_embedding` must be freed with `moonshine_free_embedding` (C `std::free`), NOT `moonshine_free_buffer`.
+- **Language-Specific Architecture Availability:** Non-English languages do not support all model architectures (e.g. German only supports `tiny-streaming` and `small-streaming`; Tagalog only supports `tiny-streaming`). Never assume a language supports non-streaming `tiny` or `base` models; always verify via `moonshine.GetSTTDependencies(lang, arch)` or `moonshine models --language <lang>`.
 
 ---
 
@@ -78,7 +79,9 @@ Releases are published intentionally following [docs/RELEASING.md](../docs/RELEA
 - **Streaming TTS Barge-In State (`TTSStream.Cancel()`):** Calling `stream.Cancel()` aborts active C++ computation, and the immediate subsequent call to `stream.NextChunk()` returns sentinel `ErrCancelled` once. This error must be consumed before pushing a new utterance to reset the synthesizer to idle.
 - **Concurrent Stream VAD Limitation (Upstream #229):** All transcription streams in a process share a single static `SileroVad*` pointer in C++ (`VoiceActivityDetector::silero_vad`). Because Silero VAD carries recurrent RNN state (`_state`, `_context`), simultaneous live streams in a single `moonshine serve` process will corrupt each other's speech detection boundaries. For multi-channel live audio, deploy separate `moonshine serve` worker processes (process-level isolation).
 - **Pause Modes & Wake-Phrase Standby:** `AudioSource.SetMutedFunc` physically mutes mic capture only on hard pause (when no wake phrases are configured). In standby mode (wake phrases supplied via `session.pause` `PauseArgs.Passthrough` or `--wake-phrases`), audio capture remains streaming, interim transcripts are suppressed, and matching wake phrases automatically trigger `sessCtrl.Resume()` and broadcast a `DisplayCard{Kind: "session", Title: "Listening Resumed"}`.
-- **Gemini Model Selection Rule (Never Gemini 2.x):** Across the sidecar daemon, flags, and agents, the default model is **Gemini 3.5 Flash-Lite (`gemini-3.5-flash-lite`)** (`serve.DefaultGeminiModel`), with **Gemini 3.8 Flash (`gemini-3.8-flash`)** and **Gemini 4 Argon (`gemini-4-argon`)** supported. Never default to or reference any `gemini-2.*` model; deprecated 2.x/1.x model names are rejected in `NewRealGeminiClient`.
+- **Gemini Model Selection & Tool Calling Invariants:** Across the sidecar daemon, flags, and agents, the default model is **Gemini 3.5 Flash-Lite (`gemini-3.5-flash-lite`)** (`serve.DefaultGeminiModel`), with **Gemini 3.8 Flash (`gemini-3.8-flash`)** and **Gemini 4 Argon (`gemini-4-argon`)** supported. Never default to or reference any `gemini-2.*` model; deprecated 2.x/1.x model names are rejected in `NewRealGeminiClient`.
+  - **ThoughtSignature Replay:** Gemini 3.5+ and Gemini 4 models attach a cryptographic `part.ThoughtSignature` (and `part.Thought` reasoning parts) to `FunctionCall` candidates. Replaying history without the original `cand.Content` triggers `HTTP 400 INVALID_ARGUMENT`. `RealGeminiClient` caches raw candidate contents and replays them directly on model tool-call turns.
+  - **Filter `part.Thought` from Spoken Responses:** Never read `part.Thought` monologue aloud through TTS; only concatenate `part.Text` where `!part.Thought`.
 
 ---
 
