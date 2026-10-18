@@ -218,6 +218,7 @@ moonshine --json transcribe --with-audio recording.wav > result-with-audio.json
 | `--save-line-audio` | (none) | Save each transcribed line's raw audio and transcript text as individual `.wav`/`.txt` files under this directory (see [Recording and cloning a voice](#recording-and-cloning-a-voice)) |
 | `-c, --concurrency` | `1` | Worker pool concurrency for batch mode (reuses single ONNX model) |
 | `-r, --recursive` | `true` | Recursively scan subdirectories for `.wav` files in batch mode |
+| `--stream-batch` | `false` | Use unpaced VAD stream chunking per file instead of one-shot batch, eliminating cross-file VAD bleed and context truncation on long recordings (automatically active for files > 25s and multi-file batches) |
 | `--json` (global) | `false` | Machine-readable output on stdout instead of styled text |
 
 Currently only `.wav` input is decoded directly. For other formats, convert

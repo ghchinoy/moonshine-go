@@ -30,6 +30,7 @@ any check `[FAIL]`s; `--json` gives `{"checks": [{"name", "status",
 | `--with-audio`     | `false`             | (none)            | Include each line's raw per-line audio samples in `--json` output. Large; leave off unless the caller specifically needs raw samples. |
 | `--identify-speakers` | `false`          | (none)            | Enable speaker diarization: adds a `speaker_spans` array per line in `--json`, and prefixes text output with a speaker label like `[S0]`. Adds significant compute; implies `--word-timestamps`. |
 | `--word-timestamps` | `false`            | (none)            | Enable per-word timing: adds a `words` array per line in `--json` (`{text, start, end, confidence}`). |
+| `--stream-batch`    | `false`            | (none)            | Use unpaced VAD stream chunking per file instead of one-shot batch, eliminating cross-file VAD bleed and context truncation on long recordings (automatically active for files > 25s and multi-file batches). |
 | `-o, --output`     | `""`                | (none)            | Also write the transcript to this file, in addition to stdout. Plain text `[  0.00s] text` lines, or the same JSON shape as `--json` stdout if `--json` is also set. |
 | `--json` (global)  | `false`             | `output.json`     | Root-level persistent flag (also works on other subcommands). Always use this when parsing output programmatically. |
 | `--lib-dir` (global) | `""` (see below)  | `lib.dir`         | Directory containing `libmoonshine.{dylib,so}`. Default: `$MOONSHINE_LIB_DIR`, else `./.moonshine/lib`. |

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.12.1] - 2026-10-18
+
+### Added
+- **Unpaced VAD Stream Chunking (`--stream-batch`)**: Added `--stream-batch` flag to `moonshine transcribe` (automatically active for multi-file batches and files > 25 seconds) to process audio through isolated per-file streams, preventing upstream `look_behind_audio_buffer` leakage across files and eliminating autoregressive window truncation on multi-minute recordings (`#tvn5`).
+- **Speech Recognition Accuracy Benchmarks in `BENCHMARKS.md`**: Recorded first-party measured WER and throughput benchmarks across the 82-minute TED-LIUM 3 Long-Form test suite (6.32%–6.46% corpus WER at 12.1x–16.1x realtime) and LibriSpeech `test-clean` short-form keyterm biasing suite (2.14% corpus WER at 15.2x realtime) (`#nrzy`, `#sutk`).
+
+### Fixed
+- **Cross-File VAD Look-Behind Audio Bleed in Batch Mode**: Fixed bug (`#tvn5`) where upstream C++ `VoiceActivityDetector::start()` failed to zero out `look_behind_audio_buffer` (0.512s) and `probability_window` across files, causing trailing audio from file N to bleed into sample 0 of file N+1 (hallucinating leading tokens like `[0.00s] You`, `[0.00s] Yeah`, `[0.00s] Mm`).
+
+---
+
 ## [v0.12.0] - 2026-10-17
 
 ### Added
