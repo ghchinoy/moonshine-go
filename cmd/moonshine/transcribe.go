@@ -32,6 +32,7 @@ var (
 	transcribeKeytermBoost     float64
 	transcribeContext          string
 	transcribeContextFile      string
+	transcribeStreamBatch      bool
 )
 
 var transcribeCmd = &cobra.Command{
@@ -66,6 +67,7 @@ func init() {
 	transcribeCmd.Flags().Float64Var(&transcribeKeytermBoost, "keyterm-boost", 2.0, "Keyterm biasing boost strength (default: 2.0; streaming models only)")
 	transcribeCmd.Flags().StringVar(&transcribeContext, "context", "", "Passage of free-form text from which key terms are automatically extracted (streaming models only)")
 	transcribeCmd.Flags().StringVar(&transcribeContextFile, "context-file", "", "Path to file containing free-form context text for keyterm extraction (streaming models only)")
+	transcribeCmd.Flags().BoolVar(&transcribeStreamBatch, "stream-batch", false, "Use unpaced VAD stream chunking per file instead of one-shot batch, eliminating cross-file VAD bleed and context truncation on long files")
 }
 
 type transcribeStats struct {
@@ -279,7 +281,7 @@ func runSingleTranscribe(cmd *cobra.Command, input string) error {
 	t0 = time.Now()
 	if err := withProgress(fmt.Sprintf("transcribing %.1fs of audio", stats.AudioDurationSec), func() error {
 		var derr error
-		transcript, derr = tr.Transcribe(samples, audio.TargetSampleRate, 0)
+		transcript, derr = transcribeAudioSamples(tr, samples, audio.TargetSampleRate, transcribeStreamBatch || stats.AudioDurationSec > 25.0)
 		return derr
 	}); err != nil {
 		return err
@@ -337,6 +339,38 @@ func runSingleTranscribe(cmd *cobra.Command, input string) error {
 		fmt.Fprintf(os.Stderr, "%s %s\n", muted("saved:"), transcribeOutput)
 	}
 	return nil
+}
+
+func transcribeAudioSamples(tr *moonshine.Transcriber, samples []float32, sampleRate int, streamMode bool) (moonshine.Transcript, error) {
+	// When streamMode is requested (or in batch mode to prevent cross-file VAD look-behind buffer
+	// bleed), transcribe via an isolated Stream feeding 100ms unpaced slices.
+	sr32 := int32(sampleRate)
+	if streamMode {
+		stream, err := tr.NewStream(0)
+		if err == nil {
+			defer stream.Close()
+			if err := stream.Start(); err == nil {
+				chunkSize := sampleRate / 10 // 100ms
+				if chunkSize <= 0 {
+					chunkSize = 1600
+				}
+				for i := 0; i < len(samples); i += chunkSize {
+					end := i + chunkSize
+					if end > len(samples) {
+						end = len(samples)
+					}
+					if err := stream.AddAudio(samples[i:end], sr32); err != nil {
+						return tr.Transcribe(samples, sr32, 0)
+					}
+				}
+				if err := stream.Stop(); err == nil {
+					return stream.Transcribe(moonshine.FlagForceUpdate)
+				}
+			}
+		}
+	}
+
+	return tr.Transcribe(samples, sr32, 0)
 }
 
 func runBatchTranscribe(cmd *cobra.Command, inputs []string) error {
@@ -477,7 +511,7 @@ func processBatchItem(cmd *cobra.Command, tr *moonshine.Transcriber, input strin
 	audioSec := float64(len(samples)) / float64(audio.TargetSampleRate)
 
 	t0 = time.Now()
-	transcript, err := tr.Transcribe(samples, audio.TargetSampleRate, 0)
+	transcript, err := transcribeAudioSamples(tr, samples, audio.TargetSampleRate, true)
 	if err != nil {
 		res.Status = "failed"
 		res.Error = err.Error()
