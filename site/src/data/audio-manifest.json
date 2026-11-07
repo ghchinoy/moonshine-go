@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-26T15:52:13Z",
+  "generated_at": "2026-11-07T21:53:49Z",
   "base_url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio",
   "voices": [
     {
@@ -22,16 +22,32 @@
       "id": "piper_en_US-amy-low",
       "label": "Piper - American Female (Amy Low)",
       "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
-      "file": "piper_en_US-amy-low-68460008.mp3",
-      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/piper_en_US-amy-low-68460008.mp3"
+      "file": "piper_en_US-amy-low-7564c9b5.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/piper_en_US-amy-low-7564c9b5.mp3"
     }
 ,
     {
       "id": "piper_en_US-lessac-medium",
       "label": "Piper - American English (Lessac Medium)",
       "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
-      "file": "piper_en_US-lessac-medium-1c83824e.mp3",
-      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/piper_en_US-lessac-medium-1c83824e.mp3"
+      "file": "piper_en_US-lessac-medium-00c8c6b3.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/piper_en_US-lessac-medium-00c8c6b3.mp3"
+    }
+,
+    {
+      "id": "phonon_zoey",
+      "label": "Phonon 31M - American Female (Zoey)",
+      "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
+      "file": "phonon_zoey-4bf0952a.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/phonon_zoey-4bf0952a.mp3"
+    }
+,
+    {
+      "id": "phonon_alfie",
+      "label": "Phonon 31M - British Male (Alfie)",
+      "text": "Streaming transcription and speech synthesis make voice cascades viable again.",
+      "file": "phonon_alfie-1b0a1cde.mp3",
+      "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/phonon_alfie-1b0a1cde.mp3"
     }
 
   ],
@@ -41,12 +57,12 @@
     "oneshot": {
       "file": "tts_oneshot-3ff29282.mp3",
       "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/tts_oneshot-3ff29282.mp3",
-      "ttfa_ms": 791
+      "ttfa_ms": 886
     },
     "streaming": {
       "file": "tts_streaming-85f5343f.mp3",
       "url": "https://storage.googleapis.com/moonshine-ports-site-assets/moonshine-go/audio/tts_streaming-85f5343f.mp3",
-      "ttfa_ms": 228
+      "ttfa_ms": 227
     }
   },
   "stt_demo": {

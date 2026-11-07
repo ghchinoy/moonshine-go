@@ -643,7 +643,7 @@ func BenchmarkInProcessTTSOneShot(b *testing.B) {
 	}
 	ttsRoot := resolveTTSRootBench(b)
 
-	voices := []string{"piper_en_US-amy-low", "kokoro_af_heart"}
+	voices := []string{"piper_en_US-amy-low", "kokoro_af_heart", "phonon_zoey"}
 
 	for _, voice := range voices {
 		b.Run(voice, func(b *testing.B) {
@@ -683,7 +683,7 @@ func BenchmarkInProcessTTSStreamingTTFA(b *testing.B) {
 	}
 	ttsRoot := resolveTTSRootBench(b)
 
-	voices := []string{"piper_en_US-amy-low", "kokoro_af_heart"}
+	voices := []string{"piper_en_US-amy-low", "kokoro_af_heart", "phonon_zoey"}
 
 	for _, voice := range voices {
 		b.Run(voice, func(b *testing.B) {

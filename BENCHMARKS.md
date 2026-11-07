@@ -73,8 +73,10 @@ Moonshine v0.1.5 introduces sub-sentence acoustic chunking for text-to-speech. M
 ```
 BenchmarkInProcessTTSOneShot/piper_en_US-amy-low-10         220.9 ms/op      898 KB/op     14 allocs/op
 BenchmarkInProcessTTSOneShot/kokoro_af_heart-10            2034.3 ms/op     1172 KB/op     14 allocs/op
+BenchmarkInProcessTTSOneShot/phonon_zoey-10                 570.4 ms/op      918 KB/op     14 allocs/op
 BenchmarkInProcessTTSStreamingTTFA/piper_en_US-amy-low-10    43.6 ms/op       59 KB/op     31 allocs/op
 BenchmarkInProcessTTSStreamingTTFA/kokoro_af_heart-10       190.6 ms/op       59 KB/op     31 allocs/op
+BenchmarkInProcessTTSStreamingTTFA/phonon_zoey-10            51.5 ms/op       67 KB/op     30 allocs/op
 ```
 
 ### TTS Latency Profile
@@ -82,9 +84,10 @@ BenchmarkInProcessTTSStreamingTTFA/kokoro_af_heart-10       190.6 ms/op       59
 | Engine / Model | Voice ID | One-Shot TTFA | Streaming TTFA | Latency Reduction (TTFA) | Speedup Factor |
 |---|---|---|---|---|---|
 | **Kokoro-82M** | `kokoro_af_heart` | **2,034ms** | **191ms** | **1,843ms saved** | **10.6x faster** initial playback |
+| **Phonon-31M** | `phonon_zoey` | **570ms** | **51ms** | **519ms saved** | **11.1x faster** initial playback |
 | **Piper** | `piper_en_US-amy-low` | **221ms** | **44ms** | **177ms saved** | **5.0x faster** initial playback |
 
-> **Architectural Takeaway:** Streaming TTS with Kokoro cuts user-perceived voice response latency by over 1.8 seconds on Apple Silicon, enabling conversational agents to start speaking in under 200ms.
+> **Architectural Takeaway:** Streaming TTS with Kokoro cuts user-perceived voice response latency by over 1.8 seconds on Apple Silicon (`191ms` TTFA), while Phonon-31M (`v0.1.6`) delivers 80ms Mimi codec streaming with a **51ms Time-to-First-Audio (11.1x faster than one-shot)**.
 
 ---
 

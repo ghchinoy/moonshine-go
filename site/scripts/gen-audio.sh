@@ -26,6 +26,8 @@ VOICES=(
   "kokoro_am_adam|Kokoro - American Male (Adam)"
   "piper_en_US-amy-low|Piper - American Female (Amy Low)"
   "piper_en_US-lessac-medium|Piper - American English (Lessac Medium)"
+  "phonon_zoey|Phonon 31M - American Female (Zoey)"
+  "phonon_alfie|Phonon 31M - British Male (Alfie)"
 )
 
 MANIFEST_JSON="$SITE_DIR/src/data/audio-manifest.json"
@@ -44,7 +46,11 @@ for item in "${VOICES[@]}"; do
   RAW_MP3="$TMP_DIR/raw_${VOICE_ID}.mp3"
 
   echo "  --> Synthesizing $VOICE_ID..."
-  "$REPO_ROOT/bin/moonshine" tts "$SENTENCE" --voice "$VOICE_ID" --g2p-root "$TTS_ROOT" -o "$WAV_FILE"
+  if [[ "$VOICE_ID" == phonon_* ]]; then
+    "$REPO_ROOT/bin/moonshine" tts "$SENTENCE" --voice "$VOICE_ID" --phonon-temperature 0 --g2p-root "$TTS_ROOT" -o "$WAV_FILE"
+  else
+    "$REPO_ROOT/bin/moonshine" tts "$SENTENCE" --voice "$VOICE_ID" --g2p-root "$TTS_ROOT" -o "$WAV_FILE"
+  fi
 
   ffmpeg -hide_banner -loglevel error -i "$WAV_FILE" -c:a libmp3lame -b:a 96k "$RAW_MP3" -y
 
