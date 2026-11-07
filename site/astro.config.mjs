@@ -1,11 +1,51 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, fontProviders } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
 
 export default defineConfig({
   site: 'https://ghchinoy.github.io',
   base: '/moonshine-go',
+  fonts: [
+    {
+      // Google Sans Flex (OFL), self-hosted so the site makes zero requests to fonts.googleapis.com.
+      provider: fontProviders.local(),
+      name: 'Google Sans Flex',
+      cssVariable: '--font-display',
+      fallbacks: ['system-ui', '-apple-system', 'sans-serif'],
+      options: {
+        variants: [
+          {
+            weight: '100 1000',
+            style: 'normal',
+            display: 'swap',
+            src: ['./src/assets/fonts/google-sans-flex.woff2'],
+          },
+        ],
+      },
+    },
+    {
+      provider: fontProviders.local(),
+      name: 'Google Sans Code',
+      cssVariable: '--font-mono',
+      fallbacks: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      options: {
+        variants: [
+          {
+            weight: '300 800',
+            style: 'normal',
+            display: 'swap',
+            src: ['./src/assets/fonts/google-sans-code.woff2'],
+          },
+        ],
+      },
+    },
+  ],
+  vite: {
+    build: {
+      cssTarget: 'esnext',
+    },
+  },
   integrations: [
     starlight({
       title: 'moonshine-go',
@@ -19,6 +59,7 @@ export default defineConfig({
       ],
       components: {
         Head: './src/components/CustomHead.astro',
+        Hero: './src/components/Hero.astro',
       },
       sidebar: [
         {

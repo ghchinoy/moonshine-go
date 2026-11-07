@@ -1,198 +1,197 @@
 ---
-// Static SVG benchmark charts from BENCHMARKS.md empirical data
+// Static SVG benchmark charts from BENCHMARKS.md empirical data,
+// themed with GM3 / Elephant-Goldfish surface and tonal tokens so both
+// light and dark schemes render with native contrast.
 ---
 
 <div class="benchmark-charts">
   <div class="chart-container">
     <h4>Time-to-First-Audio (TTFA) Latency Comparison (Lower is Better)</h4>
     <svg viewBox="0 0 600 220" class="chart-svg" xmlns="http://www.w3.org/2000/svg">
-      <!-- Background & Grid -->
-      <rect width="600" height="220" fill="var(--sl-color-gray-6)" rx="8" />
+      <rect width="600" height="220" fill="var(--md-sys-color-surface-container-low)" rx="14" />
       
-      <!-- Axis lines -->
-      <line x1="160" y1="20" x2="160" y2="180" stroke="var(--sl-color-gray-5)" stroke-width="2" />
-      <line x1="160" y1="180" x2="560" y2="180" stroke="var(--sl-color-gray-5)" stroke-width="2" />
+      <line x1="160" y1="20" x2="160" y2="180" stroke="var(--md-sys-color-outline-variant)" stroke-width="1.5" />
+      <line x1="160" y1="180" x2="560" y2="180" stroke="var(--md-sys-color-outline-variant)" stroke-width="1.5" />
       
-      <!-- Scale marks -->
-      <text x="160" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">0ms</text>
-      <text x="260" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">500ms</text>
-      <text x="360" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">1000ms</text>
-      <text x="460" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">1500ms</text>
-      <text x="560" y="198" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">2000ms</text>
+      <text x="160" y="198" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">0ms</text>
+      <text x="260" y="198" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">500ms</text>
+      <text x="360" y="198" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">1000ms</text>
+      <text x="460" y="198" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">1500ms</text>
+      <text x="560" y="198" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">2000ms</text>
 
-      <!-- Grid lines -->
-      <line x1="260" y1="20" x2="260" y2="180" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="360" y1="20" x2="360" y2="180" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="460" y1="20" x2="460" y2="180" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="560" y1="20" x2="560" y2="180" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="260" y1="20" x2="260" y2="180" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="360" y1="20" x2="360" y2="180" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="460" y1="20" x2="460" y2="180" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="560" y1="20" x2="560" y2="180" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
 
       <!-- Kokoro One-shot: 2034ms -->
-      <text x="150" y="52" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Kokoro One-Shot</text>
-      <rect x="160" y="38" width="395" height="20" fill="#ef4444" rx="4" />
-      <text x="565" y="53" fill="var(--sl-color-white)" font-size="11" font-weight="600">2,034ms</text>
+      <text x="150" y="52" fill="var(--md-sys-color-on-surface)" font-size="12" font-weight="500" text-anchor="end">Kokoro One-Shot</text>
+      <rect x="160" y="38" width="395" height="20" fill="var(--egm-color-goldfish)" rx="6" />
+      <text x="563" y="53" fill="var(--md-sys-color-on-surface-variant)" font-size="11" font-weight="500">2,034ms</text>
 
       <!-- Kokoro Streaming: 191ms -->
-      <text x="150" y="82" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Kokoro Streaming</text>
-      <rect x="160" y="68" width="38" height="20" fill="#22c55e" rx="4" />
-      <text x="208" y="83" fill="#86efac" font-size="11" font-weight="600">191ms (10.6x faster)</text>
+      <text x="150" y="82" fill="var(--md-sys-color-on-surface)" font-size="12" font-weight="500" text-anchor="end">Kokoro Streaming</text>
+      <rect x="160" y="68" width="38" height="20" fill="var(--egm-color-elephant)" rx="6" />
+      <text x="208" y="83" fill="var(--egm-color-elephant)" font-size="11" font-weight="600">191ms (10.6x faster)</text>
 
       <!-- Piper One-shot: 221ms -->
-      <text x="150" y="127" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Piper One-Shot</text>
-      <rect x="160" y="113" width="44" height="20" fill="#f97316" rx="4" />
-      <text x="214" y="128" fill="var(--sl-color-white)" font-size="11" font-weight="600">221ms</text>
+      <text x="150" y="127" fill="var(--md-sys-color-on-surface)" font-size="12" font-weight="500" text-anchor="end">Piper One-Shot</text>
+      <rect x="160" y="113" width="44" height="20" fill="var(--md-sys-color-outline)" rx="6" />
+      <text x="214" y="128" fill="var(--md-sys-color-on-surface-variant)" font-size="11" font-weight="500">221ms</text>
 
       <!-- Piper Streaming: 44ms -->
-      <text x="150" y="157" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Piper Streaming</text>
-      <rect x="160" y="143" width="12" height="20" fill="#3b82f6" rx="4" />
-      <text x="182" y="158" fill="#93c5fd" font-size="11" font-weight="600">44ms (5.0x faster)</text>
+      <text x="150" y="157" fill="var(--md-sys-color-on-surface)" font-size="12" font-weight="500" text-anchor="end">Piper Streaming</text>
+      <rect x="160" y="143" width="12" height="20" fill="var(--ms-color-emerald)" rx="6" />
+      <text x="182" y="158" fill="var(--ms-color-emerald)" font-size="11" font-weight="600">44ms (5.0x faster)</text>
     </svg>
   </div>
 
   <div class="chart-container">
     <h4>Speech-to-Text Throughput (Apple M5, CPU-Only, Higher is Better)</h4>
     <svg viewBox="0 0 600 170" class="chart-svg" xmlns="http://www.w3.org/2000/svg">
-      <rect width="600" height="170" fill="var(--sl-color-gray-6)" rx="8" />
+      <rect width="600" height="170" fill="var(--md-sys-color-surface-container-low)" rx="14" />
       
-      <line x1="180" y1="20" x2="180" y2="130" stroke="var(--sl-color-gray-5)" stroke-width="2" />
-      <line x1="180" y1="130" x2="560" y2="130" stroke="var(--sl-color-gray-5)" stroke-width="2" />
+      <line x1="180" y1="20" x2="180" y2="130" stroke="var(--md-sys-color-outline-variant)" stroke-width="1.5" />
+      <line x1="180" y1="130" x2="560" y2="130" stroke="var(--md-sys-color-outline-variant)" stroke-width="1.5" />
       
-      <text x="180" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">0x</text>
-      <text x="275" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">20x</text>
-      <text x="370" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">40x</text>
-      <text x="465" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">60x</text>
-      <text x="560" y="148" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">80x</text>
+      <text x="180" y="148" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">0x</text>
+      <text x="275" y="148" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">20x</text>
+      <text x="370" y="148" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">40x</text>
+      <text x="465" y="148" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">60x</text>
+      <text x="560" y="148" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">80x</text>
 
-      <line x1="275" y1="20" x2="275" y2="130" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="370" y1="20" x2="370" y2="130" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="465" y1="20" x2="465" y2="130" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="560" y1="20" x2="560" y2="130" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="275" y1="20" x2="275" y2="130" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="370" y1="20" x2="370" y2="130" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="465" y1="20" x2="465" y2="130" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="560" y1="20" x2="560" y2="130" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
 
       <!-- Batch Transcribe: 71.3x Realtime -->
-      <text x="170" y="57" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Batch In-Process</text>
-      <rect x="180" y="40" width="338" height="26" fill="#6366f1" rx="4" />
-      <text x="528" y="57" fill="#c7d2fe" font-size="11" font-weight="600">71.3x (RTF 0.014)</text>
+      <text x="170" y="57" fill="var(--md-sys-color-on-surface)" font-size="12" font-weight="500" text-anchor="end">Batch In-Process</text>
+      <rect x="180" y="40" width="338" height="26" fill="var(--egm-color-elephant)" rx="6" />
+      <text x="526" y="57" fill="var(--egm-color-elephant)" font-size="11" font-weight="600">71.3x</text>
 
       <!-- Streaming Session: 12.9x Realtime -->
-      <text x="170" y="102" fill="var(--sl-color-white)" font-size="12" font-weight="600" text-anchor="end">Streaming Session</text>
-      <rect x="180" y="85" width="61" height="26" fill="#10b981" rx="4" />
-      <text x="251" y="102" fill="#a7f3d0" font-size="11" font-weight="600">12.9x (RTF 0.078)</text>
+      <text x="170" y="102" fill="var(--md-sys-color-on-surface)" font-size="12" font-weight="500" text-anchor="end">Streaming Session</text>
+      <rect x="180" y="85" width="61" height="26" fill="var(--ms-color-emerald)" rx="6" />
+      <text x="251" y="102" fill="var(--ms-color-emerald)" font-size="11" font-weight="600">12.9x (RTF 0.078)</text>
     </svg>
   </div>
 
   <div class="chart-container">
     <h4>v0.1.6 English Streaming Republish Speedup (44.4s Two Cities, Apple M5, Lower is Better)</h4>
     <svg viewBox="0 0 600 230" class="chart-svg" xmlns="http://www.w3.org/2000/svg">
-      <rect width="600" height="230" fill="var(--sl-color-gray-6)" rx="8" />
+      <rect width="600" height="230" fill="var(--md-sys-color-surface-container-low)" rx="14" />
 
-      <line x1="165" y1="20" x2="165" y2="190" stroke="var(--sl-color-gray-5)" stroke-width="2" />
-      <line x1="165" y1="190" x2="565" y2="190" stroke="var(--sl-color-gray-5)" stroke-width="2" />
+      <line x1="165" y1="20" x2="165" y2="190" stroke="var(--md-sys-color-outline-variant)" stroke-width="1.5" />
+      <line x1="165" y1="190" x2="565" y2="190" stroke="var(--md-sys-color-outline-variant)" stroke-width="1.5" />
 
       <!-- Scale: 0 to 3500ms (400px width -> ~0.1143px/ms) -->
-      <text x="165" y="208" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">0ms</text>
-      <text x="279" y="208" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">1000ms</text>
-      <text x="394" y="208" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">2000ms</text>
-      <text x="508" y="208" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">3000ms</text>
+      <text x="165" y="208" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">0ms</text>
+      <text x="279" y="208" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">1000ms</text>
+      <text x="394" y="208" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">2000ms</text>
+      <text x="508" y="208" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">3000ms</text>
 
-      <line x1="279" y1="20" x2="279" y2="190" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="394" y1="20" x2="394" y2="190" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="508" y1="20" x2="508" y2="190" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="279" y1="20" x2="279" y2="190" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="394" y1="20" x2="394" y2="190" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="508" y1="20" x2="508" y2="190" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
 
       <!-- tiny-streaming: 1497ms -> 876ms (-41%) -->
-      <text x="155" y="48" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">tiny-streaming (old)</text>
-      <rect x="165" y="35" width="171" height="16" fill="#64748b" rx="3" />
-      <text x="344" y="47" fill="var(--sl-color-gray-3)" font-size="10">1,497ms (29.6x RT)</text>
+      <text x="155" y="48" fill="var(--md-sys-color-on-surface-variant)" font-size="11" font-weight="500" text-anchor="end">tiny-streaming (old)</text>
+      <rect x="165" y="35" width="171" height="16" fill="var(--md-sys-color-outline)" rx="4" />
+      <text x="344" y="47" fill="var(--md-sys-color-on-surface-variant)" font-size="10">1,497ms (29.6x RT)</text>
 
-      <text x="155" y="68" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">tiny-streaming (v0.1.6)</text>
-      <rect x="165" y="55" width="100" height="16" fill="#22c55e" rx="3" />
-      <text x="273" y="67" fill="#86efac" font-size="11" font-weight="600">876ms (50.7x RT, -41%)</text>
+      <text x="155" y="68" fill="var(--md-sys-color-on-surface)" font-size="11" font-weight="500" text-anchor="end">tiny-streaming (v0.1.6)</text>
+      <rect x="165" y="55" width="100" height="16" fill="var(--ms-color-emerald)" rx="4" />
+      <text x="273" y="67" fill="var(--ms-color-emerald)" font-size="11" font-weight="600">876ms (50.7x RT, -41%)</text>
 
       <!-- small-streaming: 2320ms -> 1877ms (-19%) -->
-      <text x="155" y="103" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">small-streaming (old)</text>
-      <rect x="165" y="90" width="265" height="16" fill="#64748b" rx="3" />
-      <text x="438" y="102" fill="var(--sl-color-gray-3)" font-size="10">2,320ms (19.1x RT)</text>
+      <text x="155" y="103" fill="var(--md-sys-color-on-surface-variant)" font-size="11" font-weight="500" text-anchor="end">small-streaming (old)</text>
+      <rect x="165" y="90" width="265" height="16" fill="var(--md-sys-color-outline)" rx="4" />
+      <text x="438" y="102" fill="var(--md-sys-color-on-surface-variant)" font-size="10">2,320ms (19.1x RT)</text>
 
-      <text x="155" y="123" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">small-streaming (v0.1.6)</text>
-      <rect x="165" y="110" width="215" height="16" fill="#3b82f6" rx="3" />
-      <text x="388" y="122" fill="#93c5fd" font-size="11" font-weight="600">1,877ms (23.6x RT, -19%)</text>
+      <text x="155" y="123" fill="var(--md-sys-color-on-surface)" font-size="11" font-weight="500" text-anchor="end">small-streaming (v0.1.6)</text>
+      <rect x="165" y="110" width="215" height="16" fill="var(--egm-color-elephant)" rx="4" />
+      <text x="388" y="122" fill="var(--egm-color-elephant)" font-size="11" font-weight="600">1,877ms (23.6x RT, -19%)</text>
 
       <!-- medium-streaming: 3337ms -> 2986ms (-10.5%) -->
-      <text x="155" y="158" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">medium-streaming (old)</text>
-      <rect x="165" y="145" width="381" height="16" fill="#64748b" rx="3" />
-      <text x="552" y="157" fill="var(--sl-color-gray-3)" font-size="10">3,337ms</text>
+      <text x="155" y="158" fill="var(--md-sys-color-on-surface-variant)" font-size="11" font-weight="500" text-anchor="end">medium-streaming (old)</text>
+      <rect x="165" y="145" width="381" height="16" fill="var(--md-sys-color-outline)" rx="4" />
+      <text x="552" y="157" fill="var(--md-sys-color-on-surface-variant)" font-size="10">3,337ms</text>
 
-      <text x="155" y="178" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">medium-streaming (v0.1.6)</text>
-      <rect x="165" y="165" width="341" height="16" fill="#a855f7" rx="3" />
-      <text x="514" y="177" fill="#d8b4fe" font-size="11" font-weight="600">2,986ms (-10.5%)</text>
+      <text x="155" y="178" fill="var(--md-sys-color-on-surface)" font-size="11" font-weight="500" text-anchor="end">medium-streaming (v0.1.6)</text>
+      <rect x="165" y="165" width="341" height="16" fill="var(--egm-color-goldfish)" rx="4" />
+      <text x="514" y="177" fill="var(--egm-color-goldfish)" font-size="11" font-weight="600">2,986ms (-10.5%)</text>
     </svg>
   </div>
 
   <div class="chart-container">
     <h4>Speech Recognition Word Error Rate (WER — Lower is Better)</h4>
     <svg viewBox="0 0 600 215" class="chart-svg" xmlns="http://www.w3.org/2000/svg">
-      <rect width="600" height="215" fill="var(--sl-color-gray-6)" rx="8" />
+      <rect width="600" height="215" fill="var(--md-sys-color-surface-container-low)" rx="14" />
 
-      <line x1="205" y1="20" x2="205" y2="175" stroke="var(--sl-color-gray-5)" stroke-width="2" />
-      <line x1="205" y1="175" x2="555" y2="175" stroke="var(--sl-color-gray-5)" stroke-width="2" />
+      <line x1="205" y1="20" x2="205" y2="175" stroke="var(--md-sys-color-outline-variant)" stroke-width="1.5" />
+      <line x1="205" y1="175" x2="555" y2="175" stroke="var(--md-sys-color-outline-variant)" stroke-width="1.5" />
 
       <!-- Scale: 0% to 10% WER (350px width -> 35px per 1%) -->
-      <text x="205" y="193" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">0%</text>
-      <text x="275" y="193" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">2%</text>
-      <text x="345" y="193" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">4%</text>
-      <text x="415" y="193" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">6%</text>
-      <text x="485" y="193" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">8%</text>
-      <text x="555" y="193" fill="var(--sl-color-gray-3)" font-size="11" text-anchor="middle">10%</text>
+      <text x="205" y="193" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">0%</text>
+      <text x="275" y="193" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">2%</text>
+      <text x="345" y="193" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">4%</text>
+      <text x="415" y="193" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">6%</text>
+      <text x="485" y="193" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">8%</text>
+      <text x="555" y="193" fill="var(--md-sys-color-on-surface-variant)" font-size="11" text-anchor="middle">10%</text>
 
-      <line x1="275" y1="20" x2="275" y2="175" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="345" y1="20" x2="345" y2="175" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="415" y1="20" x2="415" y2="175" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="485" y1="20" x2="485" y2="175" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
-      <line x1="555" y1="20" x2="555" y2="175" stroke="var(--sl-color-gray-5)" stroke-dasharray="3 3" />
+      <line x1="275" y1="20" x2="275" y2="175" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="345" y1="20" x2="345" y2="175" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="415" y1="20" x2="415" y2="175" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="485" y1="20" x2="485" y2="175" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
+      <line x1="555" y1="20" x2="555" y2="175" stroke="var(--md-sys-color-outline-variant)" stroke-dasharray="3 3" />
 
       <!-- LibriSpeech medium-streaming: 2.14% -->
-      <text x="195" y="45" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">LibriSpeech (medium-streaming)</text>
-      <rect x="205" y="31" width="75" height="18" fill="#22c55e" rx="4" />
-      <text x="288" y="44" fill="#86efac" font-size="11" font-weight="600">2.14% WER (15.2x RT)</text>
+      <text x="195" y="45" fill="var(--md-sys-color-on-surface)" font-size="11" font-weight="500" text-anchor="end">LibriSpeech (medium-streaming)</text>
+      <rect x="205" y="31" width="75" height="18" fill="var(--ms-color-emerald)" rx="4" />
+      <text x="288" y="44" fill="var(--ms-color-emerald)" font-size="11" font-weight="600">2.14% WER (15.2x RT)</text>
 
       <!-- LibriSpeech tiny-streaming: 4.63% -->
-      <text x="195" y="73" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">LibriSpeech (tiny-streaming)</text>
-      <rect x="205" y="59" width="162" height="18" fill="#3b82f6" rx="4" />
-      <text x="375" y="72" fill="#93c5fd" font-size="11" font-weight="600">4.63% WER (49.5x RT)</text>
+      <text x="195" y="73" fill="var(--md-sys-color-on-surface)" font-size="11" font-weight="500" text-anchor="end">LibriSpeech (tiny-streaming)</text>
+      <rect x="205" y="59" width="162" height="18" fill="var(--egm-color-elephant)" rx="4" />
+      <text x="375" y="72" fill="var(--egm-color-elephant)" font-size="11" font-weight="600">4.63% WER (49.5x RT)</text>
 
       <!-- TED-LIUM 3 (82m) small-streaming: 6.32% -->
-      <text x="195" y="105" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">TED-LIUM 82m (small-streaming)</text>
-      <rect x="205" y="91" width="221" height="18" fill="#10b981" rx="4" />
-      <text x="434" y="104" fill="#a7f3d0" font-size="11" font-weight="600">6.32% WER</text>
+      <text x="195" y="105" fill="var(--md-sys-color-on-surface)" font-size="11" font-weight="500" text-anchor="end">TED-LIUM 82m (small-streaming)</text>
+      <rect x="205" y="91" width="221" height="18" fill="var(--ms-color-emerald)" rx="4" />
+      <text x="434" y="104" fill="var(--ms-color-emerald)" font-size="11" font-weight="600">6.32% WER</text>
 
       <!-- TED-LIUM 3 (82m) medium-streaming: 6.46% -->
-      <text x="195" y="133" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">TED-LIUM 82m (medium-streaming)</text>
-      <rect x="205" y="119" width="226" height="18" fill="#6366f1" rx="4" />
-      <text x="439" y="132" fill="#c7d2fe" font-size="11" font-weight="600">6.46% WER (12.1x RT)</text>
+      <text x="195" y="133" fill="var(--md-sys-color-on-surface)" font-size="11" font-weight="500" text-anchor="end">TED-LIUM 82m (medium-streaming)</text>
+      <rect x="205" y="119" width="226" height="18" fill="var(--egm-color-elephant)" rx="4" />
+      <text x="439" y="132" fill="var(--egm-color-elephant)" font-size="11" font-weight="600">6.46% WER (12.1x RT)</text>
 
       <!-- TED-LIUM 3 (82m) tiny-streaming: 9.32% -->
-      <text x="195" y="161" fill="var(--sl-color-white)" font-size="11" font-weight="600" text-anchor="end">TED-LIUM 82m (tiny-streaming)</text>
-      <rect x="205" y="147" width="326" height="18" fill="#f59e0b" rx="4" />
-      <text x="536" y="160" fill="#fde68a" font-size="10" font-weight="600">9.32%</text>
+      <text x="195" y="161" fill="var(--md-sys-color-on-surface)" font-size="11" font-weight="500" text-anchor="end">TED-LIUM 82m (tiny-streaming)</text>
+      <rect x="205" y="147" width="326" height="18" fill="var(--egm-color-goldfish)" rx="4" />
+      <text x="536" y="160" fill="var(--egm-color-goldfish)" font-size="10" font-weight="600">9.32%</text>
     </svg>
   </div>
 </div>
 
 <style>
   .benchmark-charts {
-    margin: 1.5rem 0;
+    margin: 1.75rem 0;
   }
   .chart-container {
-    margin-bottom: 1.75rem;
+    margin-bottom: 1.85rem;
   }
   .chart-container h4 {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
+    font-weight: 500;
     font-size: 0.95rem;
-    color: var(--sl-color-white);
+    color: var(--md-sys-color-on-surface);
   }
   .chart-svg {
     width: 100%;
     height: auto;
     display: block;
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 0.5rem;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-md);
   }
 </style>
