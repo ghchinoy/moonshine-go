@@ -8,8 +8,8 @@ const speedupFactor = manifest.ttfa_comparison
 ---
 
 <div class="audio-showcase">
-  <h3>TTS Voice Showcase (Kokoro & Piper)</h3>
-  <p>Hear real audio synthesized locally via <code>bin/moonshine tts</code>:</p>
+  <h3>TTS Voice Showcase (4 Open-Weight Engines: Kokoro, Piper, ZipVoice &amp; Phonon)</h3>
+  <p>Moonshine unifies four open-weight TTS engines behind one streaming C/Go API: <strong>Kokoro 82M</strong> (sub-sentence prosody streaming), <strong>Piper</strong> (16 languages), <strong>ZipVoice</strong> (zero-shot voice cloning), and <strong>Phonon 31M</strong> (added in <code>v0.1.6</code> — Apache 2.0 streaming English on Kyutai's Mimi codec with 37 catalog voices). Hear real audio synthesized locally via <code>bin/moonshine tts</code>:</p>
   
   <div class="voices-grid">
     {manifest.voices.map((v) => (

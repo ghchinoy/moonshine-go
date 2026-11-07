@@ -71,12 +71,12 @@ type transcriptEvent struct {
 }
 
 type line struct {
-	ID            uint64 `json:"id"`
-	Text          string `json:"text"`
-	IsComplete    bool   `json:"is_complete"`
-	StartTime     int64  `json:"start_time"`
-	Duration      int64  `json:"duration"`
-	LastLatencyMs int64  `json:"last_latency_ms"`
+	ID            uint64  `json:"id"`
+	Text          string  `json:"text"`
+	IsComplete    bool    `json:"is_complete"`
+	StartTime     float32 `json:"start_time"`
+	Duration      float32 `json:"duration"`
+	LastLatencyMs uint32  `json:"last_latency_ms"`
 }
 
 func main() {
