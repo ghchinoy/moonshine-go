@@ -1,8 +1,11 @@
 ---
+import { Font } from 'astro:assets';
 import Default from '@astrojs/starlight/components/Head.astro';
 ---
 
 <Default {...Astro.props}><slot /></Default>
+<Font cssVariable="--font-display" preload />
+<Font cssVariable="--font-mono" />
 
 <script>
   import '../scripts/mermaid-lightbox.js';

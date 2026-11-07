@@ -21,26 +21,36 @@ const { src, label, sublabel } = Astro.props;
 
 <style>
   .audio-sample-card {
-    border: 1px solid var(--sl-color-gray-5);
-    background: var(--sl-color-gray-6);
-    border-radius: 0.5rem;
-    padding: 0.75rem 1rem;
-    margin: 0.75rem 0;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container-low);
+    border-radius: var(--md-sys-shape-corner-md);
+    padding: 0.85rem 1.1rem;
+    margin: 0.5rem 0;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .audio-sample-card:hover {
+    border-color: var(--md-sys-color-outline);
+    background: var(--md-sys-color-surface-container);
   }
   .audio-sample-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     margin-bottom: 0.5rem;
   }
   .audio-sample-title {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--sl-color-white);
+    font-weight: 500;
+    font-size: 0.92rem;
+    color: var(--md-sys-color-on-surface);
   }
   .audio-sample-sub {
+    font-family: var(--font-mono);
     font-size: 0.75rem;
-    color: var(--sl-color-gray-3);
+    color: var(--md-sys-color-on-surface-variant);
+    background: var(--md-sys-color-surface-container);
+    padding: 2px 8px;
+    border-radius: 9999px;
   }
   .audio-player {
     width: 100%;
