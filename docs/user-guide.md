@@ -146,11 +146,12 @@ missing one shows up before you hit the error mid-command.
 
 ## models
 
-Lists all supported speech-to-text model architectures (streaming vs non-streaming) and checks whether each model is currently downloaded in the local model directory (`--model-dir`).
+Lists all supported speech-to-text model architectures (streaming vs non-streaming) and checks whether each model is currently downloaded in the local model directory (`--model-dir`). For non-English languages (such as `--language de` or `--language tl`), architectures not published for that language are marked `[unsupported]`.
 
 ```sh
 moonshine models
 moonshine models --language en
+moonshine models --language de
 moonshine --json models
 ```
 
@@ -576,27 +577,32 @@ When `--allow-actions` is enabled, connected WebSocket and gRPC subscribers can 
 
 ## tts
 
-Moonshine's TTS isn't one proprietary model -- it's a G2P (text
-normalization/phonemization) layer moonshine built itself, sitting in front
-of **three separate third-party engines** you pick between with `--voice`.
-Hear samples of all voices and test in-browser voice cloning at [moonshine.ai/tts](https://moonshine.ai/tts/).
+Moonshine's TTS isn't one proprietary model -- it sits in front of **four
+separate open-weight TTS engines** you pick between with `--voice`. Three of
+them (**Kokoro**, **Piper**, and **ZipVoice**) share Moonshine's built-in G2P
+(grapheme-to-phoneme) pipeline across 16 languages, while **Phonon** (added in
+`libmoonshine` `v0.1.6`) reads English text directly into speaker latents and
+Mimi codec frames. Hear samples of all voices and test in-browser voice cloning
+at [moonshine.ai/tts](https://moonshine.ai/tts/).
 
 | Engine | What it actually is | Voice prefix / flags |
 |---|---|---|
 | **Kokoro** | [hexgrad/Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an open-weight 82M-parameter TTS model, exported to ONNX | `kokoro_<id>`, e.g. `kokoro_af_heart` |
 | **Piper** | [Piper TTS](https://github.com/rhasspy/piper)'s per-voice ONNX files | `piper_<stem>`, e.g. `piper_en_US-amy-low` |
 | **ZipVoice** | Zero-shot voice-cloning engine (built-in VCTK voices or custom reference clips via `--clone`) | `zipvoice_<id>` or `--clone ref.wav` |
+| **Phonon** | [gradium/phonon-31m-en](https://huggingface.co/gradium/phonon-31m-en), Gradium's 31M-parameter streaming English TTS model on Kyutai's Pocket TTS + Mimi codec (Apache 2.0; 37 English catalog voices or custom `.safetensors` speaker latents) | `phonon_<id>`, e.g. `phonon_zoey`, or `--voice phonon --phonon-voice-file <path>` |
 
-None of the three are "moonshine's own" acoustic model -- moonshine's actual
-contribution is the shared G2P pipeline that feeds text to whichever one you
-pick. See [docs/faq.md](faq.md) if you want the full comparison (including
-how this differs from a from-scratch Kokoro implementation).
+None of the four are "moonshine's own" acoustic model -- moonshine's actual
+contribution is the shared G2P pipeline and unified C/ONNX streaming runtime.
+See [docs/faq.md](faq.md) if you want the full comparison (including how this
+differs from a from-scratch Kokoro implementation).
 
 ```sh
 # Synthesize to out.wav (default). --g2p-root only needed if you haven't
-# set moonshine.src_dir (see Configuration below).
+# set moonshine.src_dir or downloaded voices via 'moonshine setup --tts'.
 moonshine tts --voice piper_en_US-amy-low "Hello world."
 moonshine tts --voice kokoro_af_heart "Hello world."
+moonshine tts --voice phonon_zoey "Hello world."
 
 # List available voices for a language first.
 moonshine tts --language en_us --list-voices
@@ -611,15 +617,18 @@ moonshine tts --voice kokoro_af_heart --play "Hi there."
 | Flag | Default | Notes |
 |---|---|---|
 | `--language` | `en_us` | Language / CLI tag (config key: `tts.language`) |
-| `--voice` | (auto) | `kokoro_<id>`, `piper_<stem>`, or `zipvoice_<id>` -- see `--list-voices` (config key: `tts.voice`; mutually exclusive with `--clone`) |
+| `--voice` | (auto) | `kokoro_<id>`, `piper_<stem>`, `zipvoice_<id>`, or `phonon_<id>` (or `phonon` with `--phonon-voice-file`) -- see `--list-voices` (config key: `tts.voice`; mutually exclusive with `--clone`) |
 | `--clone` | (none) | Clone the voice from a reference `.wav` clip using ZipVoice (mutually exclusive with `--voice`) |
 | `--clone-transcript` | (none) | Transcript of the `--clone` reference clip (optional; recommended for optimal voice cloning accuracy) |
+| `--phonon-voice-file` | (none) | Custom Phonon speaker-latent `.safetensors` file (use with `--voice phonon`) |
+| `--phonon-temperature` | `0.3` | Phonon sampling temperature (`0` is deterministic; requires a Phonon voice) |
+| `--phonon-seed` | `0` | Seed for Phonon's sampling noise (requires a Phonon voice) |
 | `--speed` | `1.0` | Synthesis speed multiplier (config key: `tts.speed`) |
-| `--g2p-root` | derived from `moonshine.src_dir` | Directory laid out like moonshine's `core/moonshine-tts/data` (`kokoro/`, `<lang>/piper-voices/`, ...) (config key: `tts.g2p_root`) |
+| `--g2p-root` | (auto) | Directory laid out like moonshine's `core/moonshine-tts/data` (`kokoro/`, `<lang>/piper-voices/`, `phonon/`, ...) (config key: `tts.g2p_root`) |
 | `-o, --output` | `out.wav` | Output WAV path |
 | `--play` | `false` | Play the synthesized audio through the default output device after writing it (cross-platform: CoreAudio/WASAPI/ALSA+PulseAudio via `malgo`/miniaudio, same backend `live`'s mic capture uses) |
-| `--ipa` | `` | Synthesize directly from this IPA phonemes string, skipping G2P (mutually exclusive with `<text>`) |
-| `--show-phonemes` | `false` | Print the default G2P IPA phonemes for `<text>` and exit, without synthesizing |
+| `--ipa` | `` | Synthesize directly from this IPA phonemes string, skipping G2P (mutually exclusive with `<text>`; not supported on Phonon voices, which read text directly) |
+| `--show-phonemes` | `false` | Print the default G2P IPA phonemes for `<text>` and exit, without synthesizing (not supported on Phonon voices) |
 | `--list-voices` | `false` | List known voices for `--language` and exit |
 
 ### Overriding G2P's phonemes with `--ipa`
@@ -700,6 +709,7 @@ Moonshine's streaming TTS is **pull-based and synchronous**:
 - **Utterance boundary detection:** Text is buffered until an utterance or clause boundary is detected according to language rules (handling abbreviations like "Dr." or "z.B." properly).
 - **Sub-sentence acoustic chunking:** Depending on the underlying engine:
   - **Kokoro:** Cuts *inside* a sentence at prosody/decoder stage boundaries, starting playback significantly earlier.
+  - **Phonon:** Generates 80ms latent frames via a causal transformer + flow-matching head and decodes via Kyutai's Mimi codec, running the flow LM for the next frame on a second thread while Mimi decodes the current frame.
   - **Piper / ZipVoice:** Synthesizes and emits chunks on sentence/clause boundaries.
 - **Pulling audio:** `NextChunk()` pulls synthesized PCM audio chunks (`TTSChunk`) containing audio samples, sample rate, utterance ID, and finality indicators.
 - **Flushing & Ending:** `Flush()` forces synthesis of partial trailing thoughts; `EndInput()` signals stream completion so `NextChunk()` returns `ErrEndOfStream`.

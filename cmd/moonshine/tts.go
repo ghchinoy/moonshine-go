@@ -40,26 +40,27 @@ var ttsCmd = &cobra.Command{
 	Short:   "Synthesize speech from text",
 	Args:    cobra.MaximumNArgs(1),
 	Long: `Synthesizes text to speech using moonshine's TTS engines (Kokoro, Piper,
-or ZipVoice, selected via --voice), or clones a voice from a reference .wav
+ZipVoice, or Phonon, selected via --voice), or clones a voice from a reference .wav
 clip with --clone (also ZipVoice, but uses your reference audio instead of a
 preset voice -- see docs/user-guide.md's "Recording and cloning a voice").
 --g2p-root points at a directory laid out like core/moonshine-tts/data (containing
-kokoro/, <lang>/piper-voices/, etc.). Use "moonshine setup --tts <voice>" to download
-voice models directly into your local cache without needing an upstream checkout.
+kokoro/, <lang>/piper-voices/, phonon/, etc.). Use "moonshine setup --tts <voice>" to
+download voice models directly into your local cache without needing an upstream checkout.
 
 If --g2p-root is omitted, it defaults to moonshine.src_dir/core/moonshine-tts/data
 if configured, or automatically falls back to voices downloaded by "moonshine setup --tts".
 
 --show-phonemes and --ipa support an inspect-and-edit workflow for fixing
-mispronunciations (e.g. proper nouns): run --show-phonemes on your text to
-see the default IPA phonemes G2P produces, then re-run with --ipa and your
-hand-corrected phonemes to synthesize from them directly, skipping G2P.`,
+mispronunciations (e.g. proper nouns) on G2P-based engines (Kokoro, Piper, ZipVoice):
+run --show-phonemes on your text to see the default IPA phonemes G2P produces, then
+re-run with --ipa and your hand-corrected phonemes to synthesize from them directly,
+skipping G2P. (Phonon reads text directly and does not use G2P phonemes.)`,
 	RunE: runTTS,
 }
 
 func init() {
 	ttsCmd.Flags().StringVar(&ttsLanguage, "language", "en_us", "Language / CLI tag")
-	ttsCmd.Flags().StringVar(&ttsVoice, "voice", "", `Voice id, e.g. "kokoro_af_heart", "piper_en_US-amy-low", "zipvoice_american_female"`)
+	ttsCmd.Flags().StringVar(&ttsVoice, "voice", "", `Voice id, e.g. "kokoro_af_heart", "piper_en_US-amy-low", "zipvoice_american_female", "phonon_zoey"`)
 	ttsCmd.Flags().StringVar(&ttsSpeed, "speed", "", "Synthesis speed multiplier (default 1.0)")
 	ttsCmd.Flags().StringVar(&ttsG2PRoot, "g2p-root", "", "Directory holding kokoro/, <lang>/piper-voices/, etc. (default: derived from config, moonshine.src_dir, or downloaded voices; see 'moonshine doctor')")
 	ttsCmd.Flags().StringVarP(&ttsOutput, "output", "o", "out.wav", "Output WAV file path")

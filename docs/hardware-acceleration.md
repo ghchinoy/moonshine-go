@@ -58,6 +58,14 @@ compilation cost (several hundred ms, see "cold" vs "warm" above) is paid on
 every single CLI invocation. This is handled automatically -- you don't need
 to set it yourself.
 
+## Windows & Intel hybrid CPUs (`libmoonshine` `v0.1.6+`)
+
+Starting in `libmoonshine` `v0.1.6`, CPU sessions on Windows automatically:
+- Disable ONNX Runtime worker thread spin-waiting (`session.intra_op.allow_spinning=0`) and size the intra-op thread pool to physical Performance cores (`ort_performance_core_count()`), preventing parked Efficiency cores from starving active inference threads on Intel hybrid CPUs ([moonshine-ai/moonshine#129](https://github.com/moonshine-ai/moonshine/issues/129)).
+- Keep ONNX Runtime's CPU memory arena enabled (`EnableCpuMemArena`), avoiding repeated system heap page faults on each decoder step.
+
+Set `MOONSHINE_ORT_SINGLE_THREAD=1` in the environment if you want to force single-threaded ONNX Runtime execution.
+
 ## Other providers
 
 The C API also documents `NNAPI,CPU` for Android, which isn't relevant to

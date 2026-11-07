@@ -163,13 +163,10 @@ Error: moonshine: create_tts_synthesizer_from_files: Unknown error (code -1)
 
 ---
 
-### 6. Concurrent Multi-Client Streaming VAD Artifacts (Upstream #229)
+### 6. Concurrent Multi-Client Streaming VAD Artifacts (Upstream #229 — Fixed in `v0.1.6`)
 
 **Symptom:**
-When hosting `moonshine serve --audio-source remote` with multiple live microphone connections speaking at the same time, lines on quieter connections are occasionally dropped or finalized with unexpected delay.
+On older `libmoonshine` versions (`v0.1.5` and earlier), when hosting `moonshine serve --audio-source remote` with multiple live microphone connections speaking at the same time, lines on quieter connections were occasionally dropped or finalized with unexpected delay.
 
-**Cause:**
-While `SessionManager` isolates Go streams, event hubs, and dispatchers per connection, the underlying Moonshine C++ engine shares a single static Silero VAD instance across all streams in a process ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)). Interleaved audio chunks corrupt recurrent RNN hidden state.
-
-**Resolution:**
-For production deployments with multiple simultaneously active live microphones, deploy **one `moonshine serve` container per active talker channel** until upstream isolates VAD state per stream. See **[Hosting & Remote Clients Guide](hosting.md#sessions--one-per-connection-via---max-sessions)**.
+**Cause & Resolution:**
+In `libmoonshine` `v0.1.5` and earlier, all streams shared a single process-wide Silero VAD recurrent state ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)). **This is fixed in `libmoonshine` `v0.1.6` (the current default pin):** each stream now owns its own `SileroVadState`. If you encounter cross-stream VAD drops, ensure your `.moonshine/lib` is updated to `v0.1.6+` via `make fetchlib` (Linux) or `make buildlib MOONSHINE_SRC=~/projects/github/moonshine` (macOS). See **[Hosting & Remote Clients Guide](hosting.md#sessions--one-per-connection-via---max-sessions)**.

@@ -136,3 +136,12 @@ In `libmoonshine`'s C API (`moonshine-c-api.h`), confidence is a field on `struc
 
 1. **When `--word-timestamps` is off (the default):** `Line.Words` is not populated by the C library, so `Line.Confidence` is `0` (and omitted from JSON output).
 2. **When `--word-timestamps` is on:** Upstream `core/word-alignment.cpp` currently hardcodes `tw.confidence = 1.0f` for every aligned word ([moonshine-ai/moonshine#230](https://github.com/moonshine-ai/moonshine/issues/230)). Once upstream routes decoder token probabilities into `align_words()`, `Word.Confidence`, `Line.Confidence`, `Line.MeanConfidence()`, and `Line.MinConfidence()` will automatically surface real per-word and per-line probabilities without any Go API changes.
+
+## What TTS engines are supported, and how does Phonon (`v0.1.6`) differ from Kokoro, Piper, and ZipVoice?
+
+Moonshine's TTS subsystem supports **four open-weight engines** selected via `--voice`:
+
+- **Kokoro (`kokoro_<id>`)**: [hexgrad/Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an 82M-parameter open-weight model with sub-sentence prosody/decoder streaming chunking across 11 languages.
+- **Piper (`piper_<stem>`)**: [Piper TTS](https://github.com/rhasspy/piper) per-voice ONNX models across 16 languages.
+- **ZipVoice (`zipvoice_<id>` or `--clone <wav>`)**: Zero-shot voice-cloning engine that clones a speaker from a short reference `.wav` clip on-device.
+- **Phonon (`phonon_<id>` or `--voice phonon --phonon-voice-file <safetensors>`, added in `v0.1.6`)**: [Gradium's 31M-parameter streaming English model (`gradium/phonon-31m-en`)](https://huggingface.co/gradium/phonon-31m-en) built on Kyutai's Pocket TTS and Mimi codec (Apache 2.0, 37 English catalog voices). Unlike Kokoro, Piper, and ZipVoice, **Phonon reads text directly rather than IPA phonemes** (so `--ipa` and `--show-phonemes` do not apply to it), generates 80ms Mimi latent frames in a streaming loop, and represents each voice as a compact ~256 KB `.safetensors` file of speaker latents.

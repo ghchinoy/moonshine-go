@@ -85,8 +85,8 @@ Ask about **mission**, **cascade**, **privacy**, **control**,
    - Each tab runs an independent session with its own isolated transcript stream and TTS audio output.
 4. Open `http://localhost:8080` in **Tab 3** and click **Connect** -> status displays `error connecting` / `disconnected (code 1008: serve: max session limit reached)`. The server enforces the session limit and rejects connection #3 cleanly.
 
-> **Operational Note on Simultaneous Live Speech (Upstream #229):**
-> While `SessionManager` cleanly isolates Go-side sessions (transcripts, event hubs, and action dispatchers), the underlying Moonshine C++ library currently shares a single static Silero VAD instance across all streams in a process ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)). Verifying connection limits and serialized speaking across tabs works cleanly; however, speaking simultaneously into multiple live microphones can corrupt recurrent VAD state and cause dropped lines or delayed finalization. For production deployments with multiple concurrent live microphones, run one `moonshine serve` process per stream (e.g. one container per client channel). See [docs/hosting.md](../../docs/hosting.md#sessions--one-per-connection-via---max-sessions).
+> **Multi-Session VAD Isolation (`libmoonshine` `v0.1.6+`):**
+> `SessionManager` isolates Go-side sessions (transcripts, event hubs, and action dispatchers), and as of `libmoonshine` `v0.1.6`, each stream also maintains its own isolated Silero VAD recurrent state ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229), fixed upstream), so multiple browser tabs can stream live speech simultaneously into a single `moonshine serve` daemon. See [docs/hosting.md](../../docs/hosting.md#sessions--one-per-connection-via---max-sessions).
 
 ## How it works
 

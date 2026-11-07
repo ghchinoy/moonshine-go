@@ -30,8 +30,8 @@ the platform cache directory, e.g. ~/Library/Caches/moonshine_voice on macOS
 is namespaced under its own subdirectory to avoid filename collisions.
 
 Use --tts <voice> (e.g. 'moonshine setup --tts kokoro_af_heart' or
-'moonshine setup --tts all') to download Kokoro and Piper text-to-speech voice
-models and G2P assets directly from the upstream CDN into model.dir. Downloaded
+'moonshine setup --tts all') to download Kokoro, Piper, and Phonon text-to-speech
+voice models and G2P assets directly from the upstream CDN into model.dir. Downloaded
 voices are automatically discovered by 'moonshine tts' and 'moonshine serve'
 without requiring an upstream checkout or Git LFS. Pass '--arch none' if you only
 wish to download TTS voices.`,
@@ -44,7 +44,7 @@ func init() {
 	setupCmd.Flags().BoolVar(&setupForce, "force", false, "Re-download files even if they already exist")
 	setupCmd.Flags().BoolVar(&setupIdentifySpeakers, "identify-speakers", false, "Also download speaker diarization models (segmentation.ort and embedding.ort)")
 	setupCmd.Flags().BoolVar(&setupIdentifySpeakers, "diarize", false, "Alias for --identify-speakers")
-	setupCmd.Flags().StringVar(&setupTTSVoice, "tts", "", "Download TTS voice model(s): single voice ID (e.g. 'kokoro_af_heart', 'piper_en_US-amy-low'), comma-separated list, or 'all'")
+	setupCmd.Flags().StringVar(&setupTTSVoice, "tts", "", "Download TTS voice model(s): single voice ID (e.g. 'kokoro_af_heart', 'piper_en_US-amy-low', 'phonon_zoey'), comma-separated list, or 'all'")
 	setupCmd.Flags().StringVar(&setupTTSLanguage, "tts-language", "en_us", "TTS language for --tts voices (config key: tts.language)")
 }
 
