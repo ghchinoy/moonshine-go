@@ -21,10 +21,10 @@ const fileMap = {
   'README.md': {
     dest: 'index.mdx',
     title: 'moonshine-go',
-    description: 'Fast on-device Speech-to-Text (10 languages), streaming Text-to-Speech (16 languages), and text embeddings for Go voice agents.',
+    description: 'Fast on-device Speech-to-Text (10 languages, 2.14% LibriSpeech WER), streaming Text-to-Speech (4 engines, 16 languages), and text embeddings for Go voice agents.',
     sitePath: '/moonshine-go/',
     hero: {
-      tagline: 'Fast on-device Speech-to-Text (10 languages), streaming Text-to-Speech (16 languages), and text embeddings for Go voice agents.',
+      tagline: 'Fast on-device Speech-to-Text (10 languages), streaming Text-to-Speech (4 open-weight engines across 16 languages), and text embeddings for Go voice agents.',
       actions: [
         { text: '5-Minute Quickstart', link: '/moonshine-go/guides/quickstart/', icon: 'right-arrow', variant: 'primary' },
         { text: 'Browse 15 Samples', link: '/moonshine-go/samples/', icon: 'external', variant: 'secondary' },

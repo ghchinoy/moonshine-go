@@ -1,6 +1,6 @@
 # moonshine-go
 
-On-device Speech-to-Text (STT) across 10 languages (English, Spanish, German, Mandarin, Japanese, Korean, Vietnamese, Tagalog, Ukrainian, and Arabic), streaming Text-to-Speech (TTS) across 16 languages, and text embeddings for Go, built on the [Moonshine voice library](https://github.com/moonshine-ai/moonshine).
+On-device Speech-to-Text (STT) across 10 languages (English, Spanish, German, Mandarin, Japanese, Korean, Vietnamese, Tagalog, Ukrainian, and Arabic), streaming Text-to-Speech (TTS) across 16 languages and 4 open-weight engines (Kokoro, Piper, ZipVoice, and Phonon), and text embeddings for Go, built on the [Moonshine voice library](https://github.com/moonshine-ai/moonshine).
 
 Try live WebAssembly demos in your browser at [moonshine.ai](https://moonshine.ai), or explore the interactive [documentation site](https://ghchinoy.github.io/moonshine-go/).
 
