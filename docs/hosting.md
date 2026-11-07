@@ -184,16 +184,12 @@ customElements.define('moonshine-mic', MoonshineMic);
    attempts are rejected immediately (WebSocket status 1008 / gRPC `ResourceExhausted`).
    Local mic mode (`--audio-source local`) retains single-broadcast session behavior.
 
-   > **Note on Concurrent Live Audio Streaming (Upstream #229):** While `SessionManager`
-   > cleanly isolates streams, hubs, and dispatchers in Go, the underlying Moonshine C++
-   > library currently shares a single static Silero VAD instance across all streams in a
-   > process ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)).
-   > When multiple remote clients stream live speech simultaneously, interleaved audio chunks
-   > corrupt recurrent VAD state (`_state`, `_context`), leading to dropped lines on quieter
-   > streams or delayed finalization. For production deployments with multiple concurrent live
-   > microphones, deploy **one `moonshine serve` process per stream** (e.g. one container per
-   > client channel) rather than hosting multiple concurrent streams in a single daemon, until
-   > upstream isolates VAD state per stream.
+   > **Concurrent Live Audio Streaming:** As of the `libmoonshine` `v0.1.6` pin, each stream
+   > keeps its own Silero VAD recurrent state, so multiple remote clients can stream live speech
+   > into a single `moonshine serve` daemon simultaneously without corrupting each other's speech
+   > detection ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229),
+   > fixed upstream). Earlier pins (`v0.1.5` and below) shared that state process-wide and needed
+   > one `moonshine serve` process per live stream.
 
 Each of these is tracked as real work — see the `Hostable cascade` epic in bd
 (linked at the bottom).

@@ -187,6 +187,9 @@ func downloadTTSVoices(ctx context.Context, lang, voiceFlag string, root string,
 		}
 
 		if err := moonshine.Download(ctx, manifest, root, force); err != nil {
+			if isPhononVoice(voice) && strings.Contains(err.Error(), "404") {
+				return fmt.Errorf("downloading voice %q: %w\n\nhint: libmoonshine knows the Phonon assets, but they are not yet published on download.moonshine.ai; generate them with upstream's scripts/export-phonon-model.py and pass that directory as --g2p-root", voice, err)
+			}
 			return fmt.Errorf("downloading voice %q: %w", voice, err)
 		}
 	}

@@ -394,7 +394,8 @@ func TestSharedTranscriberContentionProbe(t *testing.T) {
 // stream are interleaved in small chunks (10-20ms), the quiet stream's speech
 // detection is corrupted by the loud stream's VAD state, dropping lines.
 //
-// Expected to FAIL on upstream <= v0.1.5 and PASS once upstream fixes #229.
+// Fails on upstream <= v0.1.5; passes on v0.1.6+, which keeps a SileroVadState
+// per stream. Kept as a regression gate for future pin bumps.
 func TestConcurrentStreamVADCorruption(t *testing.T) {
 	twoCitiesPath, _ := resolveAudioAssets(t)
 	loudPCM, sr := readPCM16MonoWAV(t, twoCitiesPath)

@@ -17,7 +17,7 @@ Before reporting latency numbers, we run a **concurrency correctness gate** (`Te
 
 > **Architectural Takeaway:** A single `Transcriber` instance is thread-safe for concurrent multi-stream applications. For max throughput on high-core server CPUs, instantiate a **pool of `Transcriber` handles** (1 per CPU core or NUMA node) to scale inference fully parallel across hardware.
 
-> **Important Operational Caveat (Upstream #229 — Concurrent VAD State):** While the acoustic transformer and decoders are fully isolated across streams, the underlying Moonshine C++ library currently instantiates a single process-wide static Silero VAD instance ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)). Silero VAD maintains recurrent neural network state (`_state`, `_context`) across audio chunk evaluations. When multiple streams ingest live speech *simultaneously* in small interleaved chunks within the same process, the shared recurrent state can corrupt speech boundary detection on quieter streams or delay line finalization. For multi-channel production deployments with concurrent live talkers, run **one `moonshine serve` process per stream** (process-level isolation) until upstream isolates VAD state per stream.
+> **Concurrent VAD State (Upstream #229 — Fixed in `v0.1.6`):** Up to `libmoonshine` `v0.1.5`, all streams in a process shared one Silero VAD recurrent state ([moonshine-ai/moonshine#229](https://github.com/moonshine-ai/moonshine/issues/229)), so a loud stream interleaved with a quiet one corrupted the quiet stream's speech detection. Upstream `v0.1.6` moves that state into each stream. The regression probe `TestConcurrentStreamVADCorruption` measured the quiet stream dropping from 15 lines (solo) to 0 lines (interleaved) on `v0.1.5`, and detecting all 15 of 15 lines on `v0.1.6` with both a shared transcriber and separate transcribers. Concurrent live talkers can now share one `moonshine serve` process.
 
 ---
 
@@ -46,6 +46,18 @@ BenchmarkInProcessStreamingSession-10       12.90 xRealtime    (RTF = 0.0775)  6
 
 - **Non-Streaming Transcription (`BenchmarkInProcessTranscribe`):** **71.27× Realtime** (RTF 0.0140). Transcribes a full 44.4s audio file in ~0.62s with only 35 Go heap allocations.
 - **Streaming Session (`BenchmarkInProcessStreamingSession`):** **12.90× Realtime** (RTF 0.0775). Feeds 100ms audio chunks sequentially, running incremental hypothesis re-decoding after every chunk.
+
+### 2a. English Streaming Model Republish (`quantized_26_08_21` → `quantized_26_11_02`)
+
+Upstream `v0.1.6` republished the English streaming models with the decoder output projection untied before quantization, so the logits weight is quantized once instead of dequantized on every token. Measured on Apple M5 (CPU-only), `libmoonshine` `v0.1.6`, one-shot `Transcribe` of the 44.4s *Two Cities* clip, old and new models interleaved over 5 rounds after a warm-up:
+
+| Model | `quantized_26_08_21` (median) | `quantized_26_11_02` (median) | Change |
+|---|---|---|---|
+| `tiny-streaming` | 1,497 ms (29.6× RT; runs 1,022–1,769 ms) | 876 ms (50.7× RT) | −41% |
+| `small-streaming` | 2,320 ms (19.1× RT) | 1,877 ms (23.6× RT) | −19% |
+| `medium-streaming` | 3,337 ms (13.3× RT) | 2,986 ms (14.9× RT) | −10.5% |
+
+`moonshine setup --arch <streaming arch>` downloads the new directory automatically when built against `v0.1.6`; existing caches keep the old directory alongside it.
 
 ---
 
@@ -134,7 +146,7 @@ To include server process memory (RSS) tracking, pass `-server-pid <PID>`.
 
 ## 5. Speech Recognition Accuracy & Word Error Rates (WER)
 
-All Word Error Rate (WER) evaluations below are measured directly on 16kHz PCM audio against ground-truth human reference transcripts, normalized via standard punctuation and case collapsing (`jiwer`).
+All Word Error Rate (WER) evaluations below are measured directly on 16kHz PCM audio against ground-truth human reference transcripts, normalized via standard punctuation and case collapsing (`jiwer`). These runs used `libmoonshine` `v0.1.5` with the `quantized_26_08_21` English streaming models (moonshine-go `v0.12.1`); upstream reports unchanged LibriSpeech WER for the `quantized_26_11_02` republish (tiny 5.45→5.40, medium 2.59→2.58).
 
 ### 5a. Long-Form Transcription: TED-LIUM 3 (8 Presentations, 82.04 Minutes)
 

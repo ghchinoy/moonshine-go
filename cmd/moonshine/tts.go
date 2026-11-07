@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ghchinoy/moonshine-go/internal/audio"
@@ -26,6 +28,10 @@ var (
 	ttsShowPhonemes    bool
 	ttsClone           string
 	ttsCloneTranscript string
+
+	ttsPhononVoiceFile   string
+	ttsPhononTemperature string
+	ttsPhononSeed        string
 )
 
 var ttsCmd = &cobra.Command{
@@ -63,6 +69,9 @@ func init() {
 	ttsCmd.Flags().BoolVar(&ttsShowPhonemes, "show-phonemes", false, "Print the default G2P IPA phonemes for <text> and exit, without synthesizing audio")
 	ttsCmd.Flags().StringVar(&ttsClone, "clone", "", "Clone the voice from a reference .wav clip using ZipVoice (mutually exclusive with --voice)")
 	ttsCmd.Flags().StringVar(&ttsCloneTranscript, "clone-transcript", "", "Transcript of the --clone reference clip (optional; recommended for optimal voice cloning quality)")
+	ttsCmd.Flags().StringVar(&ttsPhononVoiceFile, "phonon-voice-file", "", "Phonon speaker-latent .safetensors file to speak with (use with --voice phonon)")
+	ttsCmd.Flags().StringVar(&ttsPhononTemperature, "phonon-temperature", "", "Phonon sampling temperature; 0 is deterministic (default 0.3)")
+	ttsCmd.Flags().StringVar(&ttsPhononSeed, "phonon-seed", "", "Seed for Phonon's sampling noise (default 0)")
 
 	// Safe to BindPFlag directly here: unlike stt.language/stt.arch (shared
 	// across setup/transcribe/live -- see flagOrConfig in lib.go), these
@@ -94,6 +103,14 @@ func runTTS(cmd *cobra.Command, args []string) error {
 
 	if !ttsListVoices && ttsIPA == "" && len(args) == 0 {
 		return fmt.Errorf("tts: a text argument is required (or pass --ipa, --show-phonemes, or --list-voices)")
+	}
+
+	phononOpts, err := phononOptions(voice, ttsPhononVoiceFile, ttsPhononTemperature, ttsPhononSeed)
+	if err != nil {
+		return err
+	}
+	if isPhononVoice(voice) && (ttsIPA != "" || ttsShowPhonemes) {
+		return fmt.Errorf("tts: Phonon reads text directly and does not use G2P phonemes, so --ipa and --show-phonemes are not supported with --voice %s", voice)
 	}
 
 	if err := loadLibrary(); err != nil {
@@ -169,6 +186,7 @@ func runTTS(cmd *cobra.Command, args []string) error {
 		if speed != "" {
 			createOpts = append(createOpts, moonshine.Option{Name: "speed", Value: speed})
 		}
+		createOpts = append(createOpts, phononOpts...)
 
 		t0 := time.Now()
 		var sErr error
@@ -208,4 +226,43 @@ func runTTS(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+// isPhononVoice reports whether voice selects the Phonon engine, either a
+// catalog voice ("phonon_zoey") or the bare engine with a voice file ("phonon").
+func isPhononVoice(voice string) bool {
+	v := strings.ToLower(strings.TrimSpace(voice))
+	return v == "phonon" || strings.HasPrefix(v, "phonon_")
+}
+
+// phononOptions converts the --phonon-* flags into synthesizer options. They
+// are only meaningful for a Phonon voice, so setting one with any other voice
+// is an error rather than a silent no-op.
+func phononOptions(voice, voiceFile, temperature, seed string) ([]moonshine.Option, error) {
+	if voiceFile == "" && temperature == "" && seed == "" {
+		return nil, nil
+	}
+	if !isPhononVoice(voice) {
+		return nil, fmt.Errorf("tts: --phonon-voice-file, --phonon-temperature, and --phonon-seed require a Phonon voice (--voice phonon_<id>, or --voice phonon with --phonon-voice-file)")
+	}
+	var opts []moonshine.Option
+	if voiceFile != "" {
+		if _, err := os.Stat(voiceFile); err != nil {
+			return nil, fmt.Errorf("tts: --phonon-voice-file: %w", err)
+		}
+		opts = append(opts, moonshine.Option{Name: "phonon_voice_file", Value: voiceFile})
+	}
+	if temperature != "" {
+		if _, err := strconv.ParseFloat(temperature, 32); err != nil {
+			return nil, fmt.Errorf("tts: --phonon-temperature %q is not a number", temperature)
+		}
+		opts = append(opts, moonshine.Option{Name: "phonon_temperature", Value: temperature})
+	}
+	if seed != "" {
+		if _, err := strconv.ParseUint(seed, 10, 32); err != nil {
+			return nil, fmt.Errorf("tts: --phonon-seed %q is not a non-negative integer", seed)
+		}
+		opts = append(opts, moonshine.Option{Name: "phonon_seed", Value: seed})
+	}
+	return opts, nil
 }

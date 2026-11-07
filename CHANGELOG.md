@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Phonon TTS Options**: Added `--phonon-voice-file`, `--phonon-temperature`, and `--phonon-seed` to `moonshine tts` for upstream's new Phonon engine (`--voice phonon_<id>`, or `--voice phonon` with a voice file), with validation and a clear error for `--ipa`/`--show-phonemes`, which Phonon does not support. End-to-end synthesis needs the Phonon assets, which upstream has not yet published to its CDN; `moonshine setup --tts phonon_<id>` now says so instead of failing with a bare 404 (`#jtyi.4`).
+
+### Changed
+- **Upstream `libmoonshine` Pin Bumped to `v0.1.6`**: `MOONSHINE_RELEASE_TAG` is now `v0.1.6` (C ABI and `MOONSHINE_HEADER_VERSION` 30000 unchanged). Brings per-stream Silero VAD state (upstream #229), the transcriber-destruction race fix (upstream #223), Windows/Intel hybrid-CPU threading fixes, and the republished `quantized_26_11_02` English streaming models (measured 10.5%–41% faster one-shot transcription on Apple M5) (`#9g9a`, `#jtyi.5`).
+
+### Removed
+- **Single-Process-Per-Stream Caveat for Concurrent Live Audio**: Lifted the upstream #229 guidance from `BENCHMARKS.md`, `docs/hosting.md`, `docs/user-guide.md`, and `agents/core.md`; `TestConcurrentStreamVADCorruption` detects 15 of 15 lines on `v0.1.6` (0 of 15 on `v0.1.5`) (`#bkwj`).
+
+---
+
 ## [v0.12.1] - 2026-10-18
 
 ### Added
